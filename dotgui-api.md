@@ -336,7 +336,7 @@ Inherits all `<frame>` attrs plus:
 
 ### `<group>`
 
-Logical grouping with no layout. Maps to Figma Group. Children are absolutely positioned within the group bounds.
+Logical grouping with no layout. Maps to Figma Group. The group `x` / `y` is relative to its parent, and children are absolutely positioned relative to the group bounds.
 
 ```xml
 <group name="Hero Section" x="0" y="0" width="390" height="200" opacity="0.8" blend="multiply">

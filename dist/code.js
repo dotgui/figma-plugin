@@ -656,6 +656,16 @@ async function children(node, depth) {
   return parts.filter(Boolean).join(`
 `);
 }
+async function groupChildren(node, depth) {
+  const offsetX = node.x || 0;
+  const offsetY = node.y || 0;
+  const parts = await Promise.all(node.children.map(async (c) => {
+    const markup = await nodeToGui(c, depth);
+    return markup ? shiftRootPosition(markup, offsetX, offsetY) : "";
+  }));
+  return parts.filter(Boolean).join(`
+`);
+}
 async function frameToGui(node, depth) {
   const lm = node.layoutMode;
   const isStack = lm !== "NONE";
@@ -721,7 +731,7 @@ ${inner}
 ${ind(depth)}</${tag}>`;
 }
 async function groupToGui(node, depth) {
-  const a = attrs({
+  const a = {
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
@@ -731,12 +741,15 @@ async function groupToGui(node, depth) {
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node)
-  });
+  };
+  Object.assign(a, constraintAttrs(node));
+  Object.assign(a, sizingAttrs(node));
   Object.assign(a, layoutPositionAttrs(node));
-  const inner = await children(node, depth + 1);
+  Object.assign(a, minMaxAttrs(node));
+  const inner = await groupChildren(node, depth + 1);
   if (!inner)
-    return `${ind(depth)}<group ${a} />`;
-  return `${ind(depth)}<group ${a}>
+    return `${ind(depth)}<group ${attrs(a)} />`;
+  return `${ind(depth)}<group ${attrs(a)}>
 ${inner}
 ${ind(depth)}</group>`;
 }
@@ -1042,7 +1055,16 @@ function pathToGui(node, depth) {
 ${ind(depth + 1)}<path d="${d}" />
 ${ind(depth)}</shape>`;
 }
-function shiftedAttr(attrText, attr, delta) {
+function shiftRootPosition(markup, offsetX, offsetY) {
+  let shifted = false;
+  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*)(\/?>)/m, function(_, start, attrText, end) {
+    if (shifted)
+      return start + attrText + end;
+    shifted = true;
+    return start + shiftAttr(shiftAttr(attrText, "x", offsetX), "y", offsetY) + end;
+  });
+}
+function shiftAttr(attrText, attr, delta) {
   const pattern = new RegExp(`\\s${attr}="([^"]*)"`);
   const match = attrText.match(pattern);
   if (!match)
@@ -1052,7 +1074,7 @@ function shiftedAttr(attrText, attr, delta) {
     return attrText;
   return attrText.replace(pattern, ` ${attr}="${Math.round(value - delta)}"`);
 }
-function normalizeWrappedRootPosition(markup, offsetX, offsetY) {
+function normalizeWrappedRootPosition(markup) {
   let isRoot = true;
   return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*)(\/?>)/gm, function(_, start, attrText, end) {
     if (isRoot) {
@@ -1061,7 +1083,7 @@ function normalizeWrappedRootPosition(markup, offsetX, offsetY) {
       const withY = /\sy="[^"]*"/.test(withX) ? withX.replace(/\sy="[^"]*"/, ' y="0"') : withX + ' y="0"';
       return start + withY + end;
     }
-    return start + shiftedAttr(shiftedAttr(attrText, "x", offsetX), "y", offsetY) + end;
+    return start + attrText + end;
   });
 }
 async function generateGui(node) {
@@ -1073,7 +1095,7 @@ async function generateGui(node) {
     inner = await frameToGui(node, 1);
   } else {
     const wrapA = attrs({ width: w, height: h });
-    const wrappedNode = normalizeWrappedRootPosition(await nodeToGui(node, 2), node.x || 0, node.y || 0);
+    const wrappedNode = normalizeWrappedRootPosition(await nodeToGui(node, 2));
     inner = `${ind(1)}<frame ${wrapA}>
 ${wrappedNode}
 ${ind(1)}</frame>`;

@@ -723,6 +723,16 @@ async function children(node: ChildrenMixin, depth: number): Promise<string> {
   return parts.filter(Boolean).join('\n')
 }
 
+async function groupChildren(node: GroupNode, depth: number): Promise<string> {
+  const offsetX = node.x || 0
+  const offsetY = node.y || 0
+  const parts = await Promise.all(node.children.map(async c => {
+    const markup = await nodeToGui(c, depth)
+    return markup ? shiftRootPosition(markup, offsetX, offsetY) : ''
+  }))
+  return parts.filter(Boolean).join('\n')
+}
+
 async function frameToGui(node: FrameNode, depth: number): Promise<string> {
   const lm = node.layoutMode as string
   const isStack = lm !== 'NONE'
@@ -786,7 +796,7 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
 }
 
 async function groupToGui(node: GroupNode, depth: number): Promise<string> {
-  const a = attrs({
+  const a: Record<string, AttrVal> = {
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
@@ -796,11 +806,14 @@ async function groupToGui(node: GroupNode, depth: number): Promise<string> {
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
-  })
+  }
+  Object.assign(a, constraintAttrs(node))
+  Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
-  const inner = await children(node, depth + 1)
-  if (!inner) return `${ind(depth)}<group ${a} />`
-  return `${ind(depth)}<group ${a}>\n${inner}\n${ind(depth)}</group>`
+  Object.assign(a, minMaxAttrs(node))
+  const inner = await groupChildren(node, depth + 1)
+  if (!inner) return `${ind(depth)}<group ${attrs(a)} />`
+  return `${ind(depth)}<group ${attrs(a)}>\n${inner}\n${ind(depth)}</group>`
 }
 
 function fontWeight(style: string): number {
@@ -1143,7 +1156,21 @@ function pathToGui(node: VectorNode, depth: number): string {
   return `${ind(depth)}<shape ${attrs(a)}>\n${ind(depth + 1)}<path d="${d}" />\n${ind(depth)}</shape>`
 }
 
-function shiftedAttr(attrText: string, attr: 'x' | 'y', delta: number): string {
+function shiftRootPosition(markup: string, offsetX: number, offsetY: number): string {
+  let shifted = false
+  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*)(\/?>)/m, function(
+    _,
+    start: string,
+    attrText: string,
+    end: string,
+  ) {
+    if (shifted) return start + attrText + end
+    shifted = true
+    return start + shiftAttr(shiftAttr(attrText, 'x', offsetX), 'y', offsetY) + end
+  })
+}
+
+function shiftAttr(attrText: string, attr: 'x' | 'y', delta: number): string {
   const pattern = new RegExp(`\\s${attr}="([^"]*)"`)
   const match = attrText.match(pattern)
   if (!match) return attrText
@@ -1154,7 +1181,7 @@ function shiftedAttr(attrText: string, attr: 'x' | 'y', delta: number): string {
   return attrText.replace(pattern, ` ${attr}="${Math.round(value - delta)}"`)
 }
 
-function normalizeWrappedRootPosition(markup: string, offsetX: number, offsetY: number): string {
+function normalizeWrappedRootPosition(markup: string): string {
   let isRoot = true
   return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*)(\/?>)/gm, function(
     _,
@@ -1173,7 +1200,7 @@ function normalizeWrappedRootPosition(markup: string, offsetX: number, offsetY: 
       return start + withY + end
     }
 
-    return start + shiftedAttr(shiftedAttr(attrText, 'x', offsetX), 'y', offsetY) + end
+    return start + attrText + end
   })
 }
 
@@ -1187,11 +1214,7 @@ async function generateGui(node: SceneNode): Promise<string> {
     inner = await frameToGui(node as FrameNode, 1)
   } else {
     const wrapA = attrs({ width: w, height: h })
-    const wrappedNode = normalizeWrappedRootPosition(
-      await nodeToGui(node, 2),
-      (node as LayoutMixin).x || 0,
-      (node as LayoutMixin).y || 0,
-    )
+    const wrappedNode = normalizeWrappedRootPosition(await nodeToGui(node, 2))
     inner = `${ind(1)}<frame ${wrapA}>\n${wrappedNode}\n${ind(1)}</frame>`
   }
 
