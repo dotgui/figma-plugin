@@ -1095,6 +1095,40 @@ function pathToGui(node: VectorNode, depth: number): string {
   return `${ind(depth)}<shape ${attrs(a)}>\n${ind(depth + 1)}<path d="${d}" />\n${ind(depth)}</shape>`
 }
 
+function shiftedAttr(attrText: string, attr: 'x' | 'y', delta: number): string {
+  const pattern = new RegExp(`\\s${attr}="([^"]*)"`)
+  const match = attrText.match(pattern)
+  if (!match) return attrText
+
+  const value = parseFloat(match[1])
+  if (!Number.isFinite(value)) return attrText
+
+  return attrText.replace(pattern, ` ${attr}="${Math.round(value - delta)}"`)
+}
+
+function normalizeWrappedRootPosition(markup: string, offsetX: number, offsetY: number): string {
+  let isRoot = true
+  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*)(\/?>)/gm, function(
+    _,
+    start: string,
+    attrText: string,
+    end: string,
+  ) {
+    if (isRoot) {
+      isRoot = false
+      const withX = /\sx="[^"]*"/.test(attrText)
+        ? attrText.replace(/\sx="[^"]*"/, ' x="0"')
+        : attrText + ' x="0"'
+      const withY = /\sy="[^"]*"/.test(withX)
+        ? withX.replace(/\sy="[^"]*"/, ' y="0"')
+        : withX + ' y="0"'
+      return start + withY + end
+    }
+
+    return start + shiftedAttr(shiftedAttr(attrText, 'x', offsetX), 'y', offsetY) + end
+  })
+}
+
 async function generateGui(node: SceneNode): Promise<string> {
   const w = Math.round((node as FrameNode).width)
   const h = Math.round((node as FrameNode).height)
@@ -1105,7 +1139,12 @@ async function generateGui(node: SceneNode): Promise<string> {
     inner = await frameToGui(node as FrameNode, 1)
   } else {
     const wrapA = attrs({ width: w, height: h })
-    inner = `${ind(1)}<frame ${wrapA}>\n${await nodeToGui(node, 2)}\n${ind(1)}</frame>`
+    const wrappedNode = normalizeWrappedRootPosition(
+      await nodeToGui(node, 2),
+      (node as LayoutMixin).x || 0,
+      (node as LayoutMixin).y || 0,
+    )
+    inner = `${ind(1)}<frame ${wrapA}>\n${wrappedNode}\n${ind(1)}</frame>`
   }
 
   const assetKeys = Object.keys(_imageMap)

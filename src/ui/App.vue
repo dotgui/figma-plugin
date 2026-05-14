@@ -42,7 +42,7 @@
       </div>
 
       <template v-else>
-        <pre v-show="tab === 'code'" class="code">{{ displayCode }}</pre>
+        <div v-show="tab === 'code'" ref="codeEditorEl" class="code-editor" />
         <div v-show="tab === 'preview'" class="preview-wrap" @wheel.prevent="zoomWheel">
           <div ref="previewEl" class="preview" />
           <div class="zoom-bar">
@@ -59,8 +59,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, computed } from 'vue'
+import { ref, watch, nextTick, computed, onBeforeUnmount } from 'vue'
 import { render } from 'dotgui-render'
+import { EditorState } from '@codemirror/state'
+import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view'
+import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
+import { HighlightStyle, foldGutter, foldKeymap, syntaxHighlighting } from '@codemirror/language'
+import { xml } from '@codemirror/lang-xml'
+import { searchKeymap } from '@codemirror/search'
+import { tags } from '@lezer/highlight'
 
 type State = 'idle' | 'no-selection' | 'multi-selection' | 'not-frame' | 'gui'
 interface Sizes { gui: number; png: number; svg: number }
@@ -80,12 +87,96 @@ const toastVisible = ref(false)
 const loading = ref(false)
 const sizes = ref<Sizes | null>(null)
 const previewEl = ref<HTMLElement>()
+const codeEditorEl = ref<HTMLElement>()
 const zoomFactor = ref(1)
 let applyZoom: ((factor: number, anchorX?: number, anchorY?: number) => void) | null = null
+let codeView: EditorView | null = null
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 16
 const PACKAGE_ASSET_LIMIT = 3
 const PACKAGE_BYTE_LIMIT = 250_000
+
+const dotguiHighlight = HighlightStyle.define([
+  { tag: tags.angleBracket, color: '#7c7c86' },
+  { tag: tags.tagName, color: '#0f6cbd' },
+  { tag: tags.attributeName, color: '#8f4e00' },
+  { tag: tags.string, color: '#137333' },
+  { tag: tags.number, color: '#8e24aa' },
+  { tag: tags.comment, color: '#7c7c86' },
+])
+
+const editorTheme = EditorView.theme({
+  '&': {
+    height: '100%',
+    backgroundColor: '#fbfbfd',
+    color: '#1c1c1e',
+    fontSize: '11px',
+  },
+  '.cm-scroller': {
+    fontFamily: '"SF Mono", "Fira Code", ui-monospace, monospace',
+    lineHeight: '1.65',
+  },
+  '.cm-content': {
+    padding: '12px 0',
+  },
+  '.cm-gutters': {
+    backgroundColor: '#fbfbfd',
+    color: '#9b9ba3',
+    borderRight: '1px solid #e5e5ea',
+  },
+  '.cm-activeLine': {
+    backgroundColor: '#f1f3f8',
+  },
+  '.cm-activeLineGutter': {
+    backgroundColor: '#f1f3f8',
+  },
+  '.cm-foldGutter span': {
+    cursor: 'pointer',
+  },
+}, { dark: false })
+
+function editorExtensions() {
+  return [
+    lineNumbers(),
+    foldGutter(),
+    highlightActiveLineGutter(),
+    history(),
+    drawSelection(),
+    highlightActiveLine(),
+    xml(),
+    syntaxHighlighting(dotguiHighlight),
+    keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap, ...searchKeymap]),
+    EditorView.editable.of(false),
+    EditorState.readOnly.of(true),
+    editorTheme,
+  ]
+}
+
+function mountCodeEditor() {
+  if (!codeEditorEl.value || codeView) return
+  codeView = new EditorView({
+    state: EditorState.create({
+      doc: displayCode.value,
+      extensions: editorExtensions(),
+    }),
+    parent: codeEditorEl.value,
+  })
+}
+
+function destroyCodeEditor() {
+  if (!codeView) return
+  codeView.destroy()
+  codeView = null
+}
+
+function updateCodeEditorDoc(value: string) {
+  if (!codeView) return
+  const current = codeView.state.doc.toString()
+  if (current === value) return
+  codeView.dispatch({
+    changes: { from: 0, to: current.length, insert: value },
+  })
+}
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`
@@ -402,10 +493,24 @@ window.onmessage = async (event: MessageEvent) => {
   if (sizes.value) sizes.value = { ...sizes.value, gui: exportFile.value.bytes }
 
   if (tab.value === 'preview') triggerRender()
+  if (tab.value === 'code') nextTick(mountCodeEditor)
 }
 
 watch(tab, (t) => {
   if (t === 'preview') triggerRender()
+  if (t === 'code') nextTick(mountCodeEditor)
+})
+
+watch(state, (next) => {
+  if (next !== 'gui') {
+    destroyCodeEditor()
+    return
+  }
+  if (tab.value === 'code') nextTick(mountCodeEditor)
+})
+
+watch(displayCode, (value) => {
+  updateCodeEditorDoc(value)
 })
 
 function triggerRender() {
@@ -416,6 +521,10 @@ function triggerRender() {
     if (previewEl.value) applyZoom = render(code.value, previewEl.value, assetMap.value)
   })
 }
+
+onBeforeUnmount(() => {
+  destroyCodeEditor()
+})
 
 function zoomIn() {
   setZoom(zoomFactor.value * 1.12)
@@ -650,15 +759,67 @@ header {
   border-radius: 3px;
 }
 
-.code {
+.code-editor {
   flex: 1;
-  padding: 14px;
-  font-family: 'SF Mono', 'Fira Code', monospace;
-  font-size: 11px;
-  line-height: 1.6;
-  white-space: pre;
-  overflow: auto;
+  overflow: hidden;
+  background: #fbfbfd;
   color: #1c1c1e;
+}
+
+.code-editor .cm-editor {
+  height: 100%;
+}
+
+@media (prefers-color-scheme: dark) {
+  body {
+    background: #1e1e1e;
+    color: #f5f5f7;
+  }
+
+  header,
+  .sizes,
+  .size-item {
+    border-color: #3a3a3c;
+  }
+
+  .tabs {
+    background: #2c2c2e;
+  }
+
+  .tabs button.active,
+  .action-btn {
+    background: #3a3a3c;
+    color: #f5f5f7;
+  }
+
+  .action-btn {
+    border-color: #4a4a4d;
+  }
+
+  .action-btn:hover {
+    background: #48484a;
+  }
+
+  .code-editor {
+    background: #1e1e1e;
+    color: #d4d4d4;
+  }
+
+  .code-editor .cm-editor {
+    background: #1e1e1e;
+    color: #d4d4d4;
+  }
+
+  .code-editor .cm-gutters {
+    background: #1e1e1e;
+    color: #858585;
+    border-color: #3a3a3c;
+  }
+
+  .code-editor .cm-activeLine,
+  .code-editor .cm-activeLineGutter {
+    background: #252526;
+  }
 }
 
 .preview-wrap {

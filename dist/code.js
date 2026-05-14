@@ -1014,6 +1014,28 @@ function pathToGui(node, depth) {
 ${ind(depth + 1)}<path d="${d}" />
 ${ind(depth)}</shape>`;
 }
+function shiftedAttr(attrText, attr, delta) {
+  const pattern = new RegExp(`\\s${attr}="([^"]*)"`);
+  const match = attrText.match(pattern);
+  if (!match)
+    return attrText;
+  const value = parseFloat(match[1]);
+  if (!Number.isFinite(value))
+    return attrText;
+  return attrText.replace(pattern, ` ${attr}="${Math.round(value - delta)}"`);
+}
+function normalizeWrappedRootPosition(markup, offsetX, offsetY) {
+  let isRoot = true;
+  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*)(\/?>)/gm, function(_, start, attrText, end) {
+    if (isRoot) {
+      isRoot = false;
+      const withX = /\sx="[^"]*"/.test(attrText) ? attrText.replace(/\sx="[^"]*"/, ' x="0"') : attrText + ' x="0"';
+      const withY = /\sy="[^"]*"/.test(withX) ? withX.replace(/\sy="[^"]*"/, ' y="0"') : withX + ' y="0"';
+      return start + withY + end;
+    }
+    return start + shiftedAttr(shiftedAttr(attrText, "x", offsetX), "y", offsetY) + end;
+  });
+}
 async function generateGui(node) {
   const w = Math.round(node.width);
   const h = Math.round(node.height);
@@ -1023,8 +1045,9 @@ async function generateGui(node) {
     inner = await frameToGui(node, 1);
   } else {
     const wrapA = attrs({ width: w, height: h });
+    const wrappedNode = normalizeWrappedRootPosition(await nodeToGui(node, 2), node.x || 0, node.y || 0);
     inner = `${ind(1)}<frame ${wrapA}>
-${await nodeToGui(node, 2)}
+${wrappedNode}
 ${ind(1)}</frame>`;
   }
   const assetKeys = Object.keys(_imageMap);
