@@ -15,6 +15,7 @@
     "@codemirror/state": "^6.6.0",
     "@codemirror/view": "^6.43.0",
     "@lezer/highlight": "^1.2.3",
+    "@panzoom/panzoom": "^4.6.2",
     "dotgui-render": "file:../dotgui-render",
     "vue": "^3.5.13"
   },

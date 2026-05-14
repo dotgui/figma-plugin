@@ -623,15 +623,29 @@ onBeforeUnmount(() => {
 })
 
 function zoomIn() {
-  setZoom(zoomFactor.value * 1.12)
+  const rect = previewEl.value?.getBoundingClientRect()
+  setZoom(
+    zoomFactor.value * 1.2,
+    rect ? rect.width / 2 : undefined,
+    rect ? rect.height / 2 : undefined,
+  )
 }
 
 function zoomOut() {
-  setZoom(zoomFactor.value / 1.12)
+  const rect = previewEl.value?.getBoundingClientRect()
+  setZoom(
+    zoomFactor.value / 1.2,
+    rect ? rect.width / 2 : undefined,
+    rect ? rect.height / 2 : undefined,
+  )
 }
 
 function zoomWheel(event: WheelEvent) {
-  const direction = event.deltaY > 0 ? 1 / 1.04 : 1.04
+  const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1
+  // Mac trackpad pinch sends ctrlKey=true with small deltaY (~1–5); needs a
+  // higher multiplier than a regular scroll wheel (deltaY ~100 per click).
+  const multiplier = event.ctrlKey ? 0.01 : 0.003
+  const direction = Math.exp(-event.deltaY * unit * multiplier)
   const rect = previewEl.value?.getBoundingClientRect()
   setZoom(
     zoomFactor.value * direction,
@@ -1025,12 +1039,17 @@ header {
     color: #fff !important;
     outline-color: #d8b547 !important;
   }
+
+  .preview-wrap {
+    background: #242426;
+  }
 }
 
 .preview-wrap {
   flex: 1;
   overflow: hidden;
   position: relative;
+  background: #f4f4f6;
 }
 
 .preview {
