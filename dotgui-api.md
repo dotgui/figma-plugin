@@ -259,6 +259,7 @@ These attrs apply to all layout, content, and shape tags unless noted.
 | `constraint-v` | keyword | `bottom`, `center`, `scale`, `stretch` | Vertical pin/resize constraint. `top` is default and omitted |
 | `sizing-h` | keyword | `hug`, `fill` | Horizontal sizing mode when inside auto-layout. Omitted when `fixed` |
 | `sizing-v` | keyword | `hug`, `fill` | Vertical sizing mode when inside auto-layout. Omitted when `fixed` |
+| `layout-position` | keyword | `absolute` | Marks an auto-layout child as absolute-positioned, so it uses `x` / `y` instead of participating in stack flow |
 | `min-width` | number | px | Min width constraint. Omitted when unset |
 | `max-width` | number | px | Max width constraint. Omitted when unset |
 | `min-height` | number | px | Min height constraint. Omitted when unset |
@@ -380,7 +381,7 @@ Text node. Self-closing when all characters share the same style. When a text no
 
 | Attr | Type | Values | Notes |
 |---|---|---|---|
-| `value` | string | Text content | XML-escaped. Omitted when using `<segment>` children |
+| `value` | string | Text content | XML-escaped; line breaks are encoded as `&#10;`. Omitted when using `<segment>` children |
 | `x` / `y` | number | Position | |
 | `width` / `height` | number / keyword | `n`, `hug` | `hug` = fit-content; emitted when Figma text auto-resizes on that axis |
 | `font-family` | string / token | Font name | |
@@ -408,7 +409,7 @@ Child of `<text>`. Represents a run of characters sharing the same style within 
 
 | Attr | Type | Values |
 |---|---|---|
-| `value` | string | Characters in this run (XML-escaped) |
+| `value` | string | Characters in this run (XML-escaped; line breaks are encoded as `&#10;`) |
 | `font-family` | string | Font name |
 | `font-size` | number | px |
 | `font-weight` | number | `100`–`900` |

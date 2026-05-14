@@ -42,7 +42,20 @@
       </div>
 
       <template v-else>
-        <div v-show="tab === 'code'" ref="codeEditorEl" class="code-editor" />
+        <div v-show="tab === 'code'" class="code-panel">
+          <div class="code-search">
+            <input
+              v-model="searchText"
+              type="search"
+              placeholder="Search"
+              @keydown.enter.prevent="runCodeSearch('next')"
+            />
+            <span class="search-count">{{ searchMatchLabel }}</span>
+            <button class="search-nav" :disabled="!searchText" @click="runCodeSearch('previous')">↑</button>
+            <button class="search-nav" :disabled="!searchText" @click="runCodeSearch('next')">↓</button>
+          </div>
+          <div ref="codeEditorEl" class="code-editor" />
+        </div>
         <div v-show="tab === 'preview'" class="preview-wrap" @wheel.prevent="zoomWheel">
           <div ref="previewEl" class="preview" />
           <div class="zoom-bar">
@@ -66,7 +79,7 @@ import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutt
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
 import { HighlightStyle, foldGutter, foldKeymap, syntaxHighlighting } from '@codemirror/language'
 import { xml } from '@codemirror/lang-xml'
-import { searchKeymap } from '@codemirror/search'
+import { SearchQuery, findNext, findPrevious, openSearchPanel, search, searchKeymap, searchPanelOpen, setSearchQuery } from '@codemirror/search'
 import { tags } from '@lezer/highlight'
 
 type State = 'idle' | 'no-selection' | 'multi-selection' | 'not-frame' | 'gui'
@@ -89,6 +102,7 @@ const sizes = ref<Sizes | null>(null)
 const previewEl = ref<HTMLElement>()
 const codeEditorEl = ref<HTMLElement>()
 const zoomFactor = ref(1)
+const searchText = ref('')
 let applyZoom: ((factor: number, anchorX?: number, anchorY?: number) => void) | null = null
 let codeView: EditorView | null = null
 const MIN_ZOOM = 0.1
@@ -133,6 +147,17 @@ const editorTheme = EditorView.theme({
   '.cm-foldGutter span': {
     cursor: 'pointer',
   },
+  '.cm-searchMatch': {
+    backgroundColor: '#ffe28a',
+    color: '#1c1c1e',
+    outline: '1px solid #d29a00',
+    borderRadius: '2px',
+  },
+  '.cm-searchMatch.cm-searchMatch-selected': {
+    backgroundColor: '#ffc44d',
+    color: '#1c1c1e',
+    outline: '1px solid #b77900',
+  },
 }, { dark: false })
 
 function editorExtensions() {
@@ -144,6 +169,13 @@ function editorExtensions() {
     drawSelection(),
     highlightActiveLine(),
     xml(),
+    search({
+      createPanel: () => {
+        const dom = document.createElement('div')
+        dom.style.display = 'none'
+        return { dom }
+      },
+    }),
     syntaxHighlighting(dotguiHighlight),
     keymap.of([...defaultKeymap, ...historyKeymap, ...foldKeymap, ...searchKeymap]),
     EditorView.editable.of(false),
@@ -178,6 +210,38 @@ function updateCodeEditorDoc(value: string) {
   })
 }
 
+function syncCodeSearch() {
+  if (!codeView) return
+  if (searchText.value && !searchPanelOpen(codeView.state)) openSearchPanel(codeView)
+  codeView.dispatch({
+    effects: setSearchQuery.of(new SearchQuery({
+      search: searchText.value,
+      caseSensitive: false,
+      literal: false,
+    })),
+  })
+}
+
+function runCodeSearch(direction: 'next' | 'previous') {
+  if (!codeView || !searchText.value) return
+  syncCodeSearch()
+  ;(direction === 'next' ? findNext : findPrevious)(codeView)
+  codeView.focus()
+}
+
+const searchMatchCount = computed(() => {
+  if (!searchText.value) return 0
+  const query = new SearchQuery({ search: searchText.value, caseSensitive: false })
+  if (!query.valid) return 0
+
+  let count = 0
+  const cursor = query.getCursor(EditorState.create({ doc: displayCode.value }))
+  for (let next = cursor.next(); !next.done; next = cursor.next()) count++
+  return count
+})
+
+const searchMatchLabel = computed(() => searchText.value ? String(searchMatchCount.value) : '')
+
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n} B`
   if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`
@@ -185,10 +249,37 @@ function fmtBytes(n: number): string {
 }
 
 function truncateBase64(s: string): string {
-  return s.replace(/base64:[A-Za-z0-9+/=]+/g, (m) => {
-    const bytes = Math.round((m.length - 7) * 0.75)
-    return bytes < 1024 ? `base64:[${bytes} B]` : `base64:[${(bytes / 1024).toFixed(1)} KB]`
-  })
+  let out = ''
+  let at = 0
+
+  while (at < s.length) {
+    const start = s.indexOf('base64:', at)
+    if (start === -1) {
+      out += s.slice(at)
+      break
+    }
+
+    let end = start + 7
+    while (end < s.length && isBase64Char(s.charCodeAt(end))) end++
+
+    const bytes = Math.round((end - start - 7) * 0.75)
+    out += s.slice(at, start)
+    out += bytes < 1024 ? `base64:[${bytes} B]` : `base64:[${(bytes / 1024).toFixed(1)} KB]`
+    at = end
+  }
+
+  return out
+}
+
+function isBase64Char(code: number): boolean {
+  return (
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122) ||
+    (code >= 48 && code <= 57) ||
+    code === 43 ||
+    code === 47 ||
+    code === 61
+  )
 }
 
 function textBytes(s: string): number {
@@ -511,6 +602,11 @@ watch(state, (next) => {
 
 watch(displayCode, (value) => {
   updateCodeEditorDoc(value)
+  nextTick(syncCodeSearch)
+})
+
+watch(searchText, () => {
+  syncCodeSearch()
 })
 
 function triggerRender() {
@@ -759,8 +855,67 @@ header {
   border-radius: 3px;
 }
 
+.code-panel {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: #fbfbfd;
+}
+
+.code-search {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border-bottom: 1px solid #e5e5ea;
+  flex-shrink: 0;
+}
+
+.code-search input {
+  min-width: 0;
+  flex: 1;
+  height: 24px;
+  padding: 0 8px;
+  border: 1px solid #d8d8df;
+  border-radius: 5px;
+  background: #fff;
+  color: #1c1c1e;
+  font-size: 11px;
+  outline: none;
+}
+
+.code-search input:focus {
+  border-color: #0a84ff;
+}
+
+.search-count {
+  min-width: 24px;
+  color: #6e6e73;
+  font-size: 11px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.search-nav {
+  width: 24px;
+  height: 24px;
+  border: 1px solid #d8d8df;
+  border-radius: 5px;
+  background: #fff;
+  color: #1c1c1e;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.search-nav:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
 .code-editor {
   flex: 1;
+  min-height: 0;
   overflow: hidden;
   background: #fbfbfd;
   color: #1c1c1e;
@@ -768,6 +923,21 @@ header {
 
 .code-editor .cm-editor {
   height: 100%;
+}
+
+.code-editor .cm-searchMatch,
+.code-editor .cm-selectionMatch {
+  background-color: #ffe28a !important;
+  color: #1c1c1e !important;
+  outline: 1px solid #d29a00 !important;
+  border-radius: 2px;
+}
+
+.code-editor .cm-searchMatch-selected,
+.code-editor .cm-searchMatch.cm-searchMatch-selected {
+  background-color: #ffc44d !important;
+  color: #1c1c1e !important;
+  outline: 1px solid #b77900 !important;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -800,9 +970,25 @@ header {
     background: #48484a;
   }
 
+  .code-panel,
   .code-editor {
     background: #1e1e1e;
     color: #d4d4d4;
+  }
+
+  .code-search {
+    border-color: #3a3a3c;
+  }
+
+  .code-search input,
+  .search-nav {
+    background: #2c2c2e;
+    border-color: #4a4a4d;
+    color: #f5f5f7;
+  }
+
+  .search-count {
+    color: #858585;
   }
 
   .code-editor .cm-editor {
@@ -819,6 +1005,25 @@ header {
   .code-editor .cm-activeLine,
   .code-editor .cm-activeLineGutter {
     background: #252526;
+  }
+
+  .code-editor .cm-searchMatch {
+    background: #6b5a1c !important;
+    color: #f5f5f7 !important;
+    outline-color: #a98c2a !important;
+  }
+
+  .code-editor .cm-selectionMatch {
+    background: #6b5a1c !important;
+    color: #f5f5f7 !important;
+    outline-color: #a98c2a !important;
+  }
+
+  .code-editor .cm-searchMatch-selected,
+  .code-editor .cm-searchMatch.cm-searchMatch-selected {
+    background: #9a7316 !important;
+    color: #fff !important;
+    outline-color: #d8b547 !important;
   }
 }
 

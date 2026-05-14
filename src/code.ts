@@ -399,6 +399,13 @@ function sizingAttrs(node: SceneNode): Record<string, AttrVal> {
   return result
 }
 
+function layoutPositionAttrs(node: SceneNode): Record<string, AttrVal> {
+  if (!('layoutPositioning' in node)) return {}
+  return (node as unknown as { layoutPositioning?: string }).layoutPositioning === 'ABSOLUTE'
+    ? { 'layout-position': 'absolute' }
+    : {}
+}
+
 function minMaxAttrs(node: SceneNode): Record<string, AttrVal> {
   if (!('minWidth' in node)) return {}
   const n = node as FrameNode
@@ -496,7 +503,13 @@ function dataUrl(asset: ImageAsset): string {
 }
 
 function xmlEscape(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+  return s
+    .replace(/\r\n?/g, '\n')
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '&#10;')
 }
 
 function attrs(obj: Record<string, AttrVal>): string {
@@ -507,11 +520,37 @@ function attrs(obj: Record<string, AttrVal>): string {
 }
 
 function makeDisplayCode(code: string): string {
-  return code.replace(/base64:[A-Za-z0-9+/=]+/g, function(match) {
-    const bytes = Math.round((match.length - 7) * 0.75)
-    if (bytes < 1024) return 'base64:[' + bytes + ' B]'
-    return 'base64:[' + (bytes / 1024).toFixed(1) + ' KB]'
-  })
+  let out = ''
+  let at = 0
+
+  while (at < code.length) {
+    const start = code.indexOf('base64:', at)
+    if (start === -1) {
+      out += code.slice(at)
+      break
+    }
+
+    let end = start + 7
+    while (end < code.length && isBase64Char(code.charCodeAt(end))) end++
+
+    const bytes = Math.round((end - start - 7) * 0.75)
+    out += code.slice(at, start)
+    out += bytes < 1024 ? 'base64:[' + bytes + ' B]' : 'base64:[' + (bytes / 1024).toFixed(1) + ' KB]'
+    at = end
+  }
+
+  return out
+}
+
+function isBase64Char(code: number): boolean {
+  return (
+    (code >= 65 && code <= 90) ||
+    (code >= 97 && code <= 122) ||
+    (code >= 48 && code <= 57) ||
+    code === 43 ||
+    code === 47 ||
+    code === 61
+  )
 }
 
 // --- node converters ---
@@ -638,6 +677,7 @@ async function svgToGui(node: SceneNode, depth: number): Promise<string> {
   }
   Object.assign(baseAttrs, constraintAttrs(node))
   Object.assign(baseAttrs, sizingAttrs(node))
+  Object.assign(baseAttrs, layoutPositionAttrs(node))
   return `${ind(depth)}<svg ${attrs(baseAttrs)} />`
 }
 
@@ -712,6 +752,7 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
   if (!isRoot) {
     Object.assign(a, constraintAttrs(node))
     Object.assign(a, sizingAttrs(node))
+    Object.assign(a, layoutPositionAttrs(node))
     Object.assign(a, minMaxAttrs(node))
   }
 
@@ -756,6 +797,7 @@ async function groupToGui(node: GroupNode, depth: number): Promise<string> {
     mask: maskAttr(node),
     rotation: rotationAttr(node),
   })
+  Object.assign(a, layoutPositionAttrs(node))
   const inner = await children(node, depth + 1)
   if (!inner) return `${ind(depth)}<group ${a} />`
   return `${ind(depth)}<group ${a}>\n${inner}\n${ind(depth)}</group>`
@@ -914,6 +956,7 @@ function textToGui(node: TextNode, depth: number): string {
   }
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
+  Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, minMaxAttrs(node))
   Object.assign(a, strokeAttrs(node))
 
@@ -989,6 +1032,7 @@ function imgToGui(node: RectangleNode, fill: ImagePaint, depth: number): string 
   Object.assign(a, strokeAttrs(node))
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
+  Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, minMaxAttrs(node))
   return `${ind(depth)}<img ${attrs(a)} />`
 }
@@ -1012,6 +1056,7 @@ function rectToGui(node: RectangleNode, depth: number): string {
   Object.assign(a, strokeAttrs(node))
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
+  Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, minMaxAttrs(node))
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
   if (!appearance) return `${ind(depth)}<shape ${attrs(a)} />`
@@ -1042,6 +1087,7 @@ function ellipseToGui(node: EllipseNode, depth: number): string {
   Object.assign(a, strokeAttrs(node))
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
+  Object.assign(a, layoutPositionAttrs(node))
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
   if (!appearance) return `${ind(depth)}<shape ${attrs(a)} />`
   return `${ind(depth)}<shape ${attrs(a)}>\n${appearance}\n${ind(depth)}</shape>`
@@ -1065,6 +1111,7 @@ function lineToGui(node: LineNode, depth: number): string {
   Object.assign(a, strokeAttrs(node))
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
+  Object.assign(a, layoutPositionAttrs(node))
   return `${ind(depth)}<shape ${attrs(a)} />`
 }
 
@@ -1091,6 +1138,7 @@ function pathToGui(node: VectorNode, depth: number): string {
   Object.assign(a, strokeAttrs(node))
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
+  Object.assign(a, layoutPositionAttrs(node))
   if (!d) return `${ind(depth)}<shape ${attrs(a)} />`
   return `${ind(depth)}<shape ${attrs(a)}>\n${ind(depth + 1)}<path d="${d}" />\n${ind(depth)}</shape>`
 }

@@ -386,6 +386,11 @@ function sizingAttrs(node) {
   }
   return result;
 }
+function layoutPositionAttrs(node) {
+  if (!("layoutPositioning" in node))
+    return {};
+  return node.layoutPositioning === "ABSOLUTE" ? { "layout-position": "absolute" } : {};
+}
 function minMaxAttrs(node) {
   if (!("minWidth" in node))
     return {};
@@ -484,18 +489,33 @@ function dataUrl(asset) {
   return "data:image/" + mime + ";base64," + asset.b64;
 }
 function xmlEscape(s) {
-  return s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  return s.replace(/\r\n?/g, `
+`).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "&#10;");
 }
 function attrs(obj) {
   return Object.entries(obj).filter(([, v]) => v !== null && v !== undefined && v !== false).map(([k, v]) => `${k}="${typeof v === "string" ? xmlEscape(v) : v}"`).join(" ");
 }
 function makeDisplayCode(code) {
-  return code.replace(/base64:[A-Za-z0-9+/=]+/g, function(match) {
-    const bytes = Math.round((match.length - 7) * 0.75);
-    if (bytes < 1024)
-      return "base64:[" + bytes + " B]";
-    return "base64:[" + (bytes / 1024).toFixed(1) + " KB]";
-  });
+  let out = "";
+  let at = 0;
+  while (at < code.length) {
+    const start = code.indexOf("base64:", at);
+    if (start === -1) {
+      out += code.slice(at);
+      break;
+    }
+    let end = start + 7;
+    while (end < code.length && isBase64Char(code.charCodeAt(end)))
+      end++;
+    const bytes = Math.round((end - start - 7) * 0.75);
+    out += code.slice(at, start);
+    out += bytes < 1024 ? "base64:[" + bytes + " B]" : "base64:[" + (bytes / 1024).toFixed(1) + " KB]";
+    at = end;
+  }
+  return out;
+}
+function isBase64Char(code) {
+  return code >= 65 && code <= 90 || code >= 97 && code <= 122 || code >= 48 && code <= 57 || code === 43 || code === 47 || code === 61;
 }
 function visibleChildren(node) {
   if (!("children" in node))
@@ -592,6 +612,7 @@ async function svgToGui(node, depth) {
   };
   Object.assign(baseAttrs, constraintAttrs(node));
   Object.assign(baseAttrs, sizingAttrs(node));
+  Object.assign(baseAttrs, layoutPositionAttrs(node));
   return `${ind(depth)}<svg ${attrs(baseAttrs)} />`;
 }
 async function nodeToGui(node, depth) {
@@ -663,6 +684,7 @@ async function frameToGui(node, depth) {
   if (!isRoot) {
     Object.assign(a, constraintAttrs(node));
     Object.assign(a, sizingAttrs(node));
+    Object.assign(a, layoutPositionAttrs(node));
     Object.assign(a, minMaxAttrs(node));
   }
   if (isStack) {
@@ -710,6 +732,7 @@ async function groupToGui(node, depth) {
     mask: maskAttr(node),
     rotation: rotationAttr(node)
   });
+  Object.assign(a, layoutPositionAttrs(node));
   const inner = await children(node, depth + 1);
   if (!inner)
     return `${ind(depth)}<group ${a} />`;
@@ -856,6 +879,7 @@ function textToGui(node, depth) {
   };
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
+  Object.assign(a, layoutPositionAttrs(node));
   Object.assign(a, minMaxAttrs(node));
   Object.assign(a, strokeAttrs(node));
   if (!mixed) {
@@ -930,6 +954,7 @@ function rectToGui(node, depth) {
   Object.assign(a, strokeAttrs(node));
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
+  Object.assign(a, layoutPositionAttrs(node));
   Object.assign(a, minMaxAttrs(node));
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
   if (!appearance)
@@ -960,6 +985,7 @@ function ellipseToGui(node, depth) {
   Object.assign(a, strokeAttrs(node));
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
+  Object.assign(a, layoutPositionAttrs(node));
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
   if (!appearance)
     return `${ind(depth)}<shape ${attrs(a)} />`;
@@ -984,6 +1010,7 @@ function lineToGui(node, depth) {
   Object.assign(a, strokeAttrs(node));
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
+  Object.assign(a, layoutPositionAttrs(node));
   return `${ind(depth)}<shape ${attrs(a)} />`;
 }
 function pathToGui(node, depth) {
@@ -1008,6 +1035,7 @@ function pathToGui(node, depth) {
   Object.assign(a, strokeAttrs(node));
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
+  Object.assign(a, layoutPositionAttrs(node));
   if (!d)
     return `${ind(depth)}<shape ${attrs(a)} />`;
   return `${ind(depth)}<shape ${attrs(a)}>
