@@ -1,3 +1,5 @@
+import googleFonts from './google-fonts-compact.json'
+
 figma.showUI(__html__, { width: 480, height: 600, title: 'dotgui' })
 
 // --- constants (must be before any function calls due to const TDZ) ---
@@ -5,6 +7,7 @@ figma.showUI(__html__, { width: 480, height: 600, title: 'dotgui' })
 type AttrVal = string | number | boolean | null | undefined
 interface ImageAsset { id: string; format: string; b64: string }
 interface FontUsage { family: string; weights: Record<string, boolean>; styles: Record<string, boolean> }
+interface GoogleFont { family: string; category?: string; variants?: string[] }
 
 const ind = function(depth: number) { return '  '.repeat(depth) }
 
@@ -34,31 +37,6 @@ const BLEND_MODE: Record<string, string> = {
   LINEAR_BURN: 'linear-burn', LINEAR_DODGE: 'linear-dodge',
 }
 
-const GOOGLE_FONTS: Record<string, boolean> = {
-  'Inter': true,
-  'Roboto': true,
-  'Roboto Mono': true,
-  'Open Sans': true,
-  'Lato': true,
-  'Montserrat': true,
-  'Poppins': true,
-  'Source Sans 3': true,
-  'Source Serif 4': true,
-  'Source Code Pro': true,
-  'Nunito': true,
-  'Raleway': true,
-  'Merriweather': true,
-  'Playfair Display': true,
-  'Oswald': true,
-  'Work Sans': true,
-  'DM Sans': true,
-  'Plus Jakarta Sans': true,
-  'IBM Plex Sans': true,
-  'IBM Plex Mono': true,
-  'Noto Sans': true,
-  'Noto Serif': true,
-}
-
 const SYSTEM_FONTS: Record<string, boolean> = {
   'SF Pro': true,
   'SF Pro Display': true,
@@ -78,6 +56,11 @@ const SYSTEM_FONTS: Record<string, boolean> = {
   'Avenir': true,
   'Avenir Next': true,
 }
+
+const GOOGLE_FONT_MAP: Record<string, GoogleFont> = (googleFonts as GoogleFont[]).reduce(function(map, font) {
+  map[font.family] = font
+  return map
+}, {} as Record<string, GoogleFont>)
 
 var _imageMap: { [hash: string]: ImageAsset } = {}
 var _imageCounter = 0
@@ -835,8 +818,8 @@ function fontStyle(style: string): string {
 }
 
 function fontSource(family: string): string {
-  if (GOOGLE_FONTS[family]) return 'google'
   if (SYSTEM_FONTS[family]) return 'system'
+  if (GOOGLE_FONT_MAP[family]) return 'google'
   return 'unresolved'
 }
 
@@ -880,13 +863,16 @@ function fontsBlock(node: SceneNode): string {
   const lines: string[] = []
   for (let i = 0; i < families.length; i++) {
     const item = usage[families[i]]
+    const googleFont = GOOGLE_FONT_MAP[item.family]
     const weights = Object.keys(item.weights).sort(function(a, b) { return parseInt(a) - parseInt(b) })
     const styles = Object.keys(item.styles).sort()
     lines.push(`${ind(1)}<font ${attrs({
       family: item.family,
       source: fontSource(item.family),
+      category: googleFont ? googleFont.category : undefined,
       weights: weights.join(' '),
       styles: styles.join(' '),
+      variants: googleFont && googleFont.variants ? googleFont.variants.join(' ') : undefined,
     })} />`)
   }
 

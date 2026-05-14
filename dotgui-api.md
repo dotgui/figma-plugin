@@ -111,7 +111,7 @@ Font declarations describe where renderers may load a font from. Text nodes stil
 
 ```xml
 <fonts>
-  <font family="Inter" source="google" weights="400 500 700" styles="normal italic" />
+  <font family="Inter" source="google" category="sans-serif" weights="400 500 700" styles="normal italic" variants="regular italic 500 700" />
   <font family="SF Pro Display" source="system" weights="400 600" styles="normal" />
   <font family="Brand Sans" source="unresolved" weights="500" styles="normal" />
 </fonts>
@@ -121,10 +121,12 @@ Font declarations describe where renderers may load a font from. Text nodes stil
 |---|---|---|
 | `family` | string | Font family used by `<text font-family="...">` |
 | `source` | `google`, `system`, `unresolved` | `google` may be loaded by the renderer; `system` and `unresolved` are left to CSS/browser resolution |
+| `category` | string | Optional Google font category used for CSS fallback selection, e.g. `sans-serif`, `serif`, `monospace`, `display`, `handwriting` |
 | `weights` | space-separated numbers | Used weights, e.g. `400 600 700` |
 | `styles` | `normal`, `italic` | Used styles |
+| `variants` | space-separated strings | Optional Google font variants from the Webfonts API, used to build valid Google CSS requests |
 
-The Figma plugin emits Google sources only for known free Google Fonts, system sources for common platform fonts, and `unresolved` for proprietary or unknown fonts. Font files are not embedded by default.
+The Figma plugin validates families against `src/google-fonts.json`, emits `google` only for families in that catalog, emits `system` for common platform fonts, and emits `unresolved` otherwise. Font files are not embedded by default.
 
 ---
 
