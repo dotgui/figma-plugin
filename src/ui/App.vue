@@ -9,7 +9,6 @@
       <div class="actions">
         <template v-if="code">
           <button class="action-btn" @click="copyFile">Save</button>
-          <button class="action-btn" v-if="tab === 'code'" @click="copy">Copy</button>
         </template>
       </div>
     </header>
@@ -86,7 +85,7 @@ type State = 'idle' | 'no-selection' | 'multi-selection' | 'not-frame' | 'gui'
 interface Sizes { gui: number; png: number; svg: number }
 interface GuiAsset { id: string; format: string; src: string; bytes: Uint8Array }
 interface GuiPreview { format: string; src: string; bytes: Uint8Array }
-interface ExportFile { blob: Blob; mode: 'inline' | 'package'; bytes: number }
+interface ExportFile { blob: Blob; bytes: number }
 
 const state = ref<State>('idle')
 const code = ref('')
@@ -107,8 +106,6 @@ let applyZoom: ((factor: number, anchorX?: number, anchorY?: number) => void) | 
 let codeView: EditorView | null = null
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 16
-const PACKAGE_ASSET_LIMIT = 3
-const PACKAGE_BYTE_LIMIT = 250_000
 
 const dotguiHighlight = HighlightStyle.define([
   { tag: tags.angleBracket, color: '#7c7c86' },
@@ -280,10 +277,6 @@ function isBase64Char(code: number): boolean {
     code === 47 ||
     code === 61
   )
-}
-
-function textBytes(s: string): number {
-  return new TextEncoder().encode(s).length
 }
 
 function dataUrlBytes(url: string): Uint8Array {
@@ -462,16 +455,8 @@ function makePackage(guiCode: string, assets: GuiAsset[], preview: GuiPreview | 
 async function prepareExport(guiCode: string, assets: Record<string, string>): Promise<ExportFile> {
   const guiAssets = parseGuiAssets(guiCode, assets)
   const preview = parsePreview(guiCode)
-  const assetBytes = guiAssets.reduce((sum, asset) => sum + asset.bytes.length, preview ? preview.bytes.length : 0)
-  const shouldPackage = guiAssets.length > PACKAGE_ASSET_LIMIT || assetBytes > PACKAGE_BYTE_LIMIT
-
-  if (shouldPackage) {
-    const blob = makePackage(guiCode, guiAssets, preview)
-    return { blob, mode: 'package', bytes: blob.size }
-  }
-
-  const blob = new Blob([guiCode], { type: 'text/xml' })
-  return { blob, mode: 'inline', bytes: textBytes(guiCode) }
+  const blob = makePackage(guiCode, guiAssets, preview)
+  return { blob, bytes: blob.size }
 }
 
 function toWebP(dataUrl: string): Promise<string> {
@@ -673,33 +658,9 @@ function showToast(msg: string) {
   toastTimer = setTimeout(() => { toastVisible.value = false }, 1800)
 }
 
-function copyFallback(text: string) {
-  const ta = document.createElement('textarea')
-  ta.value = text
-  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0;'
-  document.body.appendChild(ta)
-  ta.focus()
-  ta.select()
-  try { document.execCommand('copy') } catch {}
-  document.body.removeChild(ta)
-  showToast('Copied to clipboard')
-}
-
-function copy() {
-  if (navigator.clipboard && navigator.clipboard.writeText) {
-    navigator.clipboard.writeText(code.value).then(() => showToast('Copied to clipboard')).catch(() => copyFallback(code.value))
-  } else {
-    copyFallback(code.value)
-  }
-}
-
 function copyFile() {
-  const file = exportFile.value || {
-    blob: new Blob([code.value], { type: 'text/xml' }),
-    mode: 'inline' as const,
-    bytes: textBytes(code.value),
-  }
-  const url = URL.createObjectURL(file.blob)
+  if (!exportFile.value) return
+  const url = URL.createObjectURL(exportFile.value.blob)
   const a = document.createElement('a')
   a.href = url
   a.download = `${nodeName.value}.gui`
@@ -707,7 +668,7 @@ function copyFile() {
   a.click()
   document.body.removeChild(a)
   URL.revokeObjectURL(url)
-  showToast(file.mode === 'package' ? `Saved packaged ${nodeName.value}.gui` : `Saved ${nodeName.value}.gui`)
+  showToast(`Saved ${nodeName.value}.gui`)
 }
 </script>
 
@@ -795,7 +756,6 @@ header {
 
 .action-btn:hover { background: #f5f5f7; }
 
-.copy-btn { min-width: 52px; justify-content: center; }
 
 .sizes {
   display: flex;
@@ -1041,7 +1001,14 @@ header {
   }
 
   .preview-wrap {
-    background: #242426;
+    background-color: #1e1e1e;
+    background-image:
+      linear-gradient(45deg, #2a2a2a 25%, transparent 25%),
+      linear-gradient(-45deg, #2a2a2a 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #2a2a2a 75%),
+      linear-gradient(-45deg, transparent 75%, #2a2a2a 75%);
+    background-size: 16px 16px;
+    background-position: 0 0, 0 8px, 8px -8px, -8px 0;
   }
 }
 
@@ -1049,7 +1016,14 @@ header {
   flex: 1;
   overflow: hidden;
   position: relative;
-  background: #f4f4f6;
+  background-color: #f0f0f0;
+  background-image:
+    linear-gradient(45deg, #e0e0e0 25%, transparent 25%),
+    linear-gradient(-45deg, #e0e0e0 25%, transparent 25%),
+    linear-gradient(45deg, transparent 75%, #e0e0e0 75%),
+    linear-gradient(-45deg, transparent 75%, #e0e0e0 75%);
+  background-size: 16px 16px;
+  background-position: 0 0, 0 8px, 8px -8px, -8px 0;
 }
 
 .preview {

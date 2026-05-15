@@ -323,6 +323,7 @@ Inherits all `<frame>` attrs plus:
 |---|---|---|
 | `direction` | keyword | `horizontal`, `vertical`, `grid` |
 | `gap` | number / token | Space between children in px. `horizontal` and `vertical` only |
+| `reverse-z` | boolean | Draw earlier children above later children for overlapping auto-layout items |
 | `padding` | number / token | `all`, `v h`, `top right bottom left` |
 | `align` | keyword | Cross-axis: `start`, `center`, `end`, `stretch`, `baseline` |
 | `justify` | keyword | Main-axis: `start`, `center`, `end`, `space-between` |

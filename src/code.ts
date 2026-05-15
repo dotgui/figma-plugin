@@ -706,9 +706,12 @@ async function children(node: ChildrenMixin, depth: number): Promise<string> {
   return parts.filter(Boolean).join('\n')
 }
 
-async function groupChildren(node: GroupNode, depth: number): Promise<string> {
-  const offsetX = node.x || 0
-  const offsetY = node.y || 0
+async function positionedChildren(
+  node: ChildrenMixin,
+  depth: number,
+  offsetX: number,
+  offsetY: number,
+): Promise<string> {
   const parts = await Promise.all(node.children.map(async c => {
     const markup = await nodeToGui(c, depth)
     return markup ? shiftRootPosition(markup, offsetX, offsetY) : ''
@@ -759,7 +762,8 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
       a['grid-row-gap'] = gn.gridRowGap > 0 ? gn.gridRowGap : undefined
     } else {
       a.direction = lm === 'HORIZONTAL' ? 'horizontal' : 'vertical'
-      a.gap = node.itemSpacing > 0 ? node.itemSpacing : undefined
+      a.gap = node.itemSpacing !== 0 ? node.itemSpacing : undefined
+      a['reverse-z'] = node.itemReverseZIndex || undefined
     }
     a.padding = padding(node)
     a.align = ALIGN[node.counterAxisAlignItems]
@@ -772,7 +776,9 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
   }
 
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
-  const childInner = await children(node, depth + 1)
+  const childInner = isStack || isRoot
+    ? await children(node, depth + 1)
+    : await positionedChildren(node, depth + 1, node.x || 0, node.y || 0)
   const inner = [appearance, childInner].filter(Boolean).join('\n')
   if (!inner) return `${ind(depth)}<${tag} ${attrs(a)} />`
   return `${ind(depth)}<${tag} ${attrs(a)}>\n${inner}\n${ind(depth)}</${tag}>`
@@ -794,7 +800,7 @@ async function groupToGui(node: GroupNode, depth: number): Promise<string> {
   Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, minMaxAttrs(node))
-  const inner = await groupChildren(node, depth + 1)
+  const inner = await positionedChildren(node, depth + 1, node.x || 0, node.y || 0)
   if (!inner) return `${ind(depth)}<group ${attrs(a)} />`
   return `${ind(depth)}<group ${attrs(a)}>\n${inner}\n${ind(depth)}</group>`
 }
