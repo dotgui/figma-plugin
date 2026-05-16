@@ -73,6 +73,7 @@ var _imageCounter = 0;
 var _svgNodeMap = {};
 var _svgB64Map = {};
 var _svgCounter = 0;
+var _debugExport = false;
 async function sendSelection() {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) {
@@ -125,9 +126,17 @@ async function sendSelection() {
 }
 sendSelection();
 figma.on("selectionchange", sendSelection);
-figma.ui.onmessage = (msg) => {
+figma.ui.onmessage = async (msg) => {
   if (msg.type === "close")
     figma.closePlugin();
+  if (msg.type === "copy-debug") {
+    const sel = figma.currentPage.selection;
+    if (sel.length === 1)
+      logDebugTree(sel[0]);
+    _debugExport = true;
+    await sendSelection();
+    _debugExport = false;
+  }
 };
 function rgbToHex(r, g, b, a = 1) {
   const h = (n) => Math.round(n * 255).toString(16).padStart(2, "0");
@@ -478,6 +487,36 @@ function xmlEscape(s) {
 function attrs(obj) {
   return Object.entries(obj).filter(([, v]) => v !== null && v !== undefined && v !== false).map(([k, v]) => `${k}="${typeof v === "string" ? xmlEscape(v) : v}"`).join(" ");
 }
+function debugAttrs(node) {
+  if (!_debugExport)
+    return {};
+  const layout = node;
+  return {
+    "debug-id": node.id,
+    "debug-type": node.type,
+    "debug-raw-x": typeof layout.x === "number" ? Math.round(layout.x) : undefined,
+    "debug-raw-y": typeof layout.y === "number" ? Math.round(layout.y) : undefined
+  };
+}
+function logDebugTree(node) {
+  function serialize(current) {
+    const layout = current;
+    return {
+      id: current.id,
+      type: current.type,
+      name: current.name,
+      x: typeof layout.x === "number" ? layout.x : undefined,
+      y: typeof layout.y === "number" ? layout.y : undefined,
+      width: typeof layout.width === "number" ? layout.width : undefined,
+      height: typeof layout.height === "number" ? layout.height : undefined,
+      layoutMode: "layoutMode" in current ? current.layoutMode : undefined,
+      itemSpacing: "itemSpacing" in current ? current.itemSpacing : undefined,
+      layoutPositioning: "layoutPositioning" in current ? current.layoutPositioning : undefined,
+      children: "children" in current ? current.children.filter((child) => child.visible !== false).map((child) => serialize(child)) : undefined
+    };
+  }
+  console.log("dotgui figma debug", serialize(node));
+}
 function makeDisplayCode(code) {
   let out = "";
   let at = 0;
@@ -596,6 +635,7 @@ async function svgToGui(node, depth) {
   Object.assign(baseAttrs, constraintAttrs(node));
   Object.assign(baseAttrs, sizingAttrs(node));
   Object.assign(baseAttrs, layoutPositionAttrs(node));
+  Object.assign(baseAttrs, debugAttrs(node));
   return `${ind(depth)}<svg ${attrs(baseAttrs)} />`;
 }
 async function nodeToGui(node, depth) {
@@ -678,6 +718,7 @@ async function frameToGui(node, depth) {
     Object.assign(a, layoutPositionAttrs(node));
     Object.assign(a, minMaxAttrs(node));
   }
+  Object.assign(a, debugAttrs(node));
   if (isStack) {
     if (isGrid) {
       a.direction = "grid";
@@ -703,7 +744,7 @@ async function frameToGui(node, depth) {
     }
   }
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
-  const childInner = isStack || isRoot ? await children(node, depth + 1) : await positionedChildren(node, depth + 1, node.x || 0, node.y || 0);
+  const childInner = await children(node, depth + 1);
   const inner = [appearance, childInner].filter(Boolean).join(`
 `);
   if (!inner)
@@ -728,6 +769,7 @@ async function groupToGui(node, depth) {
   Object.assign(a, sizingAttrs(node));
   Object.assign(a, layoutPositionAttrs(node));
   Object.assign(a, minMaxAttrs(node));
+  Object.assign(a, debugAttrs(node));
   const inner = await positionedChildren(node, depth + 1, node.x || 0, node.y || 0);
   if (!inner)
     return `${ind(depth)}<group ${attrs(a)} />`;
@@ -880,6 +922,7 @@ function textToGui(node, depth) {
   Object.assign(a, layoutPositionAttrs(node));
   Object.assign(a, minMaxAttrs(node));
   Object.assign(a, strokeAttrs(node));
+  Object.assign(a, debugAttrs(node));
   if (!mixed) {
     const fontName = node.fontName;
     const lh = node.lineHeight;
@@ -954,6 +997,7 @@ function rectToGui(node, depth) {
   Object.assign(a, sizingAttrs(node));
   Object.assign(a, layoutPositionAttrs(node));
   Object.assign(a, minMaxAttrs(node));
+  Object.assign(a, debugAttrs(node));
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
   if (!appearance)
     return `${ind(depth)}<shape ${attrs(a)} />`;
@@ -984,6 +1028,7 @@ function ellipseToGui(node, depth) {
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
   Object.assign(a, layoutPositionAttrs(node));
+  Object.assign(a, debugAttrs(node));
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
   if (!appearance)
     return `${ind(depth)}<shape ${attrs(a)} />`;
@@ -1009,6 +1054,7 @@ function lineToGui(node, depth) {
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
   Object.assign(a, layoutPositionAttrs(node));
+  Object.assign(a, debugAttrs(node));
   return `${ind(depth)}<shape ${attrs(a)} />`;
 }
 function pathToGui(node, depth) {
@@ -1034,6 +1080,7 @@ function pathToGui(node, depth) {
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
   Object.assign(a, layoutPositionAttrs(node));
+  Object.assign(a, debugAttrs(node));
   if (!d)
     return `${ind(depth)}<shape ${attrs(a)} />`;
   return `${ind(depth)}<shape ${attrs(a)}>
@@ -1042,11 +1089,13 @@ ${ind(depth)}</shape>`;
 }
 function shiftRootPosition(markup, offsetX, offsetY) {
   let shifted = false;
-  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*)(\/?>)/m, function(_, start, attrText, end) {
+  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/m, function(_, start, attrText, end) {
     if (shifted)
       return start + attrText + end;
     shifted = true;
-    return start + shiftAttr(shiftAttr(attrText, "x", offsetX), "y", offsetY) + end;
+    const shiftedAttrs = shiftAttr(shiftAttr(attrText, "x", offsetX), "y", offsetY);
+    const debug = _debugExport ? ' debug-rebased="true"' : "";
+    return start + shiftedAttrs + debug + end;
   });
 }
 function shiftAttr(attrText, attr, delta) {
@@ -1061,7 +1110,7 @@ function shiftAttr(attrText, attr, delta) {
 }
 function normalizeWrappedRootPosition(markup) {
   let isRoot = true;
-  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*)(\/?>)/gm, function(_, start, attrText, end) {
+  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/gm, function(_, start, attrText, end) {
     if (isRoot) {
       isRoot = false;
       const withX = /\sx="[^"]*"/.test(attrText) ? attrText.replace(/\sx="[^"]*"/, ' x="0"') : attrText + ' x="0"';

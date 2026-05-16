@@ -67,6 +67,7 @@ var _imageCounter = 0
 var _svgNodeMap: { [nodeId: string]: ImageAsset } = {}
 var _svgB64Map: { [b64: string]: ImageAsset } = {}
 var _svgCounter = 0
+var _debugExport = false
 
 // --- messaging ---
 
@@ -130,8 +131,15 @@ async function sendSelection() {
 sendSelection()
 figma.on('selectionchange', sendSelection)
 
-figma.ui.onmessage = (msg: { type: string }) => {
+figma.ui.onmessage = async (msg: { type: string }) => {
   if (msg.type === 'close') figma.closePlugin()
+  if (msg.type === 'copy-debug') {
+    const sel = figma.currentPage.selection
+    if (sel.length === 1) logDebugTree(sel[0] as SceneNode)
+    _debugExport = true
+    await sendSelection()
+    _debugExport = false
+  }
 }
 
 // --- helpers ---
@@ -502,6 +510,40 @@ function attrs(obj: Record<string, AttrVal>): string {
     .join(' ')
 }
 
+function debugAttrs(node: SceneNode): Record<string, AttrVal> {
+  if (!_debugExport) return {}
+  const layout = node as LayoutMixin
+  return {
+    'debug-id': node.id,
+    'debug-type': node.type,
+    'debug-raw-x': typeof layout.x === 'number' ? Math.round(layout.x) : undefined,
+    'debug-raw-y': typeof layout.y === 'number' ? Math.round(layout.y) : undefined,
+  }
+}
+
+function logDebugTree(node: SceneNode): void {
+  function serialize(current: SceneNode): Record<string, unknown> {
+    const layout = current as LayoutMixin
+    return {
+      id: current.id,
+      type: current.type,
+      name: current.name,
+      x: typeof layout.x === 'number' ? layout.x : undefined,
+      y: typeof layout.y === 'number' ? layout.y : undefined,
+      width: typeof layout.width === 'number' ? layout.width : undefined,
+      height: typeof layout.height === 'number' ? layout.height : undefined,
+      layoutMode: 'layoutMode' in current ? current.layoutMode : undefined,
+      itemSpacing: 'itemSpacing' in current ? current.itemSpacing : undefined,
+      layoutPositioning: 'layoutPositioning' in current ? current.layoutPositioning : undefined,
+      children: 'children' in current
+        ? current.children.filter(child => child.visible !== false).map(child => serialize(child as SceneNode))
+        : undefined,
+    }
+  }
+
+  console.log('dotgui figma debug', serialize(node))
+}
+
 function makeDisplayCode(code: string): string {
   let out = ''
   let at = 0
@@ -625,6 +667,9 @@ async function svgAsset(node: SceneNode): Promise<ImageAsset | null> {
   if (_svgNodeMap[node.id]) return _svgNodeMap[node.id]
 
   try {
+    // The emitted <svg> already carries the node's own x/y/width/height in GUI.
+    // Keep the asset itself local to that node box so flattened groups still lay
+    // out like the original Figma child inside stacks.
     const bytes = await node.exportAsync({ format: 'SVG' })
     const b64 = bytesToBase64(bytes)
     if (_svgB64Map[b64]) {
@@ -661,6 +706,7 @@ async function svgToGui(node: SceneNode, depth: number): Promise<string> {
   Object.assign(baseAttrs, constraintAttrs(node))
   Object.assign(baseAttrs, sizingAttrs(node))
   Object.assign(baseAttrs, layoutPositionAttrs(node))
+  Object.assign(baseAttrs, debugAttrs(node))
   return `${ind(depth)}<svg ${attrs(baseAttrs)} />`
 }
 
@@ -751,6 +797,7 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
     Object.assign(a, layoutPositionAttrs(node))
     Object.assign(a, minMaxAttrs(node))
   }
+  Object.assign(a, debugAttrs(node))
 
   if (isStack) {
     if (isGrid) {
@@ -776,9 +823,7 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
   }
 
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
-  const childInner = isStack || isRoot
-    ? await children(node, depth + 1)
-    : await positionedChildren(node, depth + 1, node.x || 0, node.y || 0)
+  const childInner = await children(node, depth + 1)
   const inner = [appearance, childInner].filter(Boolean).join('\n')
   if (!inner) return `${ind(depth)}<${tag} ${attrs(a)} />`
   return `${ind(depth)}<${tag} ${attrs(a)}>\n${inner}\n${ind(depth)}</${tag}>`
@@ -800,6 +845,7 @@ async function groupToGui(node: GroupNode, depth: number): Promise<string> {
   Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, minMaxAttrs(node))
+  Object.assign(a, debugAttrs(node))
   const inner = await positionedChildren(node, depth + 1, node.x || 0, node.y || 0)
   if (!inner) return `${ind(depth)}<group ${attrs(a)} />`
   return `${ind(depth)}<group ${attrs(a)}>\n${inner}\n${ind(depth)}</group>`
@@ -964,6 +1010,7 @@ function textToGui(node: TextNode, depth: number): string {
   Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, minMaxAttrs(node))
   Object.assign(a, strokeAttrs(node))
+  Object.assign(a, debugAttrs(node))
 
   // Single-style flat text
   if (!mixed) {
@@ -1039,6 +1086,7 @@ function imgToGui(node: RectangleNode, fill: ImagePaint, depth: number): string 
   Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, minMaxAttrs(node))
+  Object.assign(a, debugAttrs(node))
   return `${ind(depth)}<img ${attrs(a)} />`
 }
 
@@ -1063,6 +1111,7 @@ function rectToGui(node: RectangleNode, depth: number): string {
   Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, minMaxAttrs(node))
+  Object.assign(a, debugAttrs(node))
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
   if (!appearance) return `${ind(depth)}<shape ${attrs(a)} />`
   return `${ind(depth)}<shape ${attrs(a)}>\n${appearance}\n${ind(depth)}</shape>`
@@ -1093,6 +1142,7 @@ function ellipseToGui(node: EllipseNode, depth: number): string {
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
+  Object.assign(a, debugAttrs(node))
   const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
   if (!appearance) return `${ind(depth)}<shape ${attrs(a)} />`
   return `${ind(depth)}<shape ${attrs(a)}>\n${appearance}\n${ind(depth)}</shape>`
@@ -1117,6 +1167,7 @@ function lineToGui(node: LineNode, depth: number): string {
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
+  Object.assign(a, debugAttrs(node))
   return `${ind(depth)}<shape ${attrs(a)} />`
 }
 
@@ -1144,13 +1195,14 @@ function pathToGui(node: VectorNode, depth: number): string {
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
+  Object.assign(a, debugAttrs(node))
   if (!d) return `${ind(depth)}<shape ${attrs(a)} />`
   return `${ind(depth)}<shape ${attrs(a)}>\n${ind(depth + 1)}<path d="${d}" />\n${ind(depth)}</shape>`
 }
 
 function shiftRootPosition(markup: string, offsetX: number, offsetY: number): string {
   let shifted = false
-  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*)(\/?>)/m, function(
+  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/m, function(
     _,
     start: string,
     attrText: string,
@@ -1158,7 +1210,9 @@ function shiftRootPosition(markup: string, offsetX: number, offsetY: number): st
   ) {
     if (shifted) return start + attrText + end
     shifted = true
-    return start + shiftAttr(shiftAttr(attrText, 'x', offsetX), 'y', offsetY) + end
+    const shiftedAttrs = shiftAttr(shiftAttr(attrText, 'x', offsetX), 'y', offsetY)
+    const debug = _debugExport ? ' debug-rebased="true"' : ''
+    return start + shiftedAttrs + debug + end
   })
 }
 
@@ -1175,7 +1229,7 @@ function shiftAttr(attrText: string, attr: 'x' | 'y', delta: number): string {
 
 function normalizeWrappedRootPosition(markup: string): string {
   let isRoot = true
-  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*)(\/?>)/gm, function(
+  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/gm, function(
     _,
     start: string,
     attrText: string,

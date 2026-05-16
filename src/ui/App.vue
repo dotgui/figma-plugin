@@ -8,7 +8,8 @@
       </div>
       <div class="actions">
         <template v-if="code">
-          <button class="action-btn" @click="copyFile">Save</button>
+          <button class="action-btn" @click="copyCode">Copy</button>
+          <button class="action-btn" @click="saveFile">Save</button>
         </template>
       </div>
     </header>
@@ -98,6 +99,7 @@ const tab = ref<'code' | 'preview'>('code')
 const toastVisible = ref(false)
 const loading = ref(false)
 const sizes = ref<Sizes | null>(null)
+const pendingDebugCopy = ref(false)
 const previewEl = ref<HTMLElement>()
 const codeEditorEl = ref<HTMLElement>()
 const zoomFactor = ref(1)
@@ -568,6 +570,11 @@ window.onmessage = async (event: MessageEvent) => {
   exportFile.value = await prepareExport(finalCode, webpMap)
   if (sizes.value) sizes.value = { ...sizes.value, gui: exportFile.value.bytes }
 
+  if (pendingDebugCopy.value) {
+    pendingDebugCopy.value = false
+    await writeCodeToClipboard()
+  }
+
   if (tab.value === 'preview') triggerRender()
   if (tab.value === 'code') nextTick(mountCodeEditor)
 }
@@ -658,7 +665,29 @@ function showToast(msg: string) {
   toastTimer = setTimeout(() => { toastVisible.value = false }, 1800)
 }
 
-function copyFile() {
+async function copyCode() {
+  pendingDebugCopy.value = true
+  parent.postMessage({ pluginMessage: { type: 'copy-debug' } }, '*')
+}
+
+async function writeCodeToClipboard() {
+  if (!code.value) return
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(code.value)
+  } else {
+    const textarea = document.createElement('textarea')
+    textarea.value = code.value
+    textarea.style.position = 'fixed'
+    textarea.style.opacity = '0'
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+  }
+  showToast('Copied .gui')
+}
+
+function saveFile() {
   if (!exportFile.value) return
   const url = URL.createObjectURL(exportFile.value.blob)
   const a = document.createElement('a')
