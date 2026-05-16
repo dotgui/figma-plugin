@@ -74,6 +74,10 @@ var _svgNodeMap = {};
 var _svgB64Map = {};
 var _svgCounter = 0;
 var _debugExport = false;
+var _tokenRegistry = new Map;
+var _usedTokenIds = new Set;
+var _styleRegistry = new Map;
+var _usedStyleIds = new Set;
 async function sendSelection() {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) {
@@ -93,11 +97,12 @@ async function sendSelection() {
   const expNode = node;
   const results = await Promise.all([
     collectAndFetchImages(node),
+    resolveAllVariables(node),
     expNode.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 1 } }),
     expNode.exportAsync({ format: "SVG" })
   ]);
-  const pngBytes = results[1];
-  const svgBytes = results[2];
+  const pngBytes = results[2];
+  const svgBytes = results[3];
   const guiCode = await generateGui(node);
   const assetMap = {};
   const hks = Object.keys(_imageMap);
@@ -148,6 +153,12 @@ function solidFill(fills) {
   const f = fills.find((p) => p.type === "SOLID" && p.visible !== false);
   if (!f)
     return null;
+  const bv = f.boundVariables;
+  if (bv && bv.color && bv.color.id) {
+    const ref = tokenRef(bv.color.id);
+    if (ref)
+      return ref;
+  }
   return rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1);
 }
 function visiblePaints(fills) {
@@ -158,6 +169,12 @@ function visiblePaints(fills) {
 function paintValue(p, nodeW, nodeH) {
   if (p.type === "SOLID") {
     const s = p;
+    const bv = s.boundVariables;
+    if (bv && bv.color && bv.color.id) {
+      const ref = tokenRef(bv.color.id);
+      if (ref)
+        return ref;
+    }
     return rgbToHex(s.color.r, s.color.g, s.color.b, s.opacity !== undefined ? s.opacity : 1);
   }
   if (p.type === "GRADIENT_LINEAR" || p.type === "GRADIENT_RADIAL" || p.type === "GRADIENT_ANGULAR") {
@@ -182,7 +199,7 @@ function paintValue(p, nodeW, nodeH) {
     if (p.type === "GRADIENT_LINEAR") {
       const dx = t[0][0] * nodeW;
       const dy = t[1][0] * nodeH;
-      const angle = Math.round(Math.atan2(dx, -dy) * 180 / Math.PI);
+      const angle = (Math.round(Math.atan2(dx, -dy) * 180 / Math.PI) + 180) % 360;
       return "linear-gradient(" + angle + "deg, " + stops + ")";
     }
     if (p.type === "GRADIENT_ANGULAR") {
@@ -300,6 +317,13 @@ function appearanceEffectLines(effects, depth) {
         type: effectType(e),
         radius: e.radius
       })} />`);
+    } else if (e.type === "GLASS") {
+      const ge = e;
+      out.push(`${ind(depth + 1)}<effect ${attrs({
+        type: "glass",
+        radius: ge.radius !== undefined ? ge.radius : 20,
+        saturation: ge.saturation !== undefined ? Math.round(ge.saturation * 100) : 180
+      })} />`);
     }
   }
   return out;
@@ -319,8 +343,10 @@ function strokeAttrs(node) {
   const f = node.strokes.find((p) => p.type === "SOLID" && p.visible !== false);
   if (!f)
     return {};
+  const bv = f.boundVariables;
+  const stroke = bv && bv.color && bv.color.id && tokenRef(bv.color.id) || rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1);
   return {
-    stroke: rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1),
+    stroke,
     "stroke-width": typeof node.strokeWeight === "number" ? node.strokeWeight : null,
     "stroke-position": node.strokeAlign ? node.strokeAlign.toLowerCase() : null
   };
@@ -399,7 +425,15 @@ function cornerRadius(node) {
     const n = node;
     return `${n.topLeftRadius} ${n.topRightRadius} ${n.bottomRightRadius} ${n.bottomLeftRadius}`;
   }
-  return node.cornerRadius > 0 ? String(node.cornerRadius) : null;
+  if (node.cornerRadius <= 0)
+    return null;
+  const bv = node.boundVariables;
+  if (bv && bv.cornerRadius && bv.cornerRadius.id) {
+    const ref = tokenRef(bv.cornerRadius.id);
+    if (ref)
+      return ref;
+  }
+  return String(node.cornerRadius);
 }
 function padding(node) {
   const { paddingTop: t, paddingRight: r, paddingBottom: b, paddingLeft: l } = node;
@@ -563,10 +597,8 @@ function getImageFillFromNode(node) {
     return null;
   return getImageFill(node.fills);
 }
-function hasHardEffects(node) {
-  if (!("effects" in node) || !Array.isArray(node.effects))
-    return false;
-  return visibleEffects(node.effects).some((e) => e.type === "NOISE" || e.type === "TEXTURE" || e.type === "GLASS" || (e.type === "LAYER_BLUR" || e.type === "BACKGROUND_BLUR") && e.blurType === "PROGRESSIVE");
+function hasHardEffects(_node) {
+  return false;
 }
 function isSvgClusterContainer(node) {
   if (!("children" in node))
@@ -679,8 +711,41 @@ async function children(node, depth) {
   return parts.filter(Boolean).join(`
 `);
 }
-async function positionedChildren(node, depth, offsetX, offsetY) {
+function maskNodeToAsset(node) {
+  const w = Math.round(node.width);
+  const h = Math.round(node.height);
+  let pathsMarkup = "";
+  if ("vectorPaths" in node) {
+    const vp = node.vectorPaths || [];
+    if (vp.length > 0) {
+      pathsMarkup = vp.map((p) => `<path d="${p.data}" fill="white" fill-rule="${p.windingRule === "EVENODD" ? "evenodd" : "nonzero"}"/>`).join("");
+    }
+  } else if (node.type === "RECTANGLE") {
+    const r = "cornerRadius" in node ? node.cornerRadius : 0;
+    const cr = typeof r === "number" ? r : 0;
+    pathsMarkup = `<rect width="${w}" height="${h}" rx="${cr}" ry="${cr}" fill="white"/>`;
+  } else if (node.type === "ELLIPSE") {
+    const rx = w / 2, ry = h / 2;
+    pathsMarkup = `<ellipse cx="${rx}" cy="${ry}" rx="${rx}" ry="${ry}" fill="white"/>`;
+  }
+  if (!pathsMarkup)
+    return null;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${pathsMarkup}</svg>`;
+  const b64 = btoa(svg);
+  if (_svgB64Map[b64]) {
+    _svgNodeMap[node.id] = _svgB64Map[b64];
+    return _svgB64Map[b64];
+  }
+  _svgCounter++;
+  const asset = { id: "svg-" + _svgCounter, format: "svg", b64 };
+  _svgB64Map[b64] = asset;
+  _svgNodeMap[node.id] = asset;
+  return asset;
+}
+async function positionedChildren(node, depth, offsetX, offsetY, exclude) {
   const parts = await Promise.all(node.children.map(async (c) => {
+    if (c === exclude)
+      return "";
     const markup = await nodeToGui(c, depth);
     return markup ? shiftRootPosition(markup, offsetX, offsetY) : "";
   }));
@@ -729,7 +794,10 @@ async function frameToGui(node, depth) {
       a["grid-row-gap"] = gn.gridRowGap > 0 ? gn.gridRowGap : undefined;
     } else {
       a.direction = lm === "HORIZONTAL" ? "horizontal" : "vertical";
-      a.gap = node.itemSpacing !== 0 ? node.itemSpacing : undefined;
+      if (node.itemSpacing !== 0) {
+        const gapBv = node.boundVariables;
+        a.gap = gapBv && gapBv.itemSpacing && gapBv.itemSpacing.id && tokenRef(gapBv.itemSpacing.id) || node.itemSpacing;
+      }
       a["reverse-z"] = node.itemReverseZIndex || undefined;
     }
     a.padding = padding(node);
@@ -754,6 +822,9 @@ ${inner}
 ${ind(depth)}</${tag}>`;
 }
 async function groupToGui(node, depth) {
+  const visChildren = node.children.filter((c) => c.visible !== false);
+  const firstChild = visChildren[0];
+  const maskChild = firstChild && "isMask" in firstChild && firstChild.isMask ? firstChild : null;
   const a = {
     name: node.name,
     x: Math.round(node.x),
@@ -765,12 +836,22 @@ async function groupToGui(node, depth) {
     mask: maskAttr(node),
     rotation: rotationAttr(node)
   };
+  if (maskChild) {
+    const maskAsset = maskNodeToAsset(maskChild);
+    if (maskAsset) {
+      a["mask-src"] = "$" + maskAsset.id;
+      a["mask-x"] = Math.round(maskChild.x - node.x);
+      a["mask-y"] = Math.round(maskChild.y - node.y);
+      a["mask-width"] = Math.round(maskChild.width);
+      a["mask-height"] = Math.round(maskChild.height);
+    }
+  }
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
   Object.assign(a, layoutPositionAttrs(node));
   Object.assign(a, minMaxAttrs(node));
   Object.assign(a, debugAttrs(node));
-  const inner = await positionedChildren(node, depth + 1, node.x || 0, node.y || 0);
+  const inner = await positionedChildren(node, depth + 1, node.x || 0, node.y || 0, maskChild || undefined);
   if (!inner)
     return `${ind(depth)}<group ${attrs(a)} />`;
   return `${ind(depth)}<group ${attrs(a)}>
@@ -835,6 +916,194 @@ function collectFontUsage(node, usage) {
     for (let i = 0;i < ch.length; i++)
       collectFontUsage(ch[i], usage);
   }
+}
+function sanitizeTokenName(raw) {
+  return raw.toLowerCase().replace(/\//g, "-").replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "").replace(/-+/g, "-").replace(/^-|-$/g, "") || "token";
+}
+function tokenRef(id) {
+  const token = _tokenRegistry.get(id);
+  if (!token)
+    return null;
+  _usedTokenIds.add(id);
+  return "$" + token.name;
+}
+function collectVarIdsFromPaints(paints, ids) {
+  if (paints === figma.mixed || !Array.isArray(paints))
+    return;
+  for (let i = 0;i < paints.length; i++) {
+    const p = paints[i];
+    if (p.type === "SOLID") {
+      const bv = p.boundVariables;
+      if (bv && bv.color && bv.color.id)
+        ids.add(bv.color.id);
+    }
+  }
+}
+function collectVarIdsFromNode(node, ids) {
+  if ("fills" in node)
+    collectVarIdsFromPaints(node.fills, ids);
+  if ("strokes" in node)
+    collectVarIdsFromPaints(node.strokes, ids);
+  const bv = node.boundVariables;
+  if (bv) {
+    const keys = ["cornerRadius", "strokeWeight", "itemSpacing", "fontSize", "lineHeight", "letterSpacing"];
+    for (let i = 0;i < keys.length; i++) {
+      if (bv[keys[i]] && bv[keys[i]].id)
+        ids.add(bv[keys[i]].id);
+    }
+  }
+  if ("children" in node) {
+    const ch = node.children;
+    for (let i = 0;i < ch.length; i++)
+      collectVarIdsFromNode(ch[i], ids);
+  }
+}
+async function resolveAllVariables(root) {
+  _tokenRegistry = new Map;
+  _usedTokenIds = new Set;
+  _styleRegistry = new Map;
+  _usedStyleIds = new Set;
+  const vars = figma.variables;
+  if (!vars)
+    return;
+  const ids = new Set;
+  collectVarIdsFromNode(root, ids);
+  if (!ids.size)
+    return;
+  const nameCount = {};
+  const idArr = Array.from(ids);
+  for (let i = 0;i < idArr.length; i++) {
+    const id = idArr[i];
+    try {
+      const variable = await vars.getVariableByIdAsync(id);
+      if (!variable || variable.resolvedType === "BOOLEAN")
+        continue;
+      const collection = await vars.getVariableCollectionByIdAsync(variable.variableCollectionId);
+      const modeId = collection && collection.defaultModeId || Object.keys(variable.valuesByMode)[0];
+      if (!modeId)
+        continue;
+      let rawValue = variable.valuesByMode[modeId];
+      let resolvedType = variable.resolvedType;
+      if (rawValue && typeof rawValue === "object" && rawValue.type === "VARIABLE_ALIAS") {
+        const aliasVar = await vars.getVariableByIdAsync(rawValue.id);
+        if (!aliasVar)
+          continue;
+        const aliasCol = await vars.getVariableCollectionByIdAsync(aliasVar.variableCollectionId);
+        const aliasModeId = aliasCol && aliasCol.defaultModeId || Object.keys(aliasVar.valuesByMode)[0];
+        if (!aliasModeId)
+          continue;
+        rawValue = aliasVar.valuesByMode[aliasModeId];
+        resolvedType = aliasVar.resolvedType;
+      }
+      let value;
+      let type;
+      if (resolvedType === "COLOR") {
+        const c = rawValue;
+        value = rgbToHex(c.r, c.g, c.b, c.a !== undefined ? c.a : 1);
+        type = "color";
+      } else if (resolvedType === "FLOAT") {
+        value = String(Math.round(rawValue * 100) / 100);
+        type = "number";
+      } else if (resolvedType === "STRING") {
+        value = String(rawValue);
+        type = "string";
+      } else {
+        continue;
+      }
+      const baseName = sanitizeTokenName(variable.name);
+      let finalName = baseName;
+      if (nameCount[baseName] !== undefined) {
+        nameCount[baseName]++;
+        finalName = baseName + "-" + nameCount[baseName];
+      } else {
+        nameCount[baseName] = 0;
+      }
+      _tokenRegistry.set(id, { name: finalName, value, type });
+    } catch (_e) {}
+  }
+}
+function tokensBlock() {
+  if (!_usedTokenIds.size)
+    return "";
+  const colorLines = [];
+  const numberLines = [];
+  const stringLines = [];
+  Array.from(_usedTokenIds).map((id) => _tokenRegistry.get(id)).filter(function(t) {
+    return !!t;
+  }).sort(function(a, b) {
+    return a.name.localeCompare(b.name);
+  }).forEach(function(token) {
+    const line = `${ind(1)}<${token.type} name="${token.name}" value="${xmlEscape(token.value)}" />`;
+    if (token.type === "color")
+      colorLines.push(line);
+    else if (token.type === "number")
+      numberLines.push(line);
+    else
+      stringLines.push(line);
+  });
+  const lines = colorLines.concat(numberLines).concat(stringLines);
+  if (!lines.length)
+    return "";
+  return `<tokens>
+${lines.join(`
+`)}
+</tokens>
+`;
+}
+function resolveTextStyle(id) {
+  if (_styleRegistry.has(id)) {
+    _usedStyleIds.add(id);
+    return _styleRegistry.get(id).name;
+  }
+  try {
+    const style = figma.getStyleById(id);
+    if (!style || style.type !== "TEXT")
+      return null;
+    const fn = style.fontName;
+    const lh = style.lineHeight;
+    const ls = style.letterSpacing;
+    const styleAttrs = {
+      name: style.name,
+      "font-family": fn.family,
+      "font-size": style.fontSize,
+      "font-weight": fontWeight(fn.style),
+      "font-style": fontStyle(fn.style) === "italic" ? "italic" : undefined,
+      "line-height": lineHeightVal(lh),
+      "letter-spacing": letterSpacingVal(ls),
+      decoration: style.textDecoration !== "NONE" ? style.textDecoration.toLowerCase() : undefined,
+      "text-case": style.textCase !== "ORIGINAL" ? TEXT_CASE[style.textCase] : undefined
+    };
+    _styleRegistry.set(id, { name: style.name, styleAttrs });
+    _usedStyleIds.add(id);
+    return style.name;
+  } catch (_e) {
+    return null;
+  }
+}
+function stylesBlock() {
+  if (!_usedStyleIds.size)
+    return "";
+  const lines = [];
+  const sorted = Array.from(_usedStyleIds).sort(function(a, b) {
+    const na = _styleRegistry.get(a);
+    const nb = _styleRegistry.get(b);
+    if (!na || !nb)
+      return 0;
+    return na.name.localeCompare(nb.name);
+  });
+  for (let i = 0;i < sorted.length; i++) {
+    const entry = _styleRegistry.get(sorted[i]);
+    if (!entry)
+      continue;
+    lines.push(ind(1) + "<text-style " + attrs(entry.styleAttrs) + " />");
+  }
+  if (!lines.length)
+    return "";
+  return `<styles>
+` + lines.join(`
+`) + `
+</styles>
+`;
 }
 function fontsBlock(node) {
   const usage = {};
@@ -927,20 +1196,27 @@ function textToGui(node, depth) {
     const fontName = node.fontName;
     const lh = node.lineHeight;
     const ls = node.letterSpacing;
+    const textBv = node.boundVariables;
     a.value = node.characters;
-    a["font-family"] = fontName.family;
-    a["font-size"] = node.fontSize;
-    a["font-weight"] = fontWeight(fontName.style);
-    a["font-style"] = fontStyle(fontName.style) === "italic" ? "italic" : undefined;
-    a["line-height"] = lineHeightVal(lh);
-    a["letter-spacing"] = letterSpacingVal(ls);
     a.color = solidFill(node.fills);
-    a.decoration = node.textDecoration !== "NONE" ? node.textDecoration.toLowerCase() : undefined;
-    a["text-case"] = node.textCase !== "ORIGINAL" ? TEXT_CASE[node.textCase] : undefined;
     if (node.hyperlink !== figma.mixed && node.hyperlink !== null) {
       const hl = node.hyperlink;
       if (hl.type === "URL")
         a.href = hl.value;
+    }
+    const styleId = typeof node.textStyleId === "string" ? node.textStyleId : null;
+    const styleName = styleId ? resolveTextStyle(styleId) : null;
+    if (styleName) {
+      a["text-style"] = styleName;
+    } else {
+      a["font-family"] = fontName.family;
+      a["font-size"] = textBv && textBv.fontSize && textBv.fontSize.id && tokenRef(textBv.fontSize.id) || node.fontSize;
+      a["font-weight"] = fontWeight(fontName.style);
+      a["font-style"] = fontStyle(fontName.style) === "italic" ? "italic" : undefined;
+      a["line-height"] = lineHeightVal(lh);
+      a["letter-spacing"] = letterSpacingVal(ls);
+      a.decoration = node.textDecoration !== "NONE" ? node.textDecoration.toLowerCase() : undefined;
+      a["text-case"] = node.textCase !== "ORIGINAL" ? TEXT_CASE[node.textCase] : undefined;
     }
     const appearance2 = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
     if (!appearance2)
@@ -1154,6 +1430,6 @@ ${lines.join(`
 ${ind(0)}</assets>
 ` : "";
   return `<gui version="1.0" name="${xmlEscape(node.name)}" viewport="${viewport}">
-${fontsBlock(node)}${assetsBlock}${inner}
+${tokensBlock()}${stylesBlock()}${fontsBlock(node)}${assetsBlock}${inner}
 </gui>`;
 }

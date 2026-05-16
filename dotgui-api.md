@@ -101,7 +101,40 @@ Reference tokens anywhere with `$name`:
 <shape type="rect" fill="$primary" radius="$radius-card" />
 ```
 
-> Text styles deferred to v2. Use inline props on `<text>` for now.
+---
+
+## Styles
+
+Named text styles from the design system. Each `<text-style>` captures the full typography definition — font, size, weight, line-height, etc. Text nodes reference a style by name instead of repeating individual attrs.
+
+```xml
+<styles>
+  <text-style name="Heading/H1" font-family="Inter" font-size="32" font-weight="700" line-height="40" />
+  <text-style name="Body/Regular" font-family="Inter" font-size="16" font-weight="400" line-height="24" />
+  <text-style name="Label/Small" font-family="Inter" font-size="11" font-weight="500" line-height="16" letter-spacing="0.5" text-case="uppercase" />
+</styles>
+```
+
+| Attr | Notes |
+|---|---|
+| `name` | Figma style name, e.g. `Heading/H1` |
+| `font-family` | Font family |
+| `font-size` | px |
+| `font-weight` | `100`–`900` |
+| `font-style` | `italic` — omitted when normal |
+| `line-height` | px or `%` — omitted when auto |
+| `letter-spacing` | px or `%` — omitted when 0 |
+| `decoration` | `underline`, `strikethrough` — omitted when none |
+| `text-case` | `uppercase`, `lowercase`, `capitalize`, `small-caps` — omitted when none |
+
+Text nodes reference a style with `text-style="name"`. When a style is applied, individual typography attrs (`font-family`, `font-size`, etc.) are omitted from the tag. Color and layout attrs are always inlined since they are not part of the text style.
+
+```xml
+<text text-style="Heading/H1" value="Welcome" x="24" y="80" color="#1C1C1E" />
+<text text-style="Body/Regular" value="Sign in to continue" x="24" y="128" color="#6E6E73" />
+```
+
+Only styles that are actually used in the exported tree are emitted in `<styles>`.
 
 ---
 
@@ -523,6 +556,8 @@ When `arc-start` or `arc-end` is omitted, full-circle defaults apply (0° and 36
 |---|---|---|
 | `<gui>` | — | Root element |
 | `<tokens>` | Styles / Variables | `<color>` `<number>` `<string>` children |
+| `<styles>` | Text styles | `<text-style>` children |
+| `<text-style>` | Named text style | Child of `<styles>` |
 | `<fonts>` | Text fonts | `<font>` children |
 | `<font>` | Font declaration | Child of `<fonts>` |
 | `<assets>` | — | `<image>` children; webp preferred |
@@ -583,7 +618,7 @@ The Figma plugin accepts any visible layer as input — not just frames. When a 
 - `<scroll>` — scrollable containers
 - `<overlay>` `<sheet>` — modal and bottom sheet layers
 - Semantic roles — `role="button|input|nav"`
-- Text style tokens — named typography styles
+- ~~Text style tokens — named typography styles~~ *(shipped in v1)*
 - W3C composite token types — `shadow`, `typography`, `border`
 - `platform` / `theme` on root
 - Interactions and prototyping

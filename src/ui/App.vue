@@ -74,6 +74,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onBeforeUnmount } from 'vue'
 import { render } from 'dotgui-render'
+import { optimize } from 'gui-optimizer'
 import { EditorState } from '@codemirror/state'
 import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
@@ -334,6 +335,23 @@ function addPreview(guiCode: string, src: string): string {
   return guiCode.replace(/(<gui\b[^>]*>\n?)/, `$1${previewTag(src)}\n`)
 }
 
+const PACKAGE_INSTRUCTIONS = `1. Use preview image for visual truth.
+2. Use .gui data for structure, tokens, spacing, assets, components.
+3. Ignore noisy raw layers unless needed.
+4. Prefer semantic layout over absolute positioning.
+5. Validate output against preview.
+6. If conflict happens: preview wins visually, .gui wins structurally.`
+
+function instructionsTag(): string {
+  return `<instructions>\n${PACKAGE_INSTRUCTIONS}\n</instructions>`
+}
+
+function addInstructions(guiCode: string): string {
+  const existing = /<instructions\b[^>]*>[\s\S]*?<\/instructions>\n?/.exec(guiCode)
+  if (existing) return guiCode.replace(existing[0], `${instructionsTag()}\n`)
+  return guiCode.replace(/(<gui\b[^>]*>\n?)/, `$1${instructionsTag()}\n`)
+}
+
 function parsePreview(guiCode: string): GuiPreview | null {
   const doc = new DOMParser().parseFromString(guiCode, 'text/xml')
   if (doc.querySelector('parsererror')) return null
@@ -348,8 +366,8 @@ function parsePreview(guiCode: string): GuiPreview | null {
   return { format, src: dataUrl, bytes: dataUrlBytes(dataUrl) }
 }
 
-function packagedIndex(guiCode: string, assets: GuiAsset[], preview: GuiPreview | null): string {
-  let out = guiCode
+function packagedIndex(guiCode: string, assets: GuiAsset[], preview: GuiPreview): string {
+  let out = addInstructions(guiCode)
   for (const asset of assets) {
     const b64 = asset.src.split(',')[1]
     if (!b64) continue
@@ -362,12 +380,10 @@ function packagedIndex(guiCode: string, assets: GuiAsset[], preview: GuiPreview 
       `$1${asset.format}$2`
     )
   }
-  if (preview) {
-    const b64 = preview.src.split(',')[1]
-    if (b64) {
-      out = out.replace(`src="base64:${b64}"`, 'src="preview.webp"')
-      out = out.replace(/(<preview\b[^>]*\bformat=")[^"]+("[^>]*>)/, '$1webp$2')
-    }
+  const b64 = preview.src.split(',')[1]
+  if (b64) {
+    out = out.replace(`src="base64:${b64}"`, 'src="preview.webp"')
+    out = out.replace(/(<preview\b[^>]*\bformat=")[^"]+("[^>]*>)/, '$1webp$2')
   }
   return out
 }
@@ -443,20 +459,21 @@ function zipStore(entries: { name: string; bytes: Uint8Array }[]): Uint8Array {
   return concatBytes([...localParts, central, end])
 }
 
-function makePackage(guiCode: string, assets: GuiAsset[], preview: GuiPreview | null): Blob {
+function makePackage(guiCode: string, assets: GuiAsset[], preview: GuiPreview): Blob {
   const index = packagedIndex(guiCode, assets, preview)
   const encoder = new TextEncoder()
   const entries = [
     { name: 'index.gui', bytes: encoder.encode(index) },
     ...assets.map(asset => ({ name: `assets/${asset.id}.${asset.format}`, bytes: asset.bytes })),
+    { name: 'preview.webp', bytes: preview.bytes },
   ]
-  if (preview) entries.push({ name: 'preview.webp', bytes: preview.bytes })
   return new Blob([zipStore(entries)], { type: 'application/zip' })
 }
 
 async function prepareExport(guiCode: string, assets: Record<string, string>): Promise<ExportFile> {
   const guiAssets = parseGuiAssets(guiCode, assets)
   const preview = parsePreview(guiCode)
+  if (!preview) throw new Error('Cannot package .gui export without preview.webp')
   const blob = makePackage(guiCode, guiAssets, preview)
   return { blob, bytes: blob.size }
 }
@@ -553,7 +570,8 @@ window.onmessage = async (event: MessageEvent) => {
   sizes.value = msg.sizes ?? null
 
   const rawAssetMap: Record<string, string> = msg.assetMap || {}
-  const { code: patched, assetMap: webpMap } = await applyWebP(msg.code, rawAssetMap)
+  const { output: optimizedCode } = optimize(msg.code)
+  const { code: patched, assetMap: webpMap } = await applyWebP(optimizedCode, rawAssetMap)
   let finalCode = patched
   if (msg.preview) {
     try {

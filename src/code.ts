@@ -68,6 +68,10 @@ var _svgNodeMap: { [nodeId: string]: ImageAsset } = {}
 var _svgB64Map: { [b64: string]: ImageAsset } = {}
 var _svgCounter = 0
 var _debugExport = false
+var _tokenRegistry: Map<string, { name: string; value: string; type: 'color' | 'number' | 'string' }> = new Map()
+var _usedTokenIds: Set<string> = new Set()
+var _styleRegistry: Map<string, { name: string; styleAttrs: Record<string, AttrVal> }> = new Map()
+var _usedStyleIds: Set<string> = new Set()
 
 // --- messaging ---
 
@@ -94,12 +98,13 @@ async function sendSelection() {
   const expNode = node as FrameNode
   const results = await Promise.all([
     collectAndFetchImages(node as SceneNode),
+    resolveAllVariables(node as SceneNode),
     expNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } }),
     expNode.exportAsync({ format: 'SVG' }),
   ])
 
-  const pngBytes = results[1] as Uint8Array
-  const svgBytes = results[2] as Uint8Array
+  const pngBytes = results[2] as Uint8Array
+  const svgBytes = results[3] as Uint8Array
   const guiCode = await generateGui(node as SceneNode)
 
   const assetMap: Record<string, string> = {}
@@ -153,6 +158,11 @@ function solidFill(fills: readonly Paint[] | typeof figma.mixed): string | null 
   if (fills === figma.mixed || !Array.isArray(fills)) return null
   const f = (fills as Paint[]).find(p => p.type === 'SOLID' && p.visible !== false) as SolidPaint | undefined
   if (!f) return null
+  const bv = (f as any).boundVariables
+  if (bv && bv.color && bv.color.id) {
+    const ref = tokenRef(bv.color.id)
+    if (ref) return ref
+  }
   return rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1)
 }
 
@@ -164,6 +174,11 @@ function visiblePaints(fills: readonly Paint[] | typeof figma.mixed): Paint[] {
 function paintValue(p: Paint, nodeW: number, nodeH: number): string | null {
   if (p.type === 'SOLID') {
     const s = p as SolidPaint
+    const bv = (s as any).boundVariables
+    if (bv && bv.color && bv.color.id) {
+      const ref = tokenRef(bv.color.id)
+      if (ref) return ref
+    }
     return rgbToHex(s.color.r, s.color.g, s.color.b, s.opacity !== undefined ? s.opacity : 1)
   }
   if (p.type === 'GRADIENT_LINEAR' || p.type === 'GRADIENT_RADIAL' || p.type === 'GRADIENT_ANGULAR') {
@@ -191,7 +206,7 @@ function paintValue(p: Paint, nodeW: number, nodeH: number): string | null {
       // Convert normalised direction (a,d) to pixel space so aspect ratio is correct
       const dx = t[0][0] * nodeW
       const dy = t[1][0] * nodeH
-      const angle = Math.round(Math.atan2(dx, -dy) * 180 / Math.PI)
+      const angle = (Math.round(Math.atan2(dx, -dy) * 180 / Math.PI) + 180) % 360
       return 'linear-gradient(' + angle + 'deg, ' + stops + ')'
     }
     if (p.type === 'GRADIENT_ANGULAR') {
@@ -312,6 +327,13 @@ function appearanceEffectLines(effects: readonly Effect[] | typeof figma.mixed, 
         type: effectType(e),
         radius: e.radius,
       })} />`)
+    } else if (e.type === 'GLASS') {
+      const ge = e as unknown as { radius?: number; saturation?: number }
+      out.push(`${ind(depth + 1)}<effect ${attrs({
+        type: 'glass',
+        radius: ge.radius !== undefined ? ge.radius : 20,
+        saturation: ge.saturation !== undefined ? Math.round(ge.saturation * 100) : 180,
+      })} />`)
     }
   }
 
@@ -335,8 +357,11 @@ function strokeAttrs(node: GeometryMixin): Record<string, string | number | null
   if (!Array.isArray(node.strokes) || node.strokes.length === 0) return {}
   const f = (node.strokes as Paint[]).find(p => p.type === 'SOLID' && p.visible !== false) as SolidPaint | undefined
   if (!f) return {}
+  const bv = (f as any).boundVariables
+  const stroke = (bv && bv.color && bv.color.id && tokenRef(bv.color.id))
+    || rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1)
   return {
-    stroke: rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1),
+    stroke,
     'stroke-width': typeof node.strokeWeight === 'number' ? node.strokeWeight : null,
     'stroke-position': node.strokeAlign ? node.strokeAlign.toLowerCase() : null,
   }
@@ -413,7 +438,13 @@ function cornerRadius(node: RectangleNode | FrameNode): string | null {
     const n = node as RectangleNode
     return `${n.topLeftRadius} ${n.topRightRadius} ${n.bottomRightRadius} ${n.bottomLeftRadius}`
   }
-  return node.cornerRadius > 0 ? String(node.cornerRadius) : null
+  if (node.cornerRadius <= 0) return null
+  const bv = (node as any).boundVariables
+  if (bv && bv.cornerRadius && bv.cornerRadius.id) {
+    const ref = tokenRef(bv.cornerRadius.id)
+    if (ref) return ref
+  }
+  return String(node.cornerRadius)
 }
 
 function padding(node: FrameNode): string | null {
@@ -614,14 +645,8 @@ function hasVisibleEffects(node: SceneNode): boolean {
   return visibleEffects((node as BlendMixin).effects).length > 0
 }
 
-function hasHardEffects(node: SceneNode): boolean {
-  if (!('effects' in node) || !Array.isArray((node as BlendMixin).effects)) return false
-  return visibleEffects((node as BlendMixin).effects).some(e =>
-    e.type === 'NOISE'
-    || e.type === 'TEXTURE'
-    || e.type === 'GLASS'
-    || ((e.type === 'LAYER_BLUR' || e.type === 'BACKGROUND_BLUR') && e.blurType === 'PROGRESSIVE')
-  )
+function hasHardEffects(_node: SceneNode): boolean {
+  return false
 }
 
 function hasNonCenterStroke(node: SceneNode): boolean {
@@ -752,13 +777,51 @@ async function children(node: ChildrenMixin, depth: number): Promise<string> {
   return parts.filter(Boolean).join('\n')
 }
 
+function maskNodeToAsset(node: SceneNode): ImageAsset | null {
+  const w = Math.round((node as LayoutMixin).width)
+  const h = Math.round((node as LayoutMixin).height)
+  let pathsMarkup = ''
+
+  if ('vectorPaths' in node) {
+    const vp = (node as unknown as { vectorPaths?: ReadonlyArray<{ data: string; windingRule: string }> }).vectorPaths || []
+    if (vp.length > 0) {
+      pathsMarkup = vp.map(p =>
+        `<path d="${p.data}" fill="white" fill-rule="${p.windingRule === 'EVENODD' ? 'evenodd' : 'nonzero'}"/>`
+      ).join('')
+    }
+  } else if (node.type === 'RECTANGLE') {
+    const r = 'cornerRadius' in node ? (node as RectangleNode).cornerRadius : 0
+    const cr = typeof r === 'number' ? r : 0
+    pathsMarkup = `<rect width="${w}" height="${h}" rx="${cr}" ry="${cr}" fill="white"/>`
+  } else if (node.type === 'ELLIPSE') {
+    const rx = w / 2, ry = h / 2
+    pathsMarkup = `<ellipse cx="${rx}" cy="${ry}" rx="${rx}" ry="${ry}" fill="white"/>`
+  }
+
+  if (!pathsMarkup) return null
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">${pathsMarkup}</svg>`
+  const b64 = btoa(svg)
+  if (_svgB64Map[b64]) {
+    _svgNodeMap[node.id] = _svgB64Map[b64]
+    return _svgB64Map[b64]
+  }
+  _svgCounter++
+  const asset: ImageAsset = { id: 'svg-' + _svgCounter, format: 'svg', b64 }
+  _svgB64Map[b64] = asset
+  _svgNodeMap[node.id] = asset
+  return asset
+}
+
 async function positionedChildren(
   node: ChildrenMixin,
   depth: number,
   offsetX: number,
   offsetY: number,
+  exclude?: SceneNode,
 ): Promise<string> {
   const parts = await Promise.all(node.children.map(async c => {
+    if (c === exclude) return ''
     const markup = await nodeToGui(c, depth)
     return markup ? shiftRootPosition(markup, offsetX, offsetY) : ''
   }))
@@ -809,7 +872,10 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
       a['grid-row-gap'] = gn.gridRowGap > 0 ? gn.gridRowGap : undefined
     } else {
       a.direction = lm === 'HORIZONTAL' ? 'horizontal' : 'vertical'
-      a.gap = node.itemSpacing !== 0 ? node.itemSpacing : undefined
+      if (node.itemSpacing !== 0) {
+        const gapBv = (node as any).boundVariables
+        a.gap = (gapBv && gapBv.itemSpacing && gapBv.itemSpacing.id && tokenRef(gapBv.itemSpacing.id)) || node.itemSpacing
+      }
       a['reverse-z'] = node.itemReverseZIndex || undefined
     }
     a.padding = padding(node)
@@ -830,6 +896,11 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
 }
 
 async function groupToGui(node: GroupNode, depth: number): Promise<string> {
+  const visChildren = node.children.filter(c => c.visible !== false)
+  const firstChild = visChildren[0]
+  const maskChild = firstChild && 'isMask' in firstChild && (firstChild as BlendMixin).isMask
+    ? firstChild as SceneNode : null
+
   const a: Record<string, AttrVal> = {
     name: node.name,
     x: Math.round(node.x),
@@ -841,12 +912,24 @@ async function groupToGui(node: GroupNode, depth: number): Promise<string> {
     mask: maskAttr(node),
     rotation: rotationAttr(node),
   }
+
+  if (maskChild) {
+    const maskAsset = maskNodeToAsset(maskChild)
+    if (maskAsset) {
+      a['mask-src'] = '$' + maskAsset.id
+      a['mask-x'] = Math.round((maskChild as LayoutMixin).x - node.x)
+      a['mask-y'] = Math.round((maskChild as LayoutMixin).y - node.y)
+      a['mask-width'] = Math.round((maskChild as LayoutMixin).width)
+      a['mask-height'] = Math.round((maskChild as LayoutMixin).height)
+    }
+  }
+
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, minMaxAttrs(node))
   Object.assign(a, debugAttrs(node))
-  const inner = await positionedChildren(node, depth + 1, node.x || 0, node.y || 0)
+  const inner = await positionedChildren(node, depth + 1, node.x || 0, node.y || 0, maskChild || undefined)
   if (!inner) return `${ind(depth)}<group ${attrs(a)} />`
   return `${ind(depth)}<group ${attrs(a)}>\n${inner}\n${ind(depth)}</group>`
 }
@@ -903,6 +986,193 @@ function collectFontUsage(node: SceneNode, usage: Record<string, FontUsage>): vo
     const ch = (node as ChildrenMixin).children
     for (let i = 0; i < ch.length; i++) collectFontUsage(ch[i], usage)
   }
+}
+
+// --- token helpers ---
+
+function sanitizeTokenName(raw: string): string {
+  return raw.toLowerCase()
+    .replace(/\//g, '-')
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '') || 'token'
+}
+
+function tokenRef(id: string): string | null {
+  const token = _tokenRegistry.get(id)
+  if (!token) return null
+  _usedTokenIds.add(id)
+  return '$' + token.name
+}
+
+function collectVarIdsFromPaints(paints: readonly Paint[] | typeof figma.mixed, ids: Set<string>): void {
+  if (paints === figma.mixed || !Array.isArray(paints)) return
+  for (let i = 0; i < (paints as Paint[]).length; i++) {
+    const p = (paints as Paint[])[i]
+    if (p.type === 'SOLID') {
+      const bv = (p as any).boundVariables
+      if (bv && bv.color && bv.color.id) ids.add(bv.color.id)
+    }
+  }
+}
+
+function collectVarIdsFromNode(node: SceneNode, ids: Set<string>): void {
+  if ('fills' in node) collectVarIdsFromPaints((node as GeometryMixin).fills, ids)
+  if ('strokes' in node) collectVarIdsFromPaints((node as GeometryMixin).strokes, ids)
+  const bv = (node as any).boundVariables
+  if (bv) {
+    const keys = ['cornerRadius', 'strokeWeight', 'itemSpacing', 'fontSize', 'lineHeight', 'letterSpacing']
+    for (let i = 0; i < keys.length; i++) {
+      if (bv[keys[i]] && bv[keys[i]].id) ids.add(bv[keys[i]].id)
+    }
+  }
+  if ('children' in node) {
+    const ch = (node as ChildrenMixin).children
+    for (let i = 0; i < ch.length; i++) collectVarIdsFromNode(ch[i] as SceneNode, ids)
+  }
+}
+
+async function resolveAllVariables(root: SceneNode): Promise<void> {
+  _tokenRegistry = new Map()
+  _usedTokenIds = new Set()
+  _styleRegistry = new Map()
+  _usedStyleIds = new Set()
+
+  const vars = (figma as any).variables
+  if (!vars) return
+
+  const ids = new Set<string>()
+  collectVarIdsFromNode(root, ids)
+  if (!ids.size) return
+
+  const nameCount: Record<string, number> = {}
+  const idArr = Array.from(ids)
+
+  for (let i = 0; i < idArr.length; i++) {
+    const id = idArr[i]
+    try {
+      const variable = await vars.getVariableByIdAsync(id)
+      if (!variable || variable.resolvedType === 'BOOLEAN') continue
+
+      const collection = await vars.getVariableCollectionByIdAsync(variable.variableCollectionId)
+      const modeId = (collection && collection.defaultModeId) || Object.keys(variable.valuesByMode)[0]
+      if (!modeId) continue
+
+      let rawValue = variable.valuesByMode[modeId]
+      let resolvedType = variable.resolvedType
+
+      // Follow one level of aliasing
+      if (rawValue && typeof rawValue === 'object' && rawValue.type === 'VARIABLE_ALIAS') {
+        const aliasVar = await vars.getVariableByIdAsync(rawValue.id)
+        if (!aliasVar) continue
+        const aliasCol = await vars.getVariableCollectionByIdAsync(aliasVar.variableCollectionId)
+        const aliasModeId = (aliasCol && aliasCol.defaultModeId) || Object.keys(aliasVar.valuesByMode)[0]
+        if (!aliasModeId) continue
+        rawValue = aliasVar.valuesByMode[aliasModeId]
+        resolvedType = aliasVar.resolvedType
+      }
+
+      let value: string
+      let type: 'color' | 'number' | 'string'
+
+      if (resolvedType === 'COLOR') {
+        const c = rawValue as { r: number; g: number; b: number; a: number }
+        value = rgbToHex(c.r, c.g, c.b, c.a !== undefined ? c.a : 1)
+        type = 'color'
+      } else if (resolvedType === 'FLOAT') {
+        value = String(Math.round((rawValue as number) * 100) / 100)
+        type = 'number'
+      } else if (resolvedType === 'STRING') {
+        value = String(rawValue)
+        type = 'string'
+      } else {
+        continue
+      }
+
+      const baseName = sanitizeTokenName(variable.name)
+      let finalName = baseName
+      if (nameCount[baseName] !== undefined) {
+        nameCount[baseName]++
+        finalName = baseName + '-' + nameCount[baseName]
+      } else {
+        nameCount[baseName] = 0
+      }
+
+      _tokenRegistry.set(id, { name: finalName, value, type })
+    } catch (_e) { /* skip unresolvable variables */ }
+  }
+}
+
+function tokensBlock(): string {
+  if (!_usedTokenIds.size) return ''
+
+  const colorLines: string[] = []
+  const numberLines: string[] = []
+  const stringLines: string[] = []
+
+  Array.from(_usedTokenIds)
+    .map(id => _tokenRegistry.get(id))
+    .filter(function(t): t is { name: string; value: string; type: 'color' | 'number' | 'string' } { return !!t })
+    .sort(function(a, b) { return a.name.localeCompare(b.name) })
+    .forEach(function(token) {
+      const line = `${ind(1)}<${token.type} name="${token.name}" value="${xmlEscape(token.value)}" />`
+      if (token.type === 'color') colorLines.push(line)
+      else if (token.type === 'number') numberLines.push(line)
+      else stringLines.push(line)
+    })
+
+  const lines = colorLines.concat(numberLines).concat(stringLines)
+  if (!lines.length) return ''
+  return `<tokens>\n${lines.join('\n')}\n</tokens>\n`
+}
+
+function resolveTextStyle(id: string): string | null {
+  if (_styleRegistry.has(id)) {
+    _usedStyleIds.add(id)
+    return _styleRegistry.get(id)!.name
+  }
+  try {
+    const style = figma.getStyleById(id) as any
+    if (!style || style.type !== 'TEXT') return null
+    const fn = style.fontName as FontName
+    const lh = style.lineHeight as LineHeight
+    const ls = style.letterSpacing as LetterSpacing
+    const styleAttrs: Record<string, AttrVal> = {
+      name: style.name,
+      'font-family': fn.family,
+      'font-size': style.fontSize,
+      'font-weight': fontWeight(fn.style),
+      'font-style': fontStyle(fn.style) === 'italic' ? 'italic' : undefined,
+      'line-height': lineHeightVal(lh),
+      'letter-spacing': letterSpacingVal(ls),
+      'decoration': (style.textDecoration as string) !== 'NONE' ? (style.textDecoration as string).toLowerCase() : undefined,
+      'text-case': (style.textCase as string) !== 'ORIGINAL' ? TEXT_CASE[style.textCase as string] : undefined,
+    }
+    _styleRegistry.set(id, { name: style.name, styleAttrs })
+    _usedStyleIds.add(id)
+    return style.name
+  } catch (_e) {
+    return null
+  }
+}
+
+function stylesBlock(): string {
+  if (!_usedStyleIds.size) return ''
+  const lines: string[] = []
+  const sorted = Array.from(_usedStyleIds).sort(function(a, b) {
+    const na = _styleRegistry.get(a)
+    const nb = _styleRegistry.get(b)
+    if (!na || !nb) return 0
+    return na.name.localeCompare(nb.name)
+  })
+  for (let i = 0; i < sorted.length; i++) {
+    const entry = _styleRegistry.get(sorted[i])
+    if (!entry) continue
+    lines.push(ind(1) + '<text-style ' + attrs(entry.styleAttrs) + ' />')
+  }
+  if (!lines.length) return ''
+  return '<styles>\n' + lines.join('\n') + '\n</styles>\n'
 }
 
 function fontsBlock(node: SceneNode): string {
@@ -1017,20 +1287,30 @@ function textToGui(node: TextNode, depth: number): string {
     const fontName = node.fontName as FontName
     const lh = node.lineHeight as LineHeight
     const ls = node.letterSpacing as LetterSpacing
+    const textBv = (node as any).boundVariables
     a.value = node.characters
-    a['font-family'] = fontName.family
-    a['font-size'] = node.fontSize as number
-    a['font-weight'] = fontWeight(fontName.style)
-    a['font-style'] = fontStyle(fontName.style) === 'italic' ? 'italic' : undefined
-    a['line-height'] = lineHeightVal(lh)
-    a['letter-spacing'] = letterSpacingVal(ls)
     a.color = solidFill(node.fills)
-    a.decoration = (node.textDecoration as string) !== 'NONE' ? (node.textDecoration as string).toLowerCase() : undefined
-    a['text-case'] = (node.textCase as string) !== 'ORIGINAL' ? TEXT_CASE[node.textCase as string] : undefined
     if (node.hyperlink !== figma.mixed && node.hyperlink !== null) {
       const hl = node.hyperlink as HyperlinkTarget
       if (hl.type === 'URL') a.href = hl.value
     }
+
+    // Use named text style if applied — omit individual typography attrs
+    const styleId = typeof node.textStyleId === 'string' ? node.textStyleId : null
+    const styleName = styleId ? resolveTextStyle(styleId) : null
+    if (styleName) {
+      a['text-style'] = styleName
+    } else {
+      a['font-family'] = fontName.family
+      a['font-size'] = (textBv && textBv.fontSize && textBv.fontSize.id && tokenRef(textBv.fontSize.id)) || node.fontSize as number
+      a['font-weight'] = fontWeight(fontName.style)
+      a['font-style'] = fontStyle(fontName.style) === 'italic' ? 'italic' : undefined
+      a['line-height'] = lineHeightVal(lh)
+      a['letter-spacing'] = letterSpacingVal(ls)
+      a.decoration = (node.textDecoration as string) !== 'NONE' ? (node.textDecoration as string).toLowerCase() : undefined
+      a['text-case'] = (node.textCase as string) !== 'ORIGINAL' ? TEXT_CASE[node.textCase as string] : undefined
+    }
+
     const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
     if (!appearance) return `${ind(depth)}<text ${attrs(a)} />`
     return `${ind(depth)}<text ${attrs(a)}>\n${appearance}\n${ind(depth)}</text>`
@@ -1283,5 +1563,5 @@ async function generateGui(node: SceneNode): Promise<string> {
     ? `${ind(0)}<assets>\n${lines.join('\n')}\n${ind(0)}</assets>\n`
     : ''
 
-  return `<gui version="1.0" name="${xmlEscape(node.name)}" viewport="${viewport}">\n${fontsBlock(node)}${assetsBlock}${inner}\n</gui>`
+  return `<gui version="1.0" name="${xmlEscape(node.name)}" viewport="${viewport}">\n${tokensBlock()}${stylesBlock()}${fontsBlock(node)}${assetsBlock}${inner}\n</gui>`
 }
