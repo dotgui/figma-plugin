@@ -1,5 +1,5 @@
 {
-  "name": "dotgui-figma",
+  "name": "gui-figma",
   "private": true,
   "scripts": {
     "build": "bun run build:ui && bun run build:plugin",
@@ -17,7 +17,8 @@
     "@codemirror/view": "^6.43.0",
     "@lezer/highlight": "^1.2.3",
     "@panzoom/panzoom": "^4.6.2",
-    "dotgui-render": "file:../dotgui-render",
+    "gui-render": "file:../gui-render",
+    "gui-parser": "file:../gui-parser",
     "vue": "^3.5.13"
   },
   "devDependencies": {

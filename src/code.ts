@@ -66,11 +66,19 @@ var _imageMap: { [hash: string]: ImageAsset } = {}
 var _imageCounter = 0
 var _svgNodeMap: { [nodeId: string]: ImageAsset } = {}
 var _svgB64Map: { [b64: string]: ImageAsset } = {}
+var _svgStringMap: { [assetId: string]: string } = {}
+var _svgUsageCounts: { [assetId: string]: number } = {}
 var _svgCounter = 0
 var _debugExport = false
 var _tokenRegistry: Map<string, { name: string; value: string; type: 'color' | 'number' | 'string' }> = new Map()
 var _usedTokenIds: Set<string> = new Set()
-var _styleRegistry: Map<string, { name: string; styleAttrs: Record<string, AttrVal> }> = new Map()
+interface StyleEntry {
+  name: string
+  tag: 'text-style' | 'fill-style' | 'effect-style'
+  entryAttrs: Record<string, AttrVal>
+  children?: string[]
+}
+var _styleRegistry: Map<string, StyleEntry> = new Map()
 var _usedStyleIds: Set<string> = new Set()
 
 // --- messaging ---
@@ -105,6 +113,18 @@ async function sendSelection() {
 
   const pngBytes = results[2] as Uint8Array
   const svgBytes = results[3] as Uint8Array
+  // Prewalk to collect all SVG assets and count usages before generating XML
+  if (node.type === 'FRAME' || node.type === 'COMPONENT' || node.type === 'INSTANCE') {
+    await prewalkNode(node as SceneNode, 1)
+  } else {
+    await prewalkNode(node as SceneNode, 2)
+  }
+  var svgNodeIds = Object.keys(_svgNodeMap)
+  for (var pi = 0; pi < svgNodeIds.length; pi++) {
+    var svgAssetId = _svgNodeMap[svgNodeIds[pi]].id
+    _svgUsageCounts[svgAssetId] = (_svgUsageCounts[svgAssetId] || 0) + 1
+  }
+
   const guiCode = await generateGui(node as SceneNode)
 
   const assetMap: Record<string, string> = {}
@@ -119,6 +139,7 @@ async function sendSelection() {
     const a = _svgNodeMap[sks[i]]
     if (seenSvgIds[a.id]) continue
     seenSvgIds[a.id] = true
+    if (_svgUsageCounts[a.id] === 1) continue
     assetMap['$' + a.id] = dataUrl(a)
   }
 
@@ -504,6 +525,8 @@ async function collectAndFetchImages(root: SceneNode): Promise<void> {
   _imageCounter = 0
   _svgNodeMap = {}
   _svgB64Map = {}
+  _svgStringMap = {}
+  _svgUsageCounts = {}
   _svgCounter = 0
   const hashes: string[] = []
   collectImageHashes(root, hashes)
@@ -517,6 +540,35 @@ async function collectAndFetchImages(root: SceneNode): Promise<void> {
       _imageMap[hash] = { id: 'img-' + _imageCounter, format: detectFormat(bytes), b64: bytesToBase64(bytes) }
     } catch (e) { /* skip failed images */ }
   }
+}
+
+function decodeSvgBytes(bytes: Uint8Array): string {
+  var result = ''
+  var i = 0
+  while (i < bytes.length) {
+    var b = bytes[i]
+    if (b < 0x80) {
+      result += String.fromCharCode(b)
+      i++
+    } else if (b < 0xE0 && i + 1 < bytes.length) {
+      result += String.fromCharCode(((b & 0x1F) << 6) | (bytes[i + 1] & 0x3F))
+      i += 2
+    } else if (b < 0xF0 && i + 2 < bytes.length) {
+      result += String.fromCharCode(((b & 0x0F) << 12) | ((bytes[i + 1] & 0x3F) << 6) | (bytes[i + 2] & 0x3F))
+      i += 3
+    } else {
+      i += b < 0xF0 ? 3 : 4
+    }
+  }
+  return result
+}
+
+function extractSvgInner(svgStr: string): string {
+  var firstClose = svgStr.indexOf('>')
+  if (firstClose < 0) return ''
+  var lastOpen = svgStr.lastIndexOf('</')
+  if (lastOpen <= firstClose) return ''
+  return svgStr.slice(firstClose + 1, lastOpen).trim()
 }
 
 function dataUrl(asset: ImageAsset): string {
@@ -704,6 +756,7 @@ async function svgAsset(node: SceneNode): Promise<ImageAsset | null> {
 
     _svgCounter++
     const asset = { id: 'svg-' + _svgCounter, format: 'svg', b64 }
+    _svgStringMap[asset.id] = extractSvgInner(decodeSvgBytes(bytes))
     _svgB64Map[b64] = asset
     _svgNodeMap[node.id] = asset
     return asset
@@ -712,13 +765,28 @@ async function svgAsset(node: SceneNode): Promise<ImageAsset | null> {
   }
 }
 
+async function prewalkNode(node: SceneNode, depth: number): Promise<void> {
+  if (node.visible === false) return
+  if (shouldExportAsSvg(node, depth)) {
+    await svgAsset(node)
+    return
+  }
+  if ('children' in node) {
+    var ch = (node as ChildrenMixin).children
+    for (var i = 0; i < ch.length; i++) {
+      await prewalkNode(ch[i] as SceneNode, depth + 1)
+    }
+  }
+}
+
 async function svgToGui(node: SceneNode, depth: number): Promise<string> {
   const asset = await svgAsset(node)
   if (!asset) return ''
 
+  const isInline = _svgUsageCounts[asset.id] === 1
   const baseAttrs: Record<string, AttrVal> = {
     name: node.name,
-    src: '$' + asset.id,
+    src: isInline ? undefined : '$' + asset.id,
     x: Math.round((node as LayoutMixin).x),
     y: Math.round((node as LayoutMixin).y),
     width: Math.round((node as LayoutMixin).width),
@@ -732,6 +800,17 @@ async function svgToGui(node: SceneNode, depth: number): Promise<string> {
   Object.assign(baseAttrs, sizingAttrs(node))
   Object.assign(baseAttrs, layoutPositionAttrs(node))
   Object.assign(baseAttrs, debugAttrs(node))
+
+  if (isInline) {
+    const innerMarkup = _svgStringMap[asset.id] || ''
+    if (!innerMarkup) return `${ind(depth)}<svg ${attrs(baseAttrs)} />`
+    const innerLines = innerMarkup.split('\n').map(function(line) {
+      var t = line.trim()
+      return t ? ind(depth + 1) + t : ''
+    }).filter(Boolean).join('\n')
+    return `${ind(depth)}<svg ${attrs(baseAttrs)}>\n${innerLines}\n${ind(depth)}</svg>`
+  }
+
   return `${ind(depth)}<svg ${attrs(baseAttrs)} />`
 }
 
@@ -832,14 +911,23 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
   const lm = node.layoutMode as string
   const isStack = lm !== 'NONE'
   const isGrid = lm === 'GRID'
-  const tag = isStack ? 'stack' : 'frame'
+  const tag = !isStack ? 'frame' : isGrid ? 'grid' : lm === 'HORIZONTAL' ? 'row' : 'col'
   const isRoot = depth === 1
+
+  const fillStyleIdRaw = (node as any).fillStyleId
+  const fillStyleId = typeof fillStyleIdRaw === 'string' && fillStyleIdRaw ? fillStyleIdRaw : null
+  const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null
+
+  const effectStyleIdRaw = (node as any).effectStyleId
+  const effectStyleId = typeof effectStyleIdRaw === 'string' && effectStyleIdRaw ? effectStyleIdRaw : null
+  const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null
 
   const a: Record<string, AttrVal> = {
     name: node.name,
     width: Math.round(node.width),
     height: Math.round(node.height),
-    fill: fillValue(node.fills, node.width, node.height),
+    fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
+    'fill-style': fillStyleName || undefined,
     radius: cornerRadius(node),
     'corner-smoothing': node.cornerSmoothing > 0 ? node.cornerSmoothing : undefined,
     opacity: node.opacity < 1 ? node.opacity : undefined,
@@ -847,7 +935,8 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
     mask: maskAttr(node),
     rotation: !isRoot ? rotationAttr(node) : undefined,
     clip: node.clipsContent || undefined,
-    shadow: visibleEffects(node.effects).length ? undefined : shadowAttr(node),
+    shadow: (effectStyleName || visibleEffects(node.effects).length) ? undefined : shadowAttr(node),
+    'effect-style': effectStyleName || undefined,
   }
   if (!isRoot) {
     a.x = Math.round(node.x)
@@ -864,14 +953,12 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
 
   if (isStack) {
     if (isGrid) {
-      a.direction = 'grid'
       const gn = node as any
-      a['grid-columns'] = gn.gridColumnCount > 0 ? gn.gridColumnCount : undefined
-      a['grid-rows'] = gn.gridRowCount > 0 ? gn.gridRowCount : undefined
-      a['grid-col-gap'] = gn.gridColumnGap > 0 ? gn.gridColumnGap : undefined
-      a['grid-row-gap'] = gn.gridRowGap > 0 ? gn.gridRowGap : undefined
+      a['columns'] = gn.gridColumnCount > 0 ? gn.gridColumnCount : undefined
+      a['rows'] = gn.gridRowCount > 0 ? gn.gridRowCount : undefined
+      a['col-gap'] = gn.gridColumnGap > 0 ? gn.gridColumnGap : undefined
+      a['row-gap'] = gn.gridRowGap > 0 ? gn.gridRowGap : undefined
     } else {
-      a.direction = lm === 'HORIZONTAL' ? 'horizontal' : 'vertical'
       if (node.itemSpacing !== 0) {
         const gapBv = (node as any).boundVariables
         a.gap = (gapBv && gapBv.itemSpacing && gapBv.itemSpacing.id && tokenRef(gapBv.itemSpacing.id)) || node.itemSpacing
@@ -888,7 +975,11 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
     }
   }
 
-  const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
+  const emptyPaints: readonly Paint[] = []
+  const emptyEffects: readonly Effect[] = []
+  const fillsForAppearance = fillStyleName ? emptyPaints : node.fills
+  const effectsForAppearance = effectStyleName ? emptyEffects : node.effects
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1)
   const childInner = await children(node, depth + 1)
   const inner = [appearance, childInner].filter(Boolean).join('\n')
   if (!inner) return `${ind(depth)}<${tag} ${attrs(a)} />`
@@ -1138,7 +1229,7 @@ function resolveTextStyle(id: string): string | null {
     const fn = style.fontName as FontName
     const lh = style.lineHeight as LineHeight
     const ls = style.letterSpacing as LetterSpacing
-    const styleAttrs: Record<string, AttrVal> = {
+    const entryAttrs: Record<string, AttrVal> = {
       name: style.name,
       'font-family': fn.family,
       'font-size': style.fontSize,
@@ -1149,7 +1240,7 @@ function resolveTextStyle(id: string): string | null {
       'decoration': (style.textDecoration as string) !== 'NONE' ? (style.textDecoration as string).toLowerCase() : undefined,
       'text-case': (style.textCase as string) !== 'ORIGINAL' ? TEXT_CASE[style.textCase as string] : undefined,
     }
-    _styleRegistry.set(id, { name: style.name, styleAttrs })
+    _styleRegistry.set(id, { name: style.name, tag: 'text-style', entryAttrs })
     _usedStyleIds.add(id)
     return style.name
   } catch (_e) {
@@ -1157,9 +1248,66 @@ function resolveTextStyle(id: string): string | null {
   }
 }
 
+function resolveFillStyle(id: string): string | null {
+  if (!id) return null
+  if (_styleRegistry.has(id)) {
+    const entry = _styleRegistry.get(id)!
+    if (entry.tag !== 'fill-style') return null
+    _usedStyleIds.add(id)
+    return entry.name
+  }
+  try {
+    const style = figma.getStyleById(id) as any
+    if (!style || style.type !== 'PAINT') return null
+    const paints = (style.paints as Paint[]).filter(function(p: Paint) { return p.visible !== false })
+    if (!paints.length || paints[0].type !== 'SOLID') return null
+    const p = paints[0] as SolidPaint
+    const value = rgbToHex(p.color.r, p.color.g, p.color.b, p.opacity !== undefined ? p.opacity : 1)
+    const entry: StyleEntry = {
+      name: style.name as string,
+      tag: 'fill-style',
+      entryAttrs: { name: style.name, value },
+    }
+    _styleRegistry.set(id, entry)
+    _usedStyleIds.add(id)
+    return style.name as string
+  } catch (_e) {
+    return null
+  }
+}
+
+function resolveEffectStyle(id: string): string | null {
+  if (!id) return null
+  if (_styleRegistry.has(id)) {
+    const entry = _styleRegistry.get(id)!
+    if (entry.tag !== 'effect-style') return null
+    _usedStyleIds.add(id)
+    return entry.name
+  }
+  try {
+    const style = figma.getStyleById(id) as any
+    if (!style || style.type !== 'EFFECT') return null
+    const children = appearanceEffectLines(style.effects as Effect[], 1)
+    if (!children.length) return null
+    const entry: StyleEntry = {
+      name: style.name as string,
+      tag: 'effect-style',
+      entryAttrs: { name: style.name },
+      children,
+    }
+    _styleRegistry.set(id, entry)
+    _usedStyleIds.add(id)
+    return style.name as string
+  } catch (_e) {
+    return null
+  }
+}
+
 function stylesBlock(): string {
   if (!_usedStyleIds.size) return ''
-  const lines: string[] = []
+  const textLines: string[] = []
+  const fillLines: string[] = []
+  const effectLines: string[] = []
   const sorted = Array.from(_usedStyleIds).sort(function(a, b) {
     const na = _styleRegistry.get(a)
     const nb = _styleRegistry.get(b)
@@ -1169,8 +1317,18 @@ function stylesBlock(): string {
   for (let i = 0; i < sorted.length; i++) {
     const entry = _styleRegistry.get(sorted[i])
     if (!entry) continue
-    lines.push(ind(1) + '<text-style ' + attrs(entry.styleAttrs) + ' />')
+    var line: string
+    if (entry.children && entry.children.length) {
+      line = ind(1) + '<' + entry.tag + ' ' + attrs(entry.entryAttrs) + '>\n' +
+        entry.children.join('\n') + '\n' + ind(1) + '</' + entry.tag + '>'
+    } else {
+      line = ind(1) + '<' + entry.tag + ' ' + attrs(entry.entryAttrs) + ' />'
+    }
+    if (entry.tag === 'fill-style') fillLines.push(line)
+    else if (entry.tag === 'effect-style') effectLines.push(line)
+    else textLines.push(line)
   }
+  const lines = textLines.concat(fillLines).concat(effectLines)
   if (!lines.length) return ''
   return '<styles>\n' + lines.join('\n') + '\n</styles>\n'
 }
@@ -1289,11 +1447,17 @@ function textToGui(node: TextNode, depth: number): string {
     const ls = node.letterSpacing as LetterSpacing
     const textBv = (node as any).boundVariables
     a.value = node.characters
-    a.color = solidFill(node.fills)
     if (node.hyperlink !== figma.mixed && node.hyperlink !== null) {
       const hl = node.hyperlink as HyperlinkTarget
       if (hl.type === 'URL') a.href = hl.value
     }
+
+    // Fill style (text color via Figma color style)
+    const textFillStyleIdRaw = (node as any).fillStyleId
+    const textFillStyleId = typeof textFillStyleIdRaw === 'string' && textFillStyleIdRaw ? textFillStyleIdRaw : null
+    const textFillStyleName = textFillStyleId ? resolveFillStyle(textFillStyleId) : null
+    a.color = textFillStyleName ? undefined : solidFill(node.fills)
+    a['fill-style'] = textFillStyleName || undefined
 
     // Use named text style if applied — omit individual typography attrs
     const styleId = typeof node.textStyleId === 'string' ? node.textStyleId : null
@@ -1311,7 +1475,9 @@ function textToGui(node: TextNode, depth: number): string {
       a['text-case'] = (node.textCase as string) !== 'ORIGINAL' ? TEXT_CASE[node.textCase as string] : undefined
     }
 
-    const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
+    const emptyPaints: readonly Paint[] = []
+    const fillsForAppearance = textFillStyleName ? emptyPaints : node.fills
+    const appearance = appearanceBlock(fillsForAppearance, node.effects, node.width, node.height, depth + 1)
     if (!appearance) return `${ind(depth)}<text ${attrs(a)} />`
     return `${ind(depth)}<text ${attrs(a)}>\n${appearance}\n${ind(depth)}</text>`
   }
@@ -1371,6 +1537,13 @@ function imgToGui(node: RectangleNode, fill: ImagePaint, depth: number): string 
 }
 
 function rectToGui(node: RectangleNode, depth: number): string {
+  const fillStyleIdRaw = (node as any).fillStyleId
+  const fillStyleId = typeof fillStyleIdRaw === 'string' && fillStyleIdRaw ? fillStyleIdRaw : null
+  const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null
+  const effectStyleIdRaw = (node as any).effectStyleId
+  const effectStyleId = typeof effectStyleIdRaw === 'string' && effectStyleIdRaw ? effectStyleIdRaw : null
+  const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null
+
   const a: Record<string, AttrVal> = {
     type: 'rect',
     name: node.name,
@@ -1378,13 +1551,15 @@ function rectToGui(node: RectangleNode, depth: number): string {
     y: Math.round(node.y),
     width: Math.round(node.width),
     height: Math.round(node.height),
-    fill: fillValue(node.fills, node.width, node.height),
+    fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
+    'fill-style': fillStyleName || undefined,
     radius: cornerRadius(node),
     'corner-smoothing': node.cornerSmoothing > 0 ? node.cornerSmoothing : undefined,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    'effect-style': effectStyleName || undefined,
   }
   Object.assign(a, strokeAttrs(node))
   Object.assign(a, constraintAttrs(node))
@@ -1392,12 +1567,23 @@ function rectToGui(node: RectangleNode, depth: number): string {
   Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, minMaxAttrs(node))
   Object.assign(a, debugAttrs(node))
-  const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
+  const emptyPaints: readonly Paint[] = []
+  const emptyEffects: readonly Effect[] = []
+  const fillsForAppearance = fillStyleName ? emptyPaints : node.fills
+  const effectsForAppearance = effectStyleName ? emptyEffects : node.effects
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1)
   if (!appearance) return `${ind(depth)}<shape ${attrs(a)} />`
   return `${ind(depth)}<shape ${attrs(a)}>\n${appearance}\n${ind(depth)}</shape>`
 }
 
 function ellipseToGui(node: EllipseNode, depth: number): string {
+  const fillStyleIdRaw = (node as any).fillStyleId
+  const fillStyleId = typeof fillStyleIdRaw === 'string' && fillStyleIdRaw ? fillStyleIdRaw : null
+  const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null
+  const effectStyleIdRaw = (node as any).effectStyleId
+  const effectStyleId = typeof effectStyleIdRaw === 'string' && effectStyleIdRaw ? effectStyleIdRaw : null
+  const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null
+
   const arc = node.arcData
   const TWO_PI = Math.PI * 2
   const a: Record<string, AttrVal> = {
@@ -1407,7 +1593,8 @@ function ellipseToGui(node: EllipseNode, depth: number): string {
     y: Math.round(node.y),
     width: Math.round(node.width),
     height: Math.round(node.height),
-    fill: fillValue(node.fills, node.width, node.height),
+    fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
+    'fill-style': fillStyleName || undefined,
     'arc-start': arc && Math.abs(arc.startingAngle) > 0.001
       ? Math.round(arc.startingAngle * 180 / Math.PI * 100) / 100 : undefined,
     'arc-end': arc && Math.abs(arc.endingAngle - TWO_PI) > 0.001
@@ -1417,13 +1604,18 @@ function ellipseToGui(node: EllipseNode, depth: number): string {
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    'effect-style': effectStyleName || undefined,
   }
   Object.assign(a, strokeAttrs(node))
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, debugAttrs(node))
-  const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
+  const emptyPaints: readonly Paint[] = []
+  const emptyEffects: readonly Effect[] = []
+  const fillsForAppearance = fillStyleName ? emptyPaints : node.fills
+  const effectsForAppearance = effectStyleName ? emptyEffects : node.effects
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1)
   if (!appearance) return `${ind(depth)}<shape ${attrs(a)} />`
   return `${ind(depth)}<shape ${attrs(a)}>\n${appearance}\n${ind(depth)}</shape>`
 }
@@ -1452,6 +1644,13 @@ function lineToGui(node: LineNode, depth: number): string {
 }
 
 function pathToGui(node: VectorNode, depth: number): string {
+  const fillStyleIdRaw = (node as any).fillStyleId
+  const fillStyleId = typeof fillStyleIdRaw === 'string' && fillStyleIdRaw ? fillStyleIdRaw : null
+  const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null
+  const effectStyleIdRaw = (node as any).effectStyleId
+  const effectStyleId = typeof effectStyleIdRaw === 'string' && effectStyleIdRaw ? effectStyleIdRaw : null
+  const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null
+
   const geom = node as unknown as { fillGeometry?: ReadonlyArray<{ data: string }> }
   // BOOLEAN_OPERATION nodes don't have vectorPaths — fall back to fillGeometry
   const paths = (node.vectorPaths && node.vectorPaths.length > 0)
@@ -1465,7 +1664,9 @@ function pathToGui(node: VectorNode, depth: number): string {
     y: Math.round(node.y),
     width: Math.round(node.width),
     height: Math.round(node.height),
-    fill: fillValue(node.fills, node.width, node.height),
+    fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
+    'fill-style': fillStyleName || undefined,
+    'effect-style': effectStyleName || undefined,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
@@ -1482,7 +1683,7 @@ function pathToGui(node: VectorNode, depth: number): string {
 
 function shiftRootPosition(markup: string, offsetX: number, offsetY: number): string {
   let shifted = false
-  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/m, function(
+  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/m, function(
     _,
     start: string,
     attrText: string,
@@ -1509,7 +1710,7 @@ function shiftAttr(attrText: string, attr: 'x' | 'y', delta: number): string {
 
 function normalizeWrappedRootPosition(markup: string): string {
   let isRoot = true
-  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/gm, function(
+  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/gm, function(
     _,
     start: string,
     attrText: string,
@@ -1556,6 +1757,7 @@ async function generateGui(node: SceneNode): Promise<string> {
     const a = _svgNodeMap[svgKeys[i]]
     if (seenSvgIds[a.id]) continue
     seenSvgIds[a.id] = true
+    if (_svgUsageCounts[a.id] === 1) continue
     lines.push(`${ind(1)}<image id="${a.id}" format="svg" src="base64:${a.b64}" />`)
   }
 

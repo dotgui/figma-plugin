@@ -72,6 +72,8 @@ var _imageMap = {};
 var _imageCounter = 0;
 var _svgNodeMap = {};
 var _svgB64Map = {};
+var _svgStringMap = {};
+var _svgUsageCounts = {};
 var _svgCounter = 0;
 var _debugExport = false;
 var _tokenRegistry = new Map;
@@ -103,6 +105,16 @@ async function sendSelection() {
   ]);
   const pngBytes = results[2];
   const svgBytes = results[3];
+  if (node.type === "FRAME" || node.type === "COMPONENT" || node.type === "INSTANCE") {
+    await prewalkNode(node, 1);
+  } else {
+    await prewalkNode(node, 2);
+  }
+  var svgNodeIds = Object.keys(_svgNodeMap);
+  for (var pi = 0;pi < svgNodeIds.length; pi++) {
+    var svgAssetId = _svgNodeMap[svgNodeIds[pi]].id;
+    _svgUsageCounts[svgAssetId] = (_svgUsageCounts[svgAssetId] || 0) + 1;
+  }
   const guiCode = await generateGui(node);
   const assetMap = {};
   const hks = Object.keys(_imageMap);
@@ -117,6 +129,8 @@ async function sendSelection() {
     if (seenSvgIds[a.id])
       continue;
     seenSvgIds[a.id] = true;
+    if (_svgUsageCounts[a.id] === 1)
+      continue;
     assetMap["$" + a.id] = dataUrl(a);
   }
   figma.ui.postMessage({
@@ -495,6 +509,8 @@ async function collectAndFetchImages(root) {
   _imageCounter = 0;
   _svgNodeMap = {};
   _svgB64Map = {};
+  _svgStringMap = {};
+  _svgUsageCounts = {};
   _svgCounter = 0;
   const hashes = [];
   collectImageHashes(root, hashes);
@@ -509,6 +525,35 @@ async function collectAndFetchImages(root) {
       _imageMap[hash] = { id: "img-" + _imageCounter, format: detectFormat(bytes), b64: bytesToBase64(bytes) };
     } catch (e) {}
   }
+}
+function decodeSvgBytes(bytes) {
+  var result = "";
+  var i = 0;
+  while (i < bytes.length) {
+    var b = bytes[i];
+    if (b < 128) {
+      result += String.fromCharCode(b);
+      i++;
+    } else if (b < 224 && i + 1 < bytes.length) {
+      result += String.fromCharCode((b & 31) << 6 | bytes[i + 1] & 63);
+      i += 2;
+    } else if (b < 240 && i + 2 < bytes.length) {
+      result += String.fromCharCode((b & 15) << 12 | (bytes[i + 1] & 63) << 6 | bytes[i + 2] & 63);
+      i += 3;
+    } else {
+      i += b < 240 ? 3 : 4;
+    }
+  }
+  return result;
+}
+function extractSvgInner(svgStr) {
+  var firstClose = svgStr.indexOf(">");
+  if (firstClose < 0)
+    return "";
+  var lastOpen = svgStr.lastIndexOf("</");
+  if (lastOpen <= firstClose)
+    return "";
+  return svgStr.slice(firstClose + 1, lastOpen).trim();
 }
 function dataUrl(asset) {
   const mime = asset.format === "svg" ? "svg+xml" : asset.format;
@@ -641,6 +686,7 @@ async function svgAsset(node) {
     }
     _svgCounter++;
     const asset = { id: "svg-" + _svgCounter, format: "svg", b64 };
+    _svgStringMap[asset.id] = extractSvgInner(decodeSvgBytes(bytes));
     _svgB64Map[b64] = asset;
     _svgNodeMap[node.id] = asset;
     return asset;
@@ -648,13 +694,28 @@ async function svgAsset(node) {
     return null;
   }
 }
+async function prewalkNode(node, depth) {
+  if (node.visible === false)
+    return;
+  if (shouldExportAsSvg(node, depth)) {
+    await svgAsset(node);
+    return;
+  }
+  if ("children" in node) {
+    var ch = node.children;
+    for (var i = 0;i < ch.length; i++) {
+      await prewalkNode(ch[i], depth + 1);
+    }
+  }
+}
 async function svgToGui(node, depth) {
   const asset = await svgAsset(node);
   if (!asset)
     return "";
+  const isInline = _svgUsageCounts[asset.id] === 1;
   const baseAttrs = {
     name: node.name,
-    src: "$" + asset.id,
+    src: isInline ? undefined : "$" + asset.id,
     x: Math.round(node.x),
     y: Math.round(node.y),
     width: Math.round(node.width),
@@ -668,6 +729,20 @@ async function svgToGui(node, depth) {
   Object.assign(baseAttrs, sizingAttrs(node));
   Object.assign(baseAttrs, layoutPositionAttrs(node));
   Object.assign(baseAttrs, debugAttrs(node));
+  if (isInline) {
+    const innerMarkup = _svgStringMap[asset.id] || "";
+    if (!innerMarkup)
+      return `${ind(depth)}<svg ${attrs(baseAttrs)} />`;
+    const innerLines = innerMarkup.split(`
+`).map(function(line) {
+      var t = line.trim();
+      return t ? ind(depth + 1) + t : "";
+    }).filter(Boolean).join(`
+`);
+    return `${ind(depth)}<svg ${attrs(baseAttrs)}>
+${innerLines}
+${ind(depth)}</svg>`;
+  }
   return `${ind(depth)}<svg ${attrs(baseAttrs)} />`;
 }
 async function nodeToGui(node, depth) {
@@ -756,13 +831,20 @@ async function frameToGui(node, depth) {
   const lm = node.layoutMode;
   const isStack = lm !== "NONE";
   const isGrid = lm === "GRID";
-  const tag = isStack ? "stack" : "frame";
+  const tag = !isStack ? "frame" : isGrid ? "grid" : lm === "HORIZONTAL" ? "row" : "col";
   const isRoot = depth === 1;
+  const fillStyleIdRaw = node.fillStyleId;
+  const fillStyleId = typeof fillStyleIdRaw === "string" && fillStyleIdRaw ? fillStyleIdRaw : null;
+  const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null;
+  const effectStyleIdRaw = node.effectStyleId;
+  const effectStyleId = typeof effectStyleIdRaw === "string" && effectStyleIdRaw ? effectStyleIdRaw : null;
+  const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null;
   const a = {
     name: node.name,
     width: Math.round(node.width),
     height: Math.round(node.height),
-    fill: fillValue(node.fills, node.width, node.height),
+    fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
+    "fill-style": fillStyleName || undefined,
     radius: cornerRadius(node),
     "corner-smoothing": node.cornerSmoothing > 0 ? node.cornerSmoothing : undefined,
     opacity: node.opacity < 1 ? node.opacity : undefined,
@@ -770,7 +852,8 @@ async function frameToGui(node, depth) {
     mask: maskAttr(node),
     rotation: !isRoot ? rotationAttr(node) : undefined,
     clip: node.clipsContent || undefined,
-    shadow: visibleEffects(node.effects).length ? undefined : shadowAttr(node)
+    shadow: effectStyleName || visibleEffects(node.effects).length ? undefined : shadowAttr(node),
+    "effect-style": effectStyleName || undefined
   };
   if (!isRoot) {
     a.x = Math.round(node.x);
@@ -786,14 +869,12 @@ async function frameToGui(node, depth) {
   Object.assign(a, debugAttrs(node));
   if (isStack) {
     if (isGrid) {
-      a.direction = "grid";
       const gn = node;
-      a["grid-columns"] = gn.gridColumnCount > 0 ? gn.gridColumnCount : undefined;
-      a["grid-rows"] = gn.gridRowCount > 0 ? gn.gridRowCount : undefined;
-      a["grid-col-gap"] = gn.gridColumnGap > 0 ? gn.gridColumnGap : undefined;
-      a["grid-row-gap"] = gn.gridRowGap > 0 ? gn.gridRowGap : undefined;
+      a["columns"] = gn.gridColumnCount > 0 ? gn.gridColumnCount : undefined;
+      a["rows"] = gn.gridRowCount > 0 ? gn.gridRowCount : undefined;
+      a["col-gap"] = gn.gridColumnGap > 0 ? gn.gridColumnGap : undefined;
+      a["row-gap"] = gn.gridRowGap > 0 ? gn.gridRowGap : undefined;
     } else {
-      a.direction = lm === "HORIZONTAL" ? "horizontal" : "vertical";
       if (node.itemSpacing !== 0) {
         const gapBv = node.boundVariables;
         a.gap = gapBv && gapBv.itemSpacing && gapBv.itemSpacing.id && tokenRef(gapBv.itemSpacing.id) || node.itemSpacing;
@@ -811,7 +892,11 @@ async function frameToGui(node, depth) {
         a["wrap-gap"] = node.counterAxisSpacing;
     }
   }
-  const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
+  const emptyPaints = [];
+  const emptyEffects = [];
+  const fillsForAppearance = fillStyleName ? emptyPaints : node.fills;
+  const effectsForAppearance = effectStyleName ? emptyEffects : node.effects;
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1);
   const childInner = await children(node, depth + 1);
   const inner = [appearance, childInner].filter(Boolean).join(`
 `);
@@ -1062,7 +1147,7 @@ function resolveTextStyle(id) {
     const fn = style.fontName;
     const lh = style.lineHeight;
     const ls = style.letterSpacing;
-    const styleAttrs = {
+    const entryAttrs = {
       name: style.name,
       "font-family": fn.family,
       "font-size": style.fontSize,
@@ -1073,7 +1158,70 @@ function resolveTextStyle(id) {
       decoration: style.textDecoration !== "NONE" ? style.textDecoration.toLowerCase() : undefined,
       "text-case": style.textCase !== "ORIGINAL" ? TEXT_CASE[style.textCase] : undefined
     };
-    _styleRegistry.set(id, { name: style.name, styleAttrs });
+    _styleRegistry.set(id, { name: style.name, tag: "text-style", entryAttrs });
+    _usedStyleIds.add(id);
+    return style.name;
+  } catch (_e) {
+    return null;
+  }
+}
+function resolveFillStyle(id) {
+  if (!id)
+    return null;
+  if (_styleRegistry.has(id)) {
+    const entry = _styleRegistry.get(id);
+    if (entry.tag !== "fill-style")
+      return null;
+    _usedStyleIds.add(id);
+    return entry.name;
+  }
+  try {
+    const style = figma.getStyleById(id);
+    if (!style || style.type !== "PAINT")
+      return null;
+    const paints = style.paints.filter(function(p2) {
+      return p2.visible !== false;
+    });
+    if (!paints.length || paints[0].type !== "SOLID")
+      return null;
+    const p = paints[0];
+    const value = rgbToHex(p.color.r, p.color.g, p.color.b, p.opacity !== undefined ? p.opacity : 1);
+    const entry = {
+      name: style.name,
+      tag: "fill-style",
+      entryAttrs: { name: style.name, value }
+    };
+    _styleRegistry.set(id, entry);
+    _usedStyleIds.add(id);
+    return style.name;
+  } catch (_e) {
+    return null;
+  }
+}
+function resolveEffectStyle(id) {
+  if (!id)
+    return null;
+  if (_styleRegistry.has(id)) {
+    const entry = _styleRegistry.get(id);
+    if (entry.tag !== "effect-style")
+      return null;
+    _usedStyleIds.add(id);
+    return entry.name;
+  }
+  try {
+    const style = figma.getStyleById(id);
+    if (!style || style.type !== "EFFECT")
+      return null;
+    const children2 = appearanceEffectLines(style.effects, 1);
+    if (!children2.length)
+      return null;
+    const entry = {
+      name: style.name,
+      tag: "effect-style",
+      entryAttrs: { name: style.name },
+      children: children2
+    };
+    _styleRegistry.set(id, entry);
     _usedStyleIds.add(id);
     return style.name;
   } catch (_e) {
@@ -1083,7 +1231,9 @@ function resolveTextStyle(id) {
 function stylesBlock() {
   if (!_usedStyleIds.size)
     return "";
-  const lines = [];
+  const textLines = [];
+  const fillLines = [];
+  const effectLines = [];
   const sorted = Array.from(_usedStyleIds).sort(function(a, b) {
     const na = _styleRegistry.get(a);
     const nb = _styleRegistry.get(b);
@@ -1095,8 +1245,23 @@ function stylesBlock() {
     const entry = _styleRegistry.get(sorted[i]);
     if (!entry)
       continue;
-    lines.push(ind(1) + "<text-style " + attrs(entry.styleAttrs) + " />");
+    var line;
+    if (entry.children && entry.children.length) {
+      line = ind(1) + "<" + entry.tag + " " + attrs(entry.entryAttrs) + `>
+` + entry.children.join(`
+`) + `
+` + ind(1) + "</" + entry.tag + ">";
+    } else {
+      line = ind(1) + "<" + entry.tag + " " + attrs(entry.entryAttrs) + " />";
+    }
+    if (entry.tag === "fill-style")
+      fillLines.push(line);
+    else if (entry.tag === "effect-style")
+      effectLines.push(line);
+    else
+      textLines.push(line);
   }
+  const lines = textLines.concat(fillLines).concat(effectLines);
   if (!lines.length)
     return "";
   return `<styles>
@@ -1198,12 +1363,16 @@ function textToGui(node, depth) {
     const ls = node.letterSpacing;
     const textBv = node.boundVariables;
     a.value = node.characters;
-    a.color = solidFill(node.fills);
     if (node.hyperlink !== figma.mixed && node.hyperlink !== null) {
       const hl = node.hyperlink;
       if (hl.type === "URL")
         a.href = hl.value;
     }
+    const textFillStyleIdRaw = node.fillStyleId;
+    const textFillStyleId = typeof textFillStyleIdRaw === "string" && textFillStyleIdRaw ? textFillStyleIdRaw : null;
+    const textFillStyleName = textFillStyleId ? resolveFillStyle(textFillStyleId) : null;
+    a.color = textFillStyleName ? undefined : solidFill(node.fills);
+    a["fill-style"] = textFillStyleName || undefined;
     const styleId = typeof node.textStyleId === "string" ? node.textStyleId : null;
     const styleName = styleId ? resolveTextStyle(styleId) : null;
     if (styleName) {
@@ -1218,7 +1387,9 @@ function textToGui(node, depth) {
       a.decoration = node.textDecoration !== "NONE" ? node.textDecoration.toLowerCase() : undefined;
       a["text-case"] = node.textCase !== "ORIGINAL" ? TEXT_CASE[node.textCase] : undefined;
     }
-    const appearance2 = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
+    const emptyPaints = [];
+    const fillsForAppearance = textFillStyleName ? emptyPaints : node.fills;
+    const appearance2 = appearanceBlock(fillsForAppearance, node.effects, node.width, node.height, depth + 1);
     if (!appearance2)
       return `${ind(depth)}<text ${attrs(a)} />`;
     return `${ind(depth)}<text ${attrs(a)}>
@@ -1253,6 +1424,12 @@ ${innerParts.join(`
 ${ind(depth)}</text>`;
 }
 function rectToGui(node, depth) {
+  const fillStyleIdRaw = node.fillStyleId;
+  const fillStyleId = typeof fillStyleIdRaw === "string" && fillStyleIdRaw ? fillStyleIdRaw : null;
+  const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null;
+  const effectStyleIdRaw = node.effectStyleId;
+  const effectStyleId = typeof effectStyleIdRaw === "string" && effectStyleIdRaw ? effectStyleIdRaw : null;
+  const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null;
   const a = {
     type: "rect",
     name: node.name,
@@ -1260,13 +1437,15 @@ function rectToGui(node, depth) {
     y: Math.round(node.y),
     width: Math.round(node.width),
     height: Math.round(node.height),
-    fill: fillValue(node.fills, node.width, node.height),
+    fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
+    "fill-style": fillStyleName || undefined,
     radius: cornerRadius(node),
     "corner-smoothing": node.cornerSmoothing > 0 ? node.cornerSmoothing : undefined,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
-    rotation: rotationAttr(node)
+    rotation: rotationAttr(node),
+    "effect-style": effectStyleName || undefined
   };
   Object.assign(a, strokeAttrs(node));
   Object.assign(a, constraintAttrs(node));
@@ -1274,7 +1453,11 @@ function rectToGui(node, depth) {
   Object.assign(a, layoutPositionAttrs(node));
   Object.assign(a, minMaxAttrs(node));
   Object.assign(a, debugAttrs(node));
-  const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
+  const emptyPaints = [];
+  const emptyEffects = [];
+  const fillsForAppearance = fillStyleName ? emptyPaints : node.fills;
+  const effectsForAppearance = effectStyleName ? emptyEffects : node.effects;
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1);
   if (!appearance)
     return `${ind(depth)}<shape ${attrs(a)} />`;
   return `${ind(depth)}<shape ${attrs(a)}>
@@ -1282,6 +1465,12 @@ ${appearance}
 ${ind(depth)}</shape>`;
 }
 function ellipseToGui(node, depth) {
+  const fillStyleIdRaw = node.fillStyleId;
+  const fillStyleId = typeof fillStyleIdRaw === "string" && fillStyleIdRaw ? fillStyleIdRaw : null;
+  const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null;
+  const effectStyleIdRaw = node.effectStyleId;
+  const effectStyleId = typeof effectStyleIdRaw === "string" && effectStyleIdRaw ? effectStyleIdRaw : null;
+  const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null;
   const arc = node.arcData;
   const TWO_PI = Math.PI * 2;
   const a = {
@@ -1291,21 +1480,27 @@ function ellipseToGui(node, depth) {
     y: Math.round(node.y),
     width: Math.round(node.width),
     height: Math.round(node.height),
-    fill: fillValue(node.fills, node.width, node.height),
+    fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
+    "fill-style": fillStyleName || undefined,
     "arc-start": arc && Math.abs(arc.startingAngle) > 0.001 ? Math.round(arc.startingAngle * 180 / Math.PI * 100) / 100 : undefined,
     "arc-end": arc && Math.abs(arc.endingAngle - TWO_PI) > 0.001 ? Math.round(arc.endingAngle * 180 / Math.PI * 100) / 100 : undefined,
     "arc-inner": arc && arc.innerRadius > 0 ? arc.innerRadius : undefined,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
-    rotation: rotationAttr(node)
+    rotation: rotationAttr(node),
+    "effect-style": effectStyleName || undefined
   };
   Object.assign(a, strokeAttrs(node));
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
   Object.assign(a, layoutPositionAttrs(node));
   Object.assign(a, debugAttrs(node));
-  const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
+  const emptyPaints = [];
+  const emptyEffects = [];
+  const fillsForAppearance = fillStyleName ? emptyPaints : node.fills;
+  const effectsForAppearance = effectStyleName ? emptyEffects : node.effects;
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1);
   if (!appearance)
     return `${ind(depth)}<shape ${attrs(a)} />`;
   return `${ind(depth)}<shape ${attrs(a)}>
@@ -1334,6 +1529,12 @@ function lineToGui(node, depth) {
   return `${ind(depth)}<shape ${attrs(a)} />`;
 }
 function pathToGui(node, depth) {
+  const fillStyleIdRaw = node.fillStyleId;
+  const fillStyleId = typeof fillStyleIdRaw === "string" && fillStyleIdRaw ? fillStyleIdRaw : null;
+  const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null;
+  const effectStyleIdRaw = node.effectStyleId;
+  const effectStyleId = typeof effectStyleIdRaw === "string" && effectStyleIdRaw ? effectStyleIdRaw : null;
+  const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null;
   const geom = node;
   const paths = node.vectorPaths && node.vectorPaths.length > 0 ? node.vectorPaths : geom.fillGeometry || [];
   const d = paths.map(function(p) {
@@ -1346,7 +1547,9 @@ function pathToGui(node, depth) {
     y: Math.round(node.y),
     width: Math.round(node.width),
     height: Math.round(node.height),
-    fill: fillValue(node.fills, node.width, node.height),
+    fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
+    "fill-style": fillStyleName || undefined,
+    "effect-style": effectStyleName || undefined,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
@@ -1365,7 +1568,7 @@ ${ind(depth)}</shape>`;
 }
 function shiftRootPosition(markup, offsetX, offsetY) {
   let shifted = false;
-  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/m, function(_, start, attrText, end) {
+  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/m, function(_, start, attrText, end) {
     if (shifted)
       return start + attrText + end;
     shifted = true;
@@ -1386,7 +1589,7 @@ function shiftAttr(attrText, attr, delta) {
 }
 function normalizeWrappedRootPosition(markup) {
   let isRoot = true;
-  return markup.replace(/^(\s*<(?:frame|stack|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/gm, function(_, start, attrText, end) {
+  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/gm, function(_, start, attrText, end) {
     if (isRoot) {
       isRoot = false;
       const withX = /\sx="[^"]*"/.test(attrText) ? attrText.replace(/\sx="[^"]*"/, ' x="0"') : attrText + ' x="0"';
@@ -1422,6 +1625,8 @@ ${ind(1)}</frame>`;
     if (seenSvgIds[a.id])
       continue;
     seenSvgIds[a.id] = true;
+    if (_svgUsageCounts[a.id] === 1)
+      continue;
     lines.push(`${ind(1)}<image id="${a.id}" format="svg" src="base64:${a.b64}" />`);
   }
   const assetsBlock = lines.length > 0 ? `${ind(0)}<assets>

@@ -105,15 +105,23 @@ Reference tokens anywhere with `$name`:
 
 ## Styles
 
-Named text styles from the design system. Each `<text-style>` captures the full typography definition — font, size, weight, line-height, etc. Text nodes reference a style by name instead of repeating individual attrs.
+Named Figma styles. The `<styles>` block holds three style types: `<text-style>`, `<fill-style>`, and `<effect-style>`. Only styles that are actually used in the exported tree are emitted.
 
 ```xml
 <styles>
   <text-style name="Heading/H1" font-family="Inter" font-size="32" font-weight="700" line-height="40" />
   <text-style name="Body/Regular" font-family="Inter" font-size="16" font-weight="400" line-height="24" />
-  <text-style name="Label/Small" font-family="Inter" font-size="11" font-weight="500" line-height="16" letter-spacing="0.5" text-case="uppercase" />
+  <fill-style name="Brand/Primary" value="#007AFF" />
+  <fill-style name="Surface/Card" value="#FFFFFF" />
+  <effect-style name="Elevation/1">
+    <effect type="drop-shadow" x="0" y="4" radius="8" spread="0" color="#00000029" />
+  </effect-style>
 </styles>
 ```
+
+### `<text-style>`
+
+Captures a full Figma text style — typography only. Color and layout are always inlined on the node.
 
 | Attr | Notes |
 |---|---|
@@ -127,14 +135,43 @@ Named text styles from the design system. Each `<text-style>` captures the full 
 | `decoration` | `underline`, `strikethrough` — omitted when none |
 | `text-case` | `uppercase`, `lowercase`, `capitalize`, `small-caps` — omitted when none |
 
-Text nodes reference a style with `text-style="name"`. When a style is applied, individual typography attrs (`font-family`, `font-size`, etc.) are omitted from the tag. Color and layout attrs are always inlined since they are not part of the text style.
+Text nodes reference with `text-style="name"`. Individual typography attrs are omitted when a style is applied.
 
 ```xml
 <text text-style="Heading/H1" value="Welcome" x="24" y="80" color="#1C1C1E" />
 <text text-style="Body/Regular" value="Sign in to continue" x="24" y="128" color="#6E6E73" />
 ```
 
-Only styles that are actually used in the exported tree are emitted in `<styles>`.
+### `<fill-style>`
+
+Captures a Figma color/fill style. Currently limited to solid colors (the most common case).
+
+| Attr | Notes |
+|---|---|
+| `name` | Figma style name |
+| `value` | Hex color value |
+
+Nodes reference with `fill-style="name"`. When applied, the `fill` attr (frames/shapes) or `color` attr (text) is omitted.
+
+```xml
+<frame fill-style="Surface/Card" width="390" height="844">
+  <text text-style="Heading/H1" fill-style="Brand/Primary" value="Hello" />
+</frame>
+```
+
+### `<effect-style>`
+
+Captures a Figma effect style. Effects are emitted as `<effect>` children using the same format as `<appearance><effect>` inline effects.
+
+| Attr | Notes |
+|---|---|
+| `name` | Figma style name |
+
+Nodes reference with `effect-style="name"`. When applied, inline effects in `<appearance>` are omitted.
+
+```xml
+<frame effect-style="Elevation/1" width="320" height="120" />
+```
 
 ---
 

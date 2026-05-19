@@ -2,14 +2,21 @@
   <div class="plugin">
     <header>
       <span class="logo">dotgui</span>
-      <div class="tabs">
-        <button :class="{ active: tab === 'code' }" @click="tab = 'code'">Code</button>
-        <button :class="{ active: tab === 'preview' }" @click="tab = 'preview'">Preview</button>
+      <div class="header-center">
+        <div class="tabs">
+          <button :class="{ active: tab === 'code' }" @click="tab = 'code'">Code</button>
+          <button :class="{ active: tab === 'preview' }" @click="tab = 'preview'">Preview</button>
+        </div>
+        <div class="tab-sep" />
+        <div class="tabs">
+          <button :class="{ active: optimized }" @click="setOptimized(true)">Optimized</button>
+          <button :class="{ active: !optimized }" @click="setOptimized(false)">Raw</button>
+        </div>
       </div>
       <div class="actions">
         <template v-if="code">
           <button class="action-btn" @click="copyCode">Copy</button>
-          <button class="action-btn" @click="saveFile">Save</button>
+          <button v-if="optimized" class="action-btn" @click="saveFile">Save</button>
         </template>
       </div>
     </header>
@@ -73,7 +80,7 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onBeforeUnmount } from 'vue'
-import { render } from 'dotgui-render'
+import { render } from 'gui-render'
 import { optimize } from 'gui-optimizer'
 import { EditorState } from '@codemirror/state'
 import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view'
@@ -100,6 +107,7 @@ const tab = ref<'code' | 'preview'>('code')
 const toastVisible = ref(false)
 const loading = ref(false)
 const sizes = ref<Sizes | null>(null)
+const optimized = ref(true)
 const pendingDebugCopy = ref(false)
 const previewEl = ref<HTMLElement>()
 const codeEditorEl = ref<HTMLElement>()
@@ -109,6 +117,17 @@ let applyZoom: ((factor: number, anchorX?: number, anchorY?: number) => void) | 
 let codeView: EditorView | null = null
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 16
+
+// Stored data for both modes — swapped without re-processing
+let _optimizedCode = ''
+let _optimizedDisplayCode = ''
+let _optimizedAssetMap: Record<string, string> = {}
+let _optimizedExportFile: ExportFile | null = null
+let _optimizedSizes: Sizes | null = null
+let _rawCode = ''
+let _rawDisplayCode = ''
+let _rawAssetMap: Record<string, string> = {}
+let _rawSizes: Sizes | null = null
 
 const dotguiHighlight = HighlightStyle.define([
   { tag: tags.angleBracket, color: '#7c7c86' },
@@ -563,15 +582,23 @@ window.onmessage = async (event: MessageEvent) => {
     exportFile.value = null
     nodeName.value = 'export'
     sizes.value = null
+    _optimizedCode = ''
+    _rawCode = ''
     return
   }
 
   nodeName.value = msg.name || 'export'
-  sizes.value = msg.sizes ?? null
+  const msgSizes: Sizes = msg.sizes ?? { gui: 0, png: 0, svg: 0 }
 
-  const rawAssetMap: Record<string, string> = msg.assetMap || {}
-  const { output: optimizedCode } = optimize(msg.code)
-  const { code: patched, assetMap: webpMap } = await applyWebP(optimizedCode, rawAssetMap)
+  // --- raw version: plugin output as-is ---
+  _rawAssetMap = msg.assetMap || {}
+  _rawCode = msg.code
+  _rawDisplayCode = truncateBase64(msg.code)
+  _rawSizes = { ...msgSizes }
+
+  // --- optimized version: run optimizer + WebP conversion + preview ---
+  const { output: optCode } = optimize(msg.code)
+  const { code: patched, assetMap: webpMap } = await applyWebP(optCode, _rawAssetMap)
   let finalCode = patched
   if (msg.preview) {
     try {
@@ -580,13 +607,13 @@ window.onmessage = async (event: MessageEvent) => {
       finalCode = addPreview(patched, msg.preview)
     }
   }
+  _optimizedCode = finalCode
+  _optimizedDisplayCode = truncateBase64(finalCode)
+  _optimizedAssetMap = webpMap
+  _optimizedExportFile = await prepareExport(finalCode, webpMap)
+  _optimizedSizes = { ...msgSizes, gui: _optimizedExportFile.bytes }
 
-  code.value = finalCode
-  displayCode.value = truncateBase64(finalCode)
-  assetMap.value = webpMap
-
-  exportFile.value = await prepareExport(finalCode, webpMap)
-  if (sizes.value) sizes.value = { ...sizes.value, gui: exportFile.value.bytes }
+  applyMode()
 
   if (pendingDebugCopy.value) {
     pendingDebugCopy.value = false
@@ -595,6 +622,30 @@ window.onmessage = async (event: MessageEvent) => {
 
   if (tab.value === 'preview') triggerRender()
   if (tab.value === 'code') nextTick(mountCodeEditor)
+}
+
+function applyMode() {
+  if (optimized.value) {
+    code.value = _optimizedCode
+    displayCode.value = _optimizedDisplayCode
+    assetMap.value = _optimizedAssetMap
+    exportFile.value = _optimizedExportFile
+    sizes.value = _optimizedSizes
+  } else {
+    code.value = _rawCode
+    displayCode.value = _rawDisplayCode
+    assetMap.value = _rawAssetMap
+    exportFile.value = null
+    sizes.value = _rawSizes
+  }
+}
+
+function setOptimized(value: boolean) {
+  if (optimized.value === value) return
+  optimized.value = value
+  if (!_rawCode) return
+  applyMode()
+  if (tab.value === 'preview') triggerRender()
 }
 
 watch(tab, (t) => {
@@ -803,6 +854,17 @@ header {
 
 .action-btn:hover { background: #f5f5f7; }
 
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tab-sep {
+  width: 1px;
+  height: 16px;
+  background: #d8d8df;
+}
 
 .sizes {
   display: flex;
@@ -989,6 +1051,10 @@ header {
 
   .action-btn:hover {
     background: #48484a;
+  }
+
+  .tab-sep {
+    background: #4a4a4d;
   }
 
   .code-panel,
