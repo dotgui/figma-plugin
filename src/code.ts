@@ -16,6 +16,50 @@ const ALIGN: Record<string, string> = {
   BASELINE: 'baseline', SPACE_BETWEEN: 'space-between',
 }
 
+const VERT_FROM: Record<string, string> = { MIN: 'top', CENTER: 'middle', MAX: 'bottom' }
+const HORIZ_FROM: Record<string, string> = { MIN: 'left', CENTER: 'center', MAX: 'right' }
+
+function ninePointAlign(node: FrameNode): string | undefined {
+  var primary = node.primaryAxisAlignItems as string
+  var counter = node.counterAxisAlignItems as string
+  var direction = node.layoutMode as string
+  if (counter === 'BASELINE') return 'baseline'
+  if (primary === 'SPACE_BETWEEN') primary = 'MIN'
+  var vert: string
+  var horiz: string
+  if (direction === 'HORIZONTAL') {
+    vert = VERT_FROM[counter] || 'top'
+    horiz = HORIZ_FROM[primary] || 'left'
+  } else {
+    vert = VERT_FROM[primary] || 'top'
+    horiz = HORIZ_FROM[counter] || 'left'
+  }
+  return vert + '-' + horiz
+}
+
+function stackGap(node: FrameNode): string | number | undefined {
+  var primary = node.primaryAxisAlignItems as string
+  var mainGapRaw: string | null = null
+  if (primary === 'SPACE_BETWEEN') {
+    mainGapRaw = 'auto'
+  } else if (node.itemSpacing !== 0) {
+    var gapBv = (node as any).boundVariables
+    var tokenGap = gapBv && gapBv.itemSpacing && gapBv.itemSpacing.id && tokenRef(gapBv.itemSpacing.id)
+    mainGapRaw = tokenGap || String(node.itemSpacing)
+  }
+  var crossGapRaw: string | null = null
+  if (node.layoutWrap === 'WRAP') {
+    if (node.counterAxisAlignContent === 'SPACE_BETWEEN') {
+      crossGapRaw = 'auto'
+    } else if (node.counterAxisSpacing != null && node.counterAxisSpacing > 0) {
+      crossGapRaw = String(node.counterAxisSpacing)
+    }
+  }
+  if (mainGapRaw !== null && crossGapRaw !== null) return mainGapRaw + ' ' + crossGapRaw
+  if (mainGapRaw !== null) return mainGapRaw
+  return undefined
+}
+
 const FIT_MODE: Record<string, string> = {
   FILL: 'cover', FIT: 'contain', CROP: 'crop', TILE: 'tile',
 }
@@ -66,7 +110,6 @@ var _imageMap: { [hash: string]: ImageAsset } = {}
 var _imageCounter = 0
 var _svgNodeMap: { [nodeId: string]: ImageAsset } = {}
 var _svgB64Map: { [b64: string]: ImageAsset } = {}
-var _svgStringMap: { [assetId: string]: string } = {}
 var _svgUsageCounts: { [assetId: string]: number } = {}
 var _svgCounter = 0
 var _debugExport = false
@@ -80,6 +123,43 @@ interface StyleEntry {
 }
 var _styleRegistry: Map<string, StyleEntry> = new Map()
 var _usedStyleIds: Set<string> = new Set()
+
+interface PropEntry {
+  name: string
+  type: 'string' | 'boolean' | 'number' | 'color' | 'image' | 'component' | 'style'
+  target: string
+  bind?: string
+}
+
+interface InferredOverride {
+  bodyId: string
+  type: 'string' | 'boolean' | 'color' | 'image' | 'component' | 'style'
+  bind?: string
+}
+
+interface ComponentEntry {
+  guiId: string
+  figmaNode: ComponentNode
+  props: PropEntry[]
+  setGuiId?: string
+  variantAttrs?: Record<string, string>
+}
+
+interface ComponentSetEntry {
+  guiId: string
+  name: string
+  figmaNode: any
+  componentIds: string[]
+}
+
+var _componentRegistry: Map<string, ComponentEntry> = new Map()
+var _componentSetRegistry: Map<string, ComponentSetEntry> = new Map()
+var _instanceOverrideAccum: Map<string, InferredOverride[]> = new Map()
+var _generatingComponentBody = false
+var _generatingComponentRoot = false
+var _componentBodyUsedIds: Set<string> | null = null
+var _invisibleNodeIds: Set<string> = new Set()
+var _currentComponentDefs: Record<string, { type: string; defaultValue: unknown }> | null = null
 
 // --- messaging ---
 
@@ -125,13 +205,18 @@ async function sendSelection() {
     _svgUsageCounts[svgAssetId] = (_svgUsageCounts[svgAssetId] || 0) + 1
   }
 
+  // Two-pass: collect all instance overrides before generating XML so
+  // component <props> blocks are inferred from actual usage, not just
+  // formally declared componentPropertyDefinitions.
+  await prewalkAllInstances(node as SceneNode)
+
   const guiCode = await generateGui(node as SceneNode)
 
   const assetMap: Record<string, string> = {}
   const hks = Object.keys(_imageMap)
   for (let i = 0; i < hks.length; i++) {
     const a = _imageMap[hks[i]]
-    assetMap['$' + a.id] = dataUrl(a)
+    assetMap['assets/' + a.id + '.' + a.format] = dataUrl(a)
   }
   const sks = Object.keys(_svgNodeMap)
   const seenSvgIds: Record<string, boolean> = {}
@@ -139,8 +224,7 @@ async function sendSelection() {
     const a = _svgNodeMap[sks[i]]
     if (seenSvgIds[a.id]) continue
     seenSvgIds[a.id] = true
-    if (_svgUsageCounts[a.id] === 1) continue
-    assetMap['$' + a.id] = dataUrl(a)
+    assetMap['assets/' + a.id + '.svg'] = dataUrl(a)
   }
 
   figma.ui.postMessage({
@@ -262,53 +346,73 @@ function cropBoxAttrs(img: ImagePaint, nodeW: number, nodeH: number): Record<str
   const sy = t[1][1]
   if (!Number.isFinite(sx) || !Number.isFinite(sy) || Math.abs(sx) < 0.0001 || Math.abs(sy) < 0.0001) return {}
 
-  const width = nodeW / sx
-  const height = nodeH / sy
+  const imgW = nodeW / sx
+  const imgH = nodeH / sy
   return {
-    x: rounded(-width * t[0][2]),
-    y: rounded(-height * t[1][2]),
-    width: rounded(width),
-    height: rounded(height),
+    x: rounded(-imgW * t[0][2]),
+    y: rounded(-imgH * t[1][2]),
+    w: rounded(imgW),
+    h: rounded(imgH),
   }
 }
 
 function appearanceFillLines(fills: readonly Paint[] | typeof figma.mixed, nodeW: number, nodeH: number, depth: number): string[] {
-  const paints = visiblePaints(fills)
-  if (paints.length <= 1 && (!paints[0] || paints[0].type !== 'IMAGE')) return []
+  // Trigger based on visible paints only
+  const visible = visiblePaints(fills)
+  if (visible.length <= 1 && (!visible[0] || visible[0].type !== 'IMAGE')) return []
+
+  // Process all paints (visible + hidden) to preserve the full stack
+  const allFills = fills === figma.mixed || !Array.isArray(fills) ? [] : fills as Paint[]
 
   const fillLines: string[] = []
-  for (let i = 0; i < paints.length; i++) {
-    const p = paints[i]
+  for (let i = 0; i < allFills.length; i++) {
+    const p = allFills[i]
+    const isHidden = p.visible === false
+    const blendMapped = (p.blendMode && p.blendMode !== 'NORMAL') ? (BLEND_MODE[p.blendMode] || undefined) : undefined
+
     if (p.type === 'IMAGE') {
       const img = p as ImagePaint
       if (!img.imageHash || !_imageMap[img.imageHash]) continue
-      const fillAttrs: Record<string, AttrVal> = {
+      const cropAttrs = cropBoxAttrs(img, nodeW, nodeH)
+      var imgFillAttrs: Record<string, AttrVal> = {
         type: 'image',
-        src: '$' + _imageMap[img.imageHash].id,
+        src: 'assets/' + _imageMap[img.imageHash].id + '.' + _imageMap[img.imageHash].format,
         fit: FIT_MODE[img.scaleMode] || 'cover',
         opacity: img.opacity !== undefined && img.opacity < 1 ? img.opacity : undefined,
+        blend: blendMapped,
+        visible: isHidden ? 'false' : undefined,
+        x: cropAttrs.x,
+        y: cropAttrs.y,
+        w: cropAttrs.w,
+        h: cropAttrs.h,
       }
-      Object.assign(fillAttrs, cropBoxAttrs(img, nodeW, nodeH))
-      fillLines.push(`${ind(depth + 1)}<fill ${attrs({
-        type: fillAttrs.type,
-        src: fillAttrs.src,
-        fit: fillAttrs.fit,
-        opacity: fillAttrs.opacity,
-        x: fillAttrs.x,
-        y: fillAttrs.y,
-        width: fillAttrs.width,
-        height: fillAttrs.height,
-      })} />`)
+      var imgFilters = (p as any).imageFilters
+      if (imgFilters && typeof imgFilters === 'object') {
+        if (typeof imgFilters.exposure === 'number' && imgFilters.exposure !== 0) imgFillAttrs['filter-exposure'] = parseFloat(imgFilters.exposure.toFixed(3))
+        if (typeof imgFilters.contrast === 'number' && imgFilters.contrast !== 0) imgFillAttrs['filter-contrast'] = parseFloat(imgFilters.contrast.toFixed(3))
+        if (typeof imgFilters.saturation === 'number' && imgFilters.saturation !== 0) imgFillAttrs['filter-saturation'] = parseFloat(imgFilters.saturation.toFixed(3))
+        if (typeof imgFilters.temperature === 'number' && imgFilters.temperature !== 0) imgFillAttrs['filter-temperature'] = parseFloat(imgFilters.temperature.toFixed(3))
+        if (typeof imgFilters.tint === 'number' && imgFilters.tint !== 0) imgFillAttrs['filter-tint'] = parseFloat(imgFilters.tint.toFixed(3))
+        if (typeof imgFilters.highlights === 'number' && imgFilters.highlights !== 0) imgFillAttrs['filter-highlights'] = parseFloat(imgFilters.highlights.toFixed(3))
+        if (typeof imgFilters.shadows === 'number' && imgFilters.shadows !== 0) imgFillAttrs['filter-shadows'] = parseFloat(imgFilters.shadows.toFixed(3))
+      }
+      fillLines.push(ind(depth + 1) + '<fill ' + attrs(imgFillAttrs) + ' />')
       continue
     }
 
     const value = paintValue(p, nodeW, nodeH)
     if (!value) continue
-    fillLines.push(`${ind(depth + 1)}<fill ${attrs({
-      type: p.type === 'SOLID' ? 'color' : (p.type === 'GRADIENT_LINEAR' ? 'linear-gradient' : p.type === 'GRADIENT_ANGULAR' ? 'angular-gradient' : 'radial-gradient'),
-      value,
+    var fillType = 'color'
+    if (p.type === 'GRADIENT_LINEAR') fillType = 'linear-gradient'
+    else if (p.type === 'GRADIENT_ANGULAR') fillType = 'angular-gradient'
+    else if (p.type === 'GRADIENT_RADIAL') fillType = 'radial-gradient'
+    fillLines.push(ind(depth + 1) + '<fill ' + attrs({
+      type: fillType,
+      value: value,
       opacity: p.opacity !== undefined && p.opacity < 1 ? p.opacity : undefined,
-    })} />`)
+      blend: blendMapped,
+      visible: isHidden ? 'false' : undefined,
+    }) + ' />')
   }
 
   return fillLines
@@ -334,7 +438,8 @@ function appearanceEffectLines(effects: readonly Effect[] | typeof figma.mixed, 
   for (let i = 0; i < items.length; i++) {
     const e = items[i]
     if (e.type === 'DROP_SHADOW' || e.type === 'INNER_SHADOW') {
-      out.push(`${ind(depth + 1)}<effect ${attrs({
+      var effOpacity = (e as any).opacity
+      out.push(ind(depth + 1) + '<effect ' + attrs({
         type: effectType(e),
         x: e.offset.x,
         y: e.offset.y,
@@ -342,19 +447,28 @@ function appearanceEffectLines(effects: readonly Effect[] | typeof figma.mixed, 
         spread: e.spread !== undefined ? e.spread : 0,
         color: rgbToHex(e.color.r, e.color.g, e.color.b, e.color.a),
         blend: e.blendMode && e.blendMode !== 'NORMAL' ? e.blendMode.toLowerCase() : undefined,
-      })} />`)
-    } else if ((e.type === 'LAYER_BLUR' || e.type === 'BACKGROUND_BLUR') && e.blurType === 'NORMAL') {
-      out.push(`${ind(depth + 1)}<effect ${attrs({
-        type: effectType(e),
-        radius: e.radius,
-      })} />`)
+        opacity: (typeof effOpacity === 'number' && effOpacity < 1) ? parseFloat(effOpacity.toFixed(3)) : undefined,
+      }) + ' />')
+    } else if (e.type === 'LAYER_BLUR' || e.type === 'BACKGROUND_BLUR') {
+      if (e.blurType === 'NORMAL') {
+        out.push(ind(depth + 1) + '<effect ' + attrs({
+          type: effectType(e),
+          radius: e.radius,
+        }) + ' />')
+      } else {
+        // rf027: unsupported blur type — report rather than silently drop
+        out.push(ind(depth + 1) + '<!-- unsupported-effect: ' + e.type + ' blurType=' + e.blurType + ' -->')
+      }
     } else if (e.type === 'GLASS') {
       const ge = e as unknown as { radius?: number; saturation?: number }
-      out.push(`${ind(depth + 1)}<effect ${attrs({
+      out.push(ind(depth + 1) + '<effect ' + attrs({
         type: 'glass',
         radius: ge.radius !== undefined ? ge.radius : 20,
         saturation: ge.saturation !== undefined ? Math.round(ge.saturation * 100) : 180,
-      })} />`)
+      }) + ' />')
+    } else {
+      // rf027: unsupported effect type — report rather than silently drop
+      out.push(ind(depth + 1) + '<!-- unsupported-effect: ' + e.type + ' -->')
     }
   }
 
@@ -367,25 +481,112 @@ function appearanceBlock(
   nodeW: number,
   nodeH: number,
   depth: number,
+  strokeNode?: GeometryMixin,
 ): string {
+  var strokeLines = strokeNode ? appearanceStrokeLines(strokeNode, nodeW, nodeH, depth) : []
   const lines = appearanceFillLines(fills, nodeW, nodeH, depth)
     .concat(appearanceEffectLines(effects, depth))
+    .concat(strokeLines)
   if (!lines.length) return ''
   return `${ind(depth)}<appearance>\n${lines.join('\n')}\n${ind(depth)}</appearance>`
 }
 
-function strokeAttrs(node: GeometryMixin): Record<string, string | number | null> {
+function strokeAttrs(node: GeometryMixin): Record<string, AttrVal> {
   if (!Array.isArray(node.strokes) || node.strokes.length === 0) return {}
-  const f = (node.strokes as Paint[]).find(p => p.type === 'SOLID' && p.visible !== false) as SolidPaint | undefined
-  if (!f) return {}
-  const bv = (f as any).boundVariables
-  const stroke = (bv && bv.color && bv.color.id && tokenRef(bv.color.id))
-    || rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1)
-  return {
-    stroke,
-    'stroke-width': typeof node.strokeWeight === 'number' ? node.strokeWeight : null,
-    'stroke-position': node.strokeAlign ? node.strokeAlign.toLowerCase() : null,
+  const f = (node.strokes as Paint[]).find(function(p) { return p.type === 'SOLID' && p.visible !== false }) as SolidPaint | undefined
+  if (!f) {
+    // No SOLID stroke — try gradient stroke for border shorthand
+    const gf = (node.strokes as Paint[]).find(function(p) {
+      return p.visible !== false && (p.type === 'GRADIENT_LINEAR' || p.type === 'GRADIENT_RADIAL' || p.type === 'GRADIENT_ANGULAR')
+    }) as GradientPaint | undefined
+    if (!gf) return {}
+    // Gradient stroke — can't use border shorthand color, skip shorthand
+    return {}
   }
+  const bv = (f as any).boundVariables
+  const color = (bv && bv.color && bv.color.id && tokenRef(bv.color.id))
+    || rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1)
+  const width = typeof (node as any).strokeWeight === 'number' ? (node as any).strokeWeight : 1
+  const align = (node as any).strokeAlign ? (node as any).strokeAlign.toLowerCase() : 'center'
+  // Build shorthand — omit defaults (width=1, align=center)
+  const parts: string[] = []
+  if (width !== 1) parts.push(String(width))
+  parts.push(color)
+  if (align !== 'center') parts.push(align)
+  var result: Record<string, AttrVal> = { border: parts.join(' ') }
+  // Stroke join
+  var sj = (node as any).strokeJoin
+  if (sj && sj !== figma.mixed) {
+    var sjVal = strokeJoinVal(sj as string)
+    if (sjVal) result['stroke-join'] = sjVal
+  }
+  // Dash pattern
+  var dashPattern = (node as any).strokeDashPattern
+  if (dashPattern && Array.isArray(dashPattern) && dashPattern.length > 0) {
+    result['dash-array'] = dashPattern.join(' ')
+  }
+  var dashOffset = (node as any).strokeDashOffset
+  if (typeof dashOffset === 'number' && dashOffset !== 0) {
+    result['dash-offset'] = dashOffset
+  }
+  return result
+}
+
+function appearanceStrokeLines(node: GeometryMixin, nodeW: number, nodeH: number, depth: number): string[] {
+  if (!Array.isArray(node.strokes) || node.strokes.length === 0) return []
+  var strokePaints = node.strokes as Paint[]
+  var width = typeof (node as any).strokeWeight === 'number' ? (node as any).strokeWeight : 1
+  var align = (node as any).strokeAlign ? (node as any).strokeAlign.toLowerCase() : 'center'
+  var sj = (node as any).strokeJoin
+  var sjVal = (sj && sj !== figma.mixed) ? strokeJoinVal(sj as string) : undefined
+  var dashPattern = (node as any).strokeDashPattern
+  var dashArray = (dashPattern && Array.isArray(dashPattern) && dashPattern.length > 0) ? dashPattern.join(' ') : undefined
+  var dashOffset = (node as any).strokeDashOffset
+  var dashOffsetVal = (typeof dashOffset === 'number' && dashOffset !== 0) ? dashOffset : undefined
+
+  var hasSolid = false
+  for (var si = 0; si < strokePaints.length; si++) {
+    if (strokePaints[si].type === 'SOLID' && strokePaints[si].visible !== false) { hasSolid = true; break }
+  }
+
+  // Emit gradient strokes (or second+ strokes) as <stroke> elements in appearance
+  var lines: string[] = []
+  var solidCount = 0
+  for (var gi = 0; gi < strokePaints.length; gi++) {
+    var sp = strokePaints[gi]
+    var isHidden = sp.visible === false
+    if (sp.type === 'SOLID') {
+      solidCount++
+      // First solid is covered by border shorthand — only emit extras
+      if (solidCount <= 1 && hasSolid) continue
+      var sf = sp as SolidPaint
+      var bv = (sf as any).boundVariables
+      var sColor = (bv && bv.color && bv.color.id && tokenRef(bv.color.id))
+        || rgbToHex(sf.color.r, sf.color.g, sf.color.b, sf.opacity !== undefined ? sf.opacity : 1)
+      lines.push(ind(depth + 1) + '<border ' + attrs({
+        color: sColor,
+        w: width !== 1 ? width : undefined,
+        align: align !== 'center' ? align : undefined,
+        join: sjVal,
+        'dash-array': dashArray,
+        'dash-offset': dashOffsetVal,
+        visible: isHidden ? 'false' : undefined,
+      }) + ' />')
+    } else if (sp.type === 'GRADIENT_LINEAR' || sp.type === 'GRADIENT_RADIAL' || sp.type === 'GRADIENT_ANGULAR') {
+      var gradVal = paintValue(sp, nodeW, nodeH)
+      if (!gradVal) continue
+      lines.push(ind(depth + 1) + '<border ' + attrs({
+        paint: gradVal,
+        w: width !== 1 ? width : undefined,
+        align: align !== 'center' ? align : undefined,
+        join: sjVal,
+        'dash-array': dashArray,
+        'dash-offset': dashOffsetVal,
+        visible: isHidden ? 'false' : undefined,
+      }) + ' />')
+    }
+  }
+  return lines
 }
 
 function shadowAttr(node: BlendMixin): string | null {
@@ -414,24 +615,37 @@ function maskAttr(node: SceneNode): true | undefined {
   return (node as BlendMixin).isMask || undefined
 }
 
+const CONSTRAINT_H_MAP: Record<string, string> = {
+  MAX: 'right', CENTER: 'center', SCALE: 'scale', STRETCH: 'stretch',
+}
+const CONSTRAINT_V_MAP: Record<string, string> = {
+  MAX: 'bottom', CENTER: 'center', SCALE: 'scale', STRETCH: 'stretch',
+}
+
 function constraintAttrs(node: SceneNode): Record<string, AttrVal> {
   if (!('constraints' in node)) return {}
   const c = (node as any).constraints as Constraints
   if (!c) return {}
-  const h = c.horizontal !== 'LEFT' ? c.horizontal.toLowerCase() : undefined
-  const v = c.vertical !== 'TOP' ? c.vertical.toLowerCase() : undefined
-  return { 'constraint-h': h, 'constraint-v': v }
+  // Figma uses 'MIN' for left/top (the default) — omit it; map MAX → right/bottom
+  return {
+    'constraint-h': CONSTRAINT_H_MAP[c.horizontal] || undefined,
+    'constraint-v': CONSTRAINT_V_MAP[c.vertical] || undefined,
+  }
 }
 
 function sizingAttrs(node: SceneNode): Record<string, AttrVal> {
   const result: Record<string, AttrVal> = {}
   if ('layoutSizingHorizontal' in node) {
     const h = (node as FrameNode).layoutSizingHorizontal
-    if (h === 'HUG' || h === 'FILL') result['sizing-h'] = h.toLowerCase()
+    if (h === 'FILL') result.w = 'fill'
+    else if (h === 'HUG') result.w = undefined  // absent = hug
+    // FIXED: base w value stays
   }
   if ('layoutSizingVertical' in node) {
     const v = (node as FrameNode).layoutSizingVertical
-    if (v === 'HUG' || v === 'FILL') result['sizing-v'] = v.toLowerCase()
+    if (v === 'FILL') result.h = 'fill'
+    else if (v === 'HUG') result.h = undefined  // absent = hug
+    // FIXED: base h value stays
   }
   return result
 }
@@ -439,7 +653,7 @@ function sizingAttrs(node: SceneNode): Record<string, AttrVal> {
 function layoutPositionAttrs(node: SceneNode): Record<string, AttrVal> {
   if (!('layoutPositioning' in node)) return {}
   return (node as unknown as { layoutPositioning?: string }).layoutPositioning === 'ABSOLUTE'
-    ? { 'layout-position': 'absolute' }
+    ? { abs: true }
     : {}
 }
 
@@ -525,9 +739,16 @@ async function collectAndFetchImages(root: SceneNode): Promise<void> {
   _imageCounter = 0
   _svgNodeMap = {}
   _svgB64Map = {}
-  _svgStringMap = {}
   _svgUsageCounts = {}
   _svgCounter = 0
+  _componentRegistry = new Map()
+  _componentSetRegistry = new Map()
+  _instanceOverrideAccum = new Map()
+  _generatingComponentBody = false
+  _generatingComponentRoot = false
+  _componentBodyUsedIds = null
+  _invisibleNodeIds = new Set()
+  _currentComponentDefs = null
   const hashes: string[] = []
   collectImageHashes(root, hashes)
   for (let i = 0; i < hashes.length; i++) {
@@ -540,35 +761,6 @@ async function collectAndFetchImages(root: SceneNode): Promise<void> {
       _imageMap[hash] = { id: 'img-' + _imageCounter, format: detectFormat(bytes), b64: bytesToBase64(bytes) }
     } catch (e) { /* skip failed images */ }
   }
-}
-
-function decodeSvgBytes(bytes: Uint8Array): string {
-  var result = ''
-  var i = 0
-  while (i < bytes.length) {
-    var b = bytes[i]
-    if (b < 0x80) {
-      result += String.fromCharCode(b)
-      i++
-    } else if (b < 0xE0 && i + 1 < bytes.length) {
-      result += String.fromCharCode(((b & 0x1F) << 6) | (bytes[i + 1] & 0x3F))
-      i += 2
-    } else if (b < 0xF0 && i + 2 < bytes.length) {
-      result += String.fromCharCode(((b & 0x0F) << 12) | ((bytes[i + 1] & 0x3F) << 6) | (bytes[i + 2] & 0x3F))
-      i += 3
-    } else {
-      i += b < 0xF0 ? 3 : 4
-    }
-  }
-  return result
-}
-
-function extractSvgInner(svgStr: string): string {
-  var firstClose = svgStr.indexOf('>')
-  if (firstClose < 0) return ''
-  var lastOpen = svgStr.lastIndexOf('</')
-  if (lastOpen <= firstClose) return ''
-  return svgStr.slice(firstClose + 1, lastOpen).trim()
 }
 
 function dataUrl(asset: ImageAsset): string {
@@ -589,18 +781,22 @@ function xmlEscape(s: string): string {
 function attrs(obj: Record<string, AttrVal>): string {
   return Object.entries(obj)
     .filter(([, v]) => v !== null && v !== undefined && v !== false)
-    .map(([k, v]) => `${k}="${typeof v === 'string' ? xmlEscape(v) : v}"`)
+    .map(([k, v]) => v === true ? k : `${k}="${typeof v === 'string' ? xmlEscape(v) : v}"`)
     .join(' ')
 }
 
 function debugAttrs(node: SceneNode): Record<string, AttrVal> {
   if (!_debugExport) return {}
   const layout = node as LayoutMixin
+  var propRefs = (node as any).componentPropertyReferences
+  var visRef = propRefs && propRefs.visible ? String(propRefs.visible) : undefined
   return {
     'debug-id': node.id,
     'debug-type': node.type,
     'debug-raw-x': typeof layout.x === 'number' ? Math.round(layout.x) : undefined,
     'debug-raw-y': typeof layout.y === 'number' ? Math.round(layout.y) : undefined,
+    'debug-node-visible': String(node.visible),
+    'debug-vis-prop-ref': visRef,
   }
 }
 
@@ -659,6 +855,339 @@ function isBase64Char(code: number): boolean {
     code === 47 ||
     code === 61
   )
+}
+
+// --- component helpers ---
+
+function sanitizeId(name: string): string {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'node'
+}
+
+function componentBodyId(name: string): string | undefined {
+  if (!_generatingComponentBody || !_componentBodyUsedIds) return undefined
+  const base = sanitizeId(name)
+  if (!base) return undefined
+  let final = base
+  let i = 1
+  while (_componentBodyUsedIds.has(final)) final = base + '-' + (++i)
+  _componentBodyUsedIds.add(final)
+  return final
+}
+
+function sanitizePropName(name: string): string {
+  const base = name.replace(/#[^#]*$/, '').trim()
+  return sanitizeId(base) || 'prop'
+}
+
+function parseVariantAttrs(compName: string): Record<string, string> {
+  const result: Record<string, string> = {}
+  const parts = compName.split(',')
+  for (var i = 0; i < parts.length; i++) {
+    const eq = parts[i].indexOf('=')
+    if (eq === -1) continue
+    const key = sanitizeId(parts[i].slice(0, eq).trim())
+    const value = sanitizeId(parts[i].slice(eq + 1).trim())
+    if (key && value) result[key] = value
+  }
+  return result
+}
+
+function generateComponentGuiId(component: ComponentNode): string {
+  const parent = component.parent
+  if (parent && parent.type === 'COMPONENT_SET') {
+    return 'comp-' + sanitizeId((parent as any).name) + '-' + sanitizeId(component.name)
+  }
+  return 'comp-' + sanitizeId(component.name)
+}
+
+function findPropTargetNode(root: SceneNode, propRawName: string, refAttr: string): SceneNode | null {
+  const refs = (root as any).componentPropertyReferences
+  if (refs && refs[refAttr] === propRawName) return root
+  if ('children' in root) {
+    const ch = (root as ChildrenMixin).children
+    for (var i = 0; i < ch.length; i++) {
+      const found = findPropTargetNode(ch[i] as SceneNode, propRawName, refAttr)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+// Walk the full component tree in DFS order and assign IDs exactly as componentBodyId would,
+// returning a Map<figmaNodeId, guiBodyId>. This lets extractComponentProps find the correct
+// target ID even when a container with the same name appears before the text node.
+// simulateBodyIds walks the component body and maps each node's ID to its
+// generated kebab-case id (same deduplication used in frameToGui).
+// Used when building the <props> block — we only have the component node.
+function simulateBodyIds(root: SceneNode): Map<string, string> {
+  var used = new Set<string>()
+  var result = new Map<string, string>()
+  function walk(n: SceneNode) {
+    // instanceToGui does NOT call componentBodyId — instances don't consume an id slot.
+    // Exclude them from the used-set so deduplication stays in sync with the real body.
+    if (n.type !== 'INSTANCE') {
+      var base = sanitizeId(n.name)
+      if (base) {
+        var final = base
+        var i = 1
+        while (used.has(final)) { i++; final = base + '-' + i }
+        used.add(final)
+        result.set(n.id, final)
+      }
+    }
+    if ('children' in n) {
+      var ch = (n as ChildrenMixin).children
+      for (var j = 0; j < ch.length; j++) walk(ch[j] as SceneNode)
+    }
+  }
+  walk(root)
+  return result
+}
+
+// buildInstanceBodyIdMap walks an instance and its main component in parallel,
+// mapping BOTH instance-scoped node IDs AND component body node IDs to the same
+// generated kebab-case name. This is necessary because Figma instance child IDs
+// use the format "<instanceId>;<componentNodeId>" — they are NOT the same as the
+// component body node IDs. InstanceNode.overrides uses instance-scoped IDs, so
+// bodyIds.get(ov.id) always returns undefined when keyed only by component IDs.
+function buildInstanceBodyIdMap(instRoot: SceneNode, compRoot: SceneNode): Map<string, string> {
+  var used = new Set<string>()
+  var result = new Map<string, string>()
+  function walk(instNode: SceneNode, compNode: SceneNode) {
+    if (instNode.type !== 'INSTANCE') {
+      var base = sanitizeId(instNode.name)
+      if (base) {
+        var final = base
+        var i = 1
+        while (used.has(final)) { i++; final = base + '-' + i }
+        used.add(final)
+        result.set(instNode.id, final)  // instance-scoped id → kebab name
+        result.set(compNode.id, final)  // component body id → same kebab name
+      }
+    }
+    if ('children' in instNode && 'children' in compNode) {
+      var instCh = (instNode as ChildrenMixin).children
+      var compCh = (compNode as ChildrenMixin).children
+      var len = instCh.length < compCh.length ? instCh.length : compCh.length
+      for (var j = 0; j < len; j++) {
+        walk(instCh[j] as SceneNode, compCh[j] as SceneNode)
+      }
+    }
+  }
+  walk(instRoot, compRoot)
+  return result
+}
+
+function countComponentBodyLayers(component: ComponentNode): number {
+  var count = 0
+  function walkCount(n: SceneNode) {
+    count++
+    if ('children' in n) {
+      var ch = (n as ChildrenMixin).children
+      for (var i = 0; i < ch.length; i++) walkCount(ch[i] as SceneNode)
+    }
+  }
+  if ('children' in component) {
+    var ch = (component as ChildrenMixin).children
+    for (var i = 0; i < ch.length; i++) walkCount(ch[i] as SceneNode)
+  }
+  return count
+}
+
+function collectInstanceOverrideTypes(node: InstanceNode): void {
+  var comp = node.mainComponent
+  if (!comp) return
+  // Use buildInstanceBodyIdMap so instance-scoped node IDs in overrides resolve correctly
+  var bodyIds = buildInstanceBodyIdMap(node as SceneNode, comp as SceneNode)
+  var accum = _instanceOverrideAccum.get(comp.id)
+  if (!accum) {
+    accum = []
+    _instanceOverrideAccum.set(comp.id, accum)
+  }
+  var overrides = (node as any).overrides as ReadonlyArray<{ id: string; overriddenFields: string[] }> | null
+  if (overrides) {
+    for (var i = 0; i < overrides.length; i++) {
+      var ov = overrides[i]
+      if (!ov.overriddenFields) continue
+      var bodyId = bodyIds.get(ov.id)
+      if (!bodyId) continue
+      for (var j = 0; j < ov.overriddenFields.length; j++) {
+        var field = ov.overriddenFields[j]
+        if (field === 'characters') {
+          accum.push({ bodyId: bodyId, type: 'string' })
+        } else if (field === 'visible') {
+          accum.push({ bodyId: bodyId, type: 'boolean' })
+        } else if (field === 'fills') {
+          var ovNode = findNodeInTree(node as SceneNode, ov.id)
+          if (ovNode) {
+            var imgFill = getImageFillFromNode(ovNode)
+            if (imgFill) {
+              accum.push({ bodyId: bodyId, type: 'image' })
+            } else {
+              var sf = ('fills' in ovNode) ? solidFill((ovNode as GeometryMixin).fills) : null
+              if (sf) accum.push({ bodyId: bodyId, type: 'color' })
+            }
+          }
+        } else if (field === 'strokes') {
+          var sov = findNodeInTree(node as SceneNode, ov.id)
+          if (sov && 'strokes' in sov) {
+            var strk = (sov as GeometryMixin).strokes
+            if (strk && strk.length > 0 && strk[0].type === 'SOLID') {
+              accum.push({ bodyId: bodyId, type: 'color', bind: 'stroke' })
+            }
+          }
+        } else if (field === 'textStyleId') {
+          accum.push({ bodyId: bodyId, type: 'style', bind: 'text-style' })
+        } else if (field === 'fillStyleId') {
+          accum.push({ bodyId: bodyId, type: 'style', bind: 'fill-style' })
+        } else if (field === 'effectStyleId') {
+          accum.push({ bodyId: bodyId, type: 'style', bind: 'effect-style' })
+        } else if (field === 'strokeStyleId') {
+          accum.push({ bodyId: bodyId, type: 'style', bind: 'stroke-style' })
+        }
+      }
+    }
+  }
+  // INSTANCE_SWAP via componentProperties
+  var compProps = (node as any).componentProperties as Record<string, { type: string; value: unknown }> | null
+  if (compProps) {
+    var propKeys = Object.keys(compProps)
+    for (var pi = 0; pi < propKeys.length; pi++) {
+      var propDef = compProps[propKeys[pi]]
+      if (propDef.type !== 'INSTANCE_SWAP') continue
+      var swapTarget = findPropTargetNode(comp as SceneNode, propKeys[pi], 'mainComponent')
+      if (swapTarget) {
+        var swapBodyId = bodyIds.get(swapTarget.id)
+        if (swapBodyId) accum.push({ bodyId: swapBodyId, type: 'component' })
+      }
+    }
+  }
+}
+
+async function prewalkAllInstances(node: SceneNode): Promise<void> {
+  if (node.type === 'INSTANCE') {
+    var inst = node as InstanceNode
+    if (inst.mainComponent) {
+      await registerComponent(inst.mainComponent)
+      collectInstanceOverrideTypes(inst)
+    }
+  }
+  if ('children' in node) {
+    var ch = (node as ChildrenMixin).children
+    for (var i = 0; i < ch.length; i++) {
+      await prewalkAllInstances(ch[i] as SceneNode)
+    }
+  }
+}
+
+function extractComponentProps(component: ComponentNode): PropEntry[] {
+  const isVariant = component.parent && component.parent.type === 'COMPONENT_SET'
+  const defSource = isVariant ? component.parent : component
+  var defs: Record<string, { type: string }> | null = null
+  try {
+    defs = (defSource as any).componentPropertyDefinitions || null
+  } catch (_e) { /* not available */ }
+
+  const props: PropEntry[] = []
+  const usedTargets: Set<string> = new Set()
+  const bodyIds = simulateBodyIds(component as SceneNode)
+
+  // 1. Formal declared props from componentPropertyDefinitions
+  if (defs) {
+    var entries = Object.keys(defs)
+    for (var i = 0; i < entries.length; i++) {
+      var rawName = entries[i]
+      var figmaType = defs[rawName].type
+      var guiType: PropEntry['type'] | null = null
+      var refAttr = ''
+      if (figmaType === 'TEXT') { guiType = 'string'; refAttr = 'characters' }
+      else if (figmaType === 'BOOLEAN') { guiType = 'boolean'; refAttr = 'visible' }
+      else if (figmaType === 'INSTANCE_SWAP') { guiType = 'component'; refAttr = 'mainComponent' }
+      if (!guiType) continue
+      var targetNode = findPropTargetNode(component as SceneNode, rawName, refAttr)
+      if (!targetNode) continue
+      var target = bodyIds.get(targetNode.id) || sanitizeId(targetNode.name)
+      props.push({ name: sanitizePropName(rawName), type: guiType, target: target })
+      usedTargets.add(target)
+    }
+  }
+
+  // 2. Inferred props from actual instance overrides collected during prewalkAllInstances
+  var inferred = _instanceOverrideAccum.get(component.id)
+  if (inferred) {
+    var seen: Set<string> = new Set()
+    for (var ii = 0; ii < inferred.length; ii++) {
+      var inf = inferred[ii]
+      // key includes bind so color+fill and color+stroke are separate props
+      var key = inf.bodyId + ':' + inf.type + (inf.bind ? ':' + inf.bind : '')
+      if (seen.has(key)) continue
+      seen.add(key)
+      // For typed overrides with bind, allow same target to have multiple props
+      // (e.g. fill color + stroke color on the same layer are distinct props)
+      if (!inf.bind && usedTargets.has(inf.bodyId)) continue
+      // Generate a unique prop name when bind is present to avoid collisions
+      var propName = inf.bind ? inf.bodyId + '-' + inf.bind.replace(/-style$/, '') : inf.bodyId
+      var entry: PropEntry = { name: propName, type: inf.type, target: inf.bodyId }
+      if (inf.bind) entry.bind = inf.bind
+      props.push(entry)
+      if (!inf.bind) usedTargets.add(inf.bodyId)
+    }
+  }
+
+  return props
+}
+
+async function registerComponent(component: ComponentNode | null): Promise<void> {
+  if (!component || _componentRegistry.has(component.id)) return
+
+  // Temporary entry to break potential cycles
+  _componentRegistry.set(component.id, { guiId: '', figmaNode: component, props: [] })
+
+  await prewalkNode(component as SceneNode, 2)
+
+  const props = extractComponentProps(component)
+
+  var setGuiId: string | undefined
+  var variantAttrs: Record<string, string> | undefined
+  const parent = component.parent
+  if (parent && parent.type === 'COMPONENT_SET') {
+    const set = parent as any
+    if (!_componentSetRegistry.has(set.id)) {
+      _componentSetRegistry.set(set.id, {
+        guiId: 'compset-' + sanitizeId(set.name),
+        name: set.name,
+        figmaNode: set,
+        componentIds: [],
+      })
+    }
+    const setEntry = _componentSetRegistry.get(set.id)!
+    setGuiId = setEntry.guiId
+    if (setEntry.componentIds.indexOf(component.id) === -1) setEntry.componentIds.push(component.id)
+    variantAttrs = parseVariantAttrs(component.name)
+  }
+
+  const guiId = generateComponentGuiId(component)
+  _componentRegistry.set(component.id, { guiId, figmaNode: component, props, setGuiId, variantAttrs })
+
+  // Recurse into component children to find nested instances
+  if ('children' in component) {
+    const ch = (component as ChildrenMixin).children
+    for (var i = 0; i < ch.length; i++) {
+      await prewalkComponents(ch[i] as SceneNode)
+    }
+  }
+}
+
+async function prewalkComponents(node: SceneNode): Promise<void> {
+  if (node.type === 'INSTANCE') {
+    await registerComponent((node as InstanceNode).mainComponent)
+  }
+  if ('children' in node) {
+    const ch = (node as ChildrenMixin).children
+    for (var i = 0; i < ch.length; i++) {
+      if ((ch[i] as SceneNode).visible !== false) await prewalkComponents(ch[i] as SceneNode)
+    }
+  }
 }
 
 // --- node converters ---
@@ -756,7 +1285,6 @@ async function svgAsset(node: SceneNode): Promise<ImageAsset | null> {
 
     _svgCounter++
     const asset = { id: 'svg-' + _svgCounter, format: 'svg', b64 }
-    _svgStringMap[asset.id] = extractSvgInner(decodeSvgBytes(bytes))
     _svgB64Map[b64] = asset
     _svgNodeMap[node.id] = asset
     return asset
@@ -783,39 +1311,46 @@ async function svgToGui(node: SceneNode, depth: number): Promise<string> {
   const asset = await svgAsset(node)
   if (!asset) return ''
 
-  const isInline = _svgUsageCounts[asset.id] === 1
   const baseAttrs: Record<string, AttrVal> = {
+    id: componentBodyId(node.name),
     name: node.name,
-    src: isInline ? undefined : '$' + asset.id,
+    src: 'assets/' + asset.id + '.svg',
     x: Math.round((node as LayoutMixin).x),
     y: Math.round((node as LayoutMixin).y),
-    width: Math.round((node as LayoutMixin).width),
-    height: Math.round((node as LayoutMixin).height),
+    w: Math.round((node as LayoutMixin).width),
+    h: Math.round((node as LayoutMixin).height),
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
   }
   Object.assign(baseAttrs, constraintAttrs(node))
   Object.assign(baseAttrs, sizingAttrs(node))
   Object.assign(baseAttrs, layoutPositionAttrs(node))
   Object.assign(baseAttrs, debugAttrs(node))
 
-  if (isInline) {
-    const innerMarkup = _svgStringMap[asset.id] || ''
-    if (!innerMarkup) return `${ind(depth)}<svg ${attrs(baseAttrs)} />`
-    const innerLines = innerMarkup.split('\n').map(function(line) {
-      var t = line.trim()
-      return t ? ind(depth + 1) + t : ''
-    }).filter(Boolean).join('\n')
-    return `${ind(depth)}<svg ${attrs(baseAttrs)}>\n${innerLines}\n${ind(depth)}</svg>`
-  }
-
-  return `${ind(depth)}<svg ${attrs(baseAttrs)} />`
+  return `${ind(depth)}<img ${attrs(baseAttrs)} />`
 }
 
 async function nodeToGui(node: SceneNode, depth: number): Promise<string> {
-  if (node.visible === false) return ''
+  // Invisible nodes: preserve in output with visible="false" attribute
+  // Pre-walk loops still filter them out; only this main dispatch preserves them
+  if (node.visible === false) {
+    _invisibleNodeIds.add(node.id)
+  } else if (_generatingComponentBody && _currentComponentDefs) {
+    // Figma keeps node.visible===true for layers whose visibility is driven by a
+    // boolean component property with defaultValue:false. Detect that here so the
+    // component body correctly emits visible="false".
+    var propRefs = (node as any).componentPropertyReferences
+    if (propRefs && propRefs.visible) {
+      var propDef = _currentComponentDefs[propRefs.visible as string]
+      if (propDef && propDef.type === 'BOOLEAN' && propDef.defaultValue === false) {
+        _invisibleNodeIds.add(node.id)
+      }
+    }
+  }
 
   if (shouldExportAsSvg(node, depth)) {
     return svgToGui(node, depth)
@@ -824,25 +1359,36 @@ async function nodeToGui(node: SceneNode, depth: number): Promise<string> {
   switch (node.type) {
     case 'FRAME':
     case 'COMPONENT':
-    case 'INSTANCE':
       return frameToGui(node as FrameNode, depth)
+    case 'INSTANCE':
+      return instanceToGui(node as InstanceNode, depth)
     case 'GROUP':
       return groupToGui(node as GroupNode, depth)
     case 'TEXT':
       return textToGui(node as TextNode, depth)
     case 'RECTANGLE':
       return rectToGui(node as RectangleNode, depth)
-    case 'ELLIPSE':
+    case 'ELLIPSE': {
+      const arc = (node as EllipseNode).arcData
+      const TWO_PI = Math.PI * 2
+      const hasArc = arc && (
+        Math.abs(arc.startingAngle) > 0.001 ||
+        Math.abs(arc.endingAngle - TWO_PI) > 0.001 ||
+        arc.innerRadius > 0
+      )
+      if (hasArc) return await svgToGui(node, depth)
       return ellipseToGui(node as EllipseNode, depth)
+    }
     case 'LINE':
       return lineToGui(node as LineNode, depth)
     case 'VECTOR':
     case 'STAR':
     case 'POLYGON':
     case 'BOOLEAN_OPERATION':
-      return pathToGui(node as VectorNode, depth)
+      return await svgToGui(node, depth)
     default:
       if ('children' in node) {
+        if ((node.type as string) === 'COMPONENT_SET') return frameToGui(node as any as FrameNode, depth)
         const lm = (node as FrameNode).layoutMode
         if (lm && lm !== 'NONE') return frameToGui(node as FrameNode, depth)
         return groupToGui(node as GroupNode, depth)
@@ -922,10 +1468,22 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
   const effectStyleId = typeof effectStyleIdRaw === 'string' && effectStyleIdRaw ? effectStyleIdRaw : null
   const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null
 
+  const isCompRoot = _generatingComponentRoot
+  if (_generatingComponentRoot) _generatingComponentRoot = false
+
+  // For root col/row/stack with auto primary-axis sizing, omit h — the canvas
+  // grows with content. Fixed artboards (<frame>) and grid always emit explicit h.
+  var rootAutoH = false
+  if (isRoot && isStack && !isGrid) {
+    var pas = (node as any).primaryAxisSizingMode
+    rootAutoH = pas === 'AUTO'
+  }
+
   const a: Record<string, AttrVal> = {
+    id: componentBodyId(node.name),
     name: node.name,
-    width: Math.round(node.width),
-    height: Math.round(node.height),
+    w: Math.round(node.width),
+    h: rootAutoH ? undefined : Math.round(node.height),
     fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
     'fill-style': fillStyleName || undefined,
     radius: cornerRadius(node),
@@ -934,11 +1492,13 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: !isRoot ? rotationAttr(node) : undefined,
+    flip: !isRoot ? flipAttr(node) : undefined,
+    visible: !isRoot ? visibleAttr(node) : undefined,
     clip: node.clipsContent || undefined,
     shadow: (effectStyleName || visibleEffects(node.effects).length) ? undefined : shadowAttr(node),
     'effect-style': effectStyleName || undefined,
   }
-  if (!isRoot) {
+  if (!isRoot && !isCompRoot) {
     a.x = Math.round(node.x)
     a.y = Math.round(node.y)
   }
@@ -959,31 +1519,412 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
       a['col-gap'] = gn.gridColumnGap > 0 ? gn.gridColumnGap : undefined
       a['row-gap'] = gn.gridRowGap > 0 ? gn.gridRowGap : undefined
     } else {
-      if (node.itemSpacing !== 0) {
-        const gapBv = (node as any).boundVariables
-        a.gap = (gapBv && gapBv.itemSpacing && gapBv.itemSpacing.id && tokenRef(gapBv.itemSpacing.id)) || node.itemSpacing
-      }
+      a.gap = stackGap(node)
       a['reverse-z'] = node.itemReverseZIndex || undefined
+      a.wrap = node.layoutWrap === 'WRAP' ? true : undefined
     }
-    a.padding = padding(node)
-    a.align = ALIGN[node.counterAxisAlignItems]
-    a.justify = ALIGN[node.primaryAxisAlignItems]
-    if (node.layoutWrap === 'WRAP') {
-      a.wrap = true
-      if (node.counterAxisAlignContent === 'SPACE_BETWEEN') a['wrap-align'] = 'space-between'
-      if (node.counterAxisSpacing != null && node.counterAxisSpacing > 0) a['wrap-gap'] = node.counterAxisSpacing
-    }
+    a.p = padding(node)
+    a.align = ninePointAlign(node)
   }
 
   const emptyPaints: readonly Paint[] = []
   const emptyEffects: readonly Effect[] = []
   const fillsForAppearance = fillStyleName ? emptyPaints : node.fills
   const effectsForAppearance = effectStyleName ? emptyEffects : node.effects
-  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1)
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1, node)
   const childInner = await children(node, depth + 1)
   const inner = [appearance, childInner].filter(Boolean).join('\n')
   if (!inner) return `${ind(depth)}<${tag} ${attrs(a)} />`
   return `${ind(depth)}<${tag} ${attrs(a)}>\n${inner}\n${ind(depth)}</${tag}>`
+}
+
+function findNodeInTree(root: SceneNode, id: string): SceneNode | null {
+  if (root.id === id) return root
+  if ('children' in root) {
+    const ch = (root as ChildrenMixin).children
+    for (var i = 0; i < ch.length; i++) {
+      const found = findNodeInTree(ch[i] as SceneNode, id)
+      if (found) return found
+    }
+  }
+  return null
+}
+
+async function instanceToGui(node: InstanceNode, depth: number): Promise<string> {
+  const comp = node.mainComponent
+  if (!comp) return frameToGui(node as FrameNode, depth)
+
+  if (!_componentRegistry.has(comp.id)) await registerComponent(comp)
+  const entry = _componentRegistry.get(comp.id)
+  if (!entry || !entry.guiId) return frameToGui(node as FrameNode, depth)
+
+  // Detach threshold: >= 75% of layers overridden AND >= 4 layers total.
+  // Heavily overridden instances lose component identity — emit as inline tree
+  // with component attr as a metadata hint only.
+  var allOverrides = (node as any).overrides as ReadonlyArray<{ id: string; overriddenFields: string[] }> | null
+  var overrideCount = 0
+  if (allOverrides) {
+    for (var di = 0; di < allOverrides.length; di++) {
+      if (allOverrides[di].overriddenFields && allOverrides[di].overriddenFields.length > 0) overrideCount++
+    }
+  }
+  var totalLayers = countComponentBodyLayers(comp)
+  if (totalLayers >= 4 && overrideCount / totalLayers >= 0.75) {
+    var detached = await frameToGui(node as FrameNode, depth)
+    return detached.replace(/^(\s*<\w+)/, '$1 component="' + entry.guiId + '"')
+  }
+
+  const isRoot = depth === 1
+  const a: Record<string, AttrVal> = {
+    component: entry.guiId,
+    name: node.name !== comp.name ? node.name : undefined,
+    x: isRoot ? undefined : Math.round(node.x),
+    y: isRoot ? undefined : Math.round(node.y),
+    w: Math.round(node.width),
+    h: Math.round(node.height),
+    radius: cornerRadius(node as any as FrameNode),
+    opacity: node.opacity < 1 ? node.opacity : undefined,
+    blend: blendModeAttr(node),
+    rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
+  }
+  Object.assign(a, constraintAttrs(node))
+  Object.assign(a, sizingAttrs(node))
+  Object.assign(a, layoutPositionAttrs(node))
+  Object.assign(a, minMaxAttrs(node))
+  Object.assign(a, debugAttrs(node))
+
+  // Use buildInstanceBodyIdMap so instance-scoped node IDs in overrides resolve correctly.
+  // Figma instance child IDs use format "<instanceId>;<componentNodeId>" — they are NOT
+  // the same as component body node IDs, so simulateBodyIds(comp) alone would miss them.
+  var bodyIds = buildInstanceBodyIdMap(node as SceneNode, comp as SceneNode)
+  var overrides = allOverrides
+
+  // Build a lookup: target body-id -> declared prop name, for all prop types
+  var bodyIdToPropName: Record<string, string> = {}
+  for (var pi = 0; pi < entry.props.length; pi++) {
+    var ep = entry.props[pi]
+    // target may be space-separated list — register each id
+    var targets = ep.target.split(' ')
+    for (var ti = 0; ti < targets.length; ti++) {
+      if (targets[ti]) bodyIdToPropName[targets[ti]] = ep.name
+    }
+  }
+
+  // 1. Formal TEXT property overrides (declared via componentPropertyDefinitions).
+  // NOTE: componentPropertyDefinitions crashes on variant ComponentNodes — always read
+  // from the parent ComponentSet when comp is a variant.
+  const compProps = (node as any).componentProperties as Record<string, { type: string; value: unknown }> | null
+  if (compProps) {
+    var compDefs: Record<string, { defaultValue: unknown }> | null = null
+    try {
+      var defSource = (comp as any).parent && (comp as any).parent.type === 'COMPONENT_SET'
+        ? (comp as any).parent
+        : comp
+      compDefs = (defSource as any).componentPropertyDefinitions || null
+    } catch (_e) { /* not available — variant or restricted node */ }
+
+    var propKeys = Object.keys(compProps)
+    for (var i = 0; i < propKeys.length; i++) {
+      var rawName = propKeys[i]
+      var propDef = compProps[rawName]
+      if (propDef.type !== 'TEXT') continue  // visibility handled in Section 3
+      var val = propDef.value
+      if (typeof val !== 'string') continue
+      var defaultVal = compDefs && compDefs[rawName] && compDefs[rawName].defaultValue
+      if (!defaultVal || val !== defaultVal) a[sanitizePropName(rawName)] = val
+    }
+  }
+
+  // 2. Ad-hoc TEXT overrides — text content changed directly on a layer without a
+  // formal componentPropertyDefinition. Detected via InstanceNode.overrides.
+  if (overrides) {
+    for (var oi = 0; oi < overrides.length; oi++) {
+      var ov = overrides[oi]
+      if (!ov.overriddenFields || ov.overriddenFields.indexOf('characters') === -1) continue
+      var ovNode = findNodeInTree(node as SceneNode, ov.id)
+      if (!ovNode || ovNode.type !== 'TEXT') continue
+      var bid = bodyIds.get(ov.id) || sanitizeId(ovNode.name)
+      if (!bid) continue
+      var textKey = bodyIdToPropName[bid] || bid
+      if (a[textKey] !== undefined) continue
+      var chars = (ovNode as TextNode).characters
+      if (typeof chars === 'string') a[textKey] = chars
+    }
+  }
+
+  // 3. Visibility overrides.
+  // Primary: use InstanceNode.overrides — the only reliable source in Figma's plugin API.
+  // Figma does NOT always set n.visible===false on instance children when the hide was
+  // done via the eye-icon override; the override is only guaranteed to appear here.
+  if (overrides) {
+    for (var vi = 0; vi < overrides.length; vi++) {
+      var vov = overrides[vi]
+      if (!vov.overriddenFields || vov.overriddenFields.indexOf('visible') === -1) continue
+      var vbid = bodyIds.get(vov.id)
+      if (!vbid) continue
+      var vkey = bodyIdToPropName[vbid] || vbid
+      if (a[vkey] !== undefined) continue
+      // Read current visibility from the live instance tree to get the actual value
+      var vovNode = findNodeInTree(node as SceneNode, vov.id)
+      if (vovNode) a[vkey] = vovNode.visible === false ? 'false' : 'true'
+    }
+  }
+  // Secondary: walk instance children to catch boolean component properties whose
+  // defaultValue is false — these don't appear in overrides but are hidden at render time.
+  function walkVisibility(n: SceneNode) {
+    if (n.visible === false) {
+      var wbid = bodyIds.get(n.id)
+      if (wbid) {
+        var wkey = bodyIdToPropName[wbid] || wbid
+        if (a[wkey] === undefined) a[wkey] = 'false'
+      }
+    }
+    if ('children' in n) {
+      var wch = (n as ChildrenMixin).children
+      for (var wci = 0; wci < wch.length; wci++) walkVisibility(wch[wci] as SceneNode)
+    }
+  }
+  if ('children' in node) {
+    var instCh = (node as ChildrenMixin).children
+    for (var ic = 0; ic < instCh.length; ic++) walkVisibility(instCh[ic] as SceneNode)
+  }
+
+  // 4. Color overrides — solid fill changed on a layer.
+  if (overrides) {
+    for (var fi = 0; fi < overrides.length; fi++) {
+      var fov = overrides[fi]
+      if (!fov.overriddenFields || fov.overriddenFields.indexOf('fills') === -1) continue
+      var fovNode = findNodeInTree(node as SceneNode, fov.id)
+      if (!fovNode) continue
+      if (getImageFillFromNode(fovNode)) continue  // image — handled in section 5
+      var fillColor = ('fills' in fovNode) ? solidFill((fovNode as GeometryMixin).fills) : null
+      if (!fillColor) continue
+      var fbid = bodyIds.get(fov.id)
+      if (!fbid) continue
+      var fkey = bodyIdToPropName[fbid] || fbid
+      if (a[fkey] === undefined) a[fkey] = fillColor
+    }
+  }
+
+  // 5. Image overrides — image fill changed on a layer.
+  if (overrides) {
+    for (var imi = 0; imi < overrides.length; imi++) {
+      var imov = overrides[imi]
+      if (!imov.overriddenFields || imov.overriddenFields.indexOf('fills') === -1) continue
+      var imNode = findNodeInTree(node as SceneNode, imov.id)
+      if (!imNode) continue
+      var imFill = getImageFillFromNode(imNode)
+      if (!imFill || !imFill.imageHash) continue
+      var imAsset = _imageMap[imFill.imageHash]
+      if (!imAsset) continue
+      var imbid = bodyIds.get(imov.id)
+      if (!imbid) continue
+      var imkey = bodyIdToPropName[imbid] || imbid
+      if (a[imkey] === undefined) a[imkey] = '$' + imAsset.id
+    }
+  }
+
+  // 6b. Stroke color overrides — solid stroke changed on a layer.
+  if (overrides) {
+    for (var sti = 0; sti < overrides.length; sti++) {
+      var stov = overrides[sti]
+      if (!stov.overriddenFields || stov.overriddenFields.indexOf('strokes') === -1) continue
+      var stNode = findNodeInTree(node as SceneNode, stov.id)
+      if (!stNode || !('strokes' in stNode)) continue
+      var strokes = (stNode as GeometryMixin).strokes
+      if (!strokes || strokes.length === 0 || strokes[0].type !== 'SOLID') continue
+      var stColor = solidFill(strokes as readonly Paint[])
+      if (!stColor) continue
+      var stbid = bodyIds.get(stov.id)
+      if (!stbid) continue
+      // stroke color prop name uses -stroke suffix to distinguish from fill prop
+      var stPropName = stbid + '-stroke'
+      var stDeclared = bodyIdToPropName[stPropName]
+      var stkey = stDeclared || stPropName
+      if (a[stkey] === undefined) a[stkey] = stColor
+    }
+  }
+
+  // 7. Style overrides — text style, fill style, effect style, stroke style swapped.
+  if (overrides) {
+    var styleFields: Array<{ field: string; bind: string; suffix: string }> = [
+      { field: 'textStyleId',   bind: 'text-style',   suffix: '-text'   },
+      { field: 'fillStyleId',   bind: 'fill-style',   suffix: '-fill'   },
+      { field: 'effectStyleId', bind: 'effect-style', suffix: '-effect' },
+      { field: 'strokeStyleId', bind: 'stroke-style', suffix: '-stroke-style' },
+    ]
+    for (var sfi = 0; sfi < overrides.length; sfi++) {
+      var sfov = overrides[sfi]
+      if (!sfov.overriddenFields) continue
+      var sfbid = bodyIds.get(sfov.id)
+      if (!sfbid) continue
+      var sfNode = findNodeInTree(node as SceneNode, sfov.id)
+      if (!sfNode) continue
+      for (var sff = 0; sff < styleFields.length; sff++) {
+        var sf = styleFields[sff]
+        if (sfov.overriddenFields.indexOf(sf.field) === -1) continue
+        var rawStyleId = (sfNode as any)[sf.field]
+        if (!rawStyleId || typeof rawStyleId !== 'string') continue
+        var resolvedName: string | null = null
+        if (sf.bind === 'text-style') resolvedName = resolveTextStyle(rawStyleId)
+        else if (sf.bind === 'fill-style') resolvedName = resolveFillStyle(rawStyleId)
+        else if (sf.bind === 'effect-style') resolvedName = resolveEffectStyle(rawStyleId)
+        if (!resolvedName) continue
+        // prop name uses layer id + bind suffix to distinguish from other props
+        var sfPropName = sfbid + sf.suffix
+        var sfDeclared = bodyIdToPropName[sfPropName]
+        var sfkey = sfDeclared || sfPropName
+        // Style names are plain strings (e.g. "Heading/Large"), NOT $token refs.
+        // The renderer looks up activeStyles[name] directly — no $ prefix.
+        if (a[sfkey] === undefined) a[sfkey] = resolvedName
+      }
+    }
+  }
+
+  // 8. Numeric property overrides — cornerRadius, opacity, etc. changed on a child layer.
+  if (overrides) {
+    var numericFields: Array<{ field: string; suffix: string }> = [
+      { field: 'cornerRadius', suffix: '-radius' },
+      { field: 'opacity',      suffix: '-opacity' },
+    ]
+    for (var nfi = 0; nfi < overrides.length; nfi++) {
+      var nfov = overrides[nfi]
+      if (!nfov.overriddenFields) continue
+      var nfbid = bodyIds.get(nfov.id)
+      if (!nfbid) continue
+      var nfNode = findNodeInTree(node as SceneNode, nfov.id)
+      if (!nfNode) continue
+      for (var nff = 0; nff < numericFields.length; nff++) {
+        var nf = numericFields[nff]
+        if (nfov.overriddenFields.indexOf(nf.field) === -1) continue
+        var nfVal = (nfNode as any)[nf.field]
+        if (typeof nfVal !== 'number' || nfVal === figma.mixed) continue
+        var nfPropName = nfbid + nf.suffix
+        var nfDeclared = bodyIdToPropName[nfPropName]
+        var nfkey = nfDeclared || nfPropName
+        if (a[nfkey] === undefined) a[nfkey] = String(Math.round(nfVal * 100) / 100)
+      }
+    }
+  }
+
+  // 9. Component swap overrides — nested instance replaced with a different component.
+  if (compProps) {
+    var swapKeys = Object.keys(compProps)
+    for (var swi = 0; swi < swapKeys.length; swi++) {
+      var swapDef = compProps[swapKeys[swi]]
+      if (swapDef.type !== 'INSTANCE_SWAP') continue
+      var swapTargetInComp = findPropTargetNode(comp as SceneNode, swapKeys[swi], 'mainComponent')
+      if (!swapTargetInComp) continue
+      var swapBodyId = bodyIds.get(swapTargetInComp.id)
+      if (!swapBodyId) continue
+      var swapInstanceNode = findNodeInTree(node as SceneNode, swapTargetInComp.id)
+      if (!swapInstanceNode || swapInstanceNode.type !== 'INSTANCE') continue
+      var swappedComp = (swapInstanceNode as InstanceNode).mainComponent
+      if (!swappedComp) continue
+      var swappedEntry = _componentRegistry.get(swappedComp.id)
+      if (!swappedEntry || !swappedEntry.guiId) continue
+      var swkey = bodyIdToPropName[swapBodyId] || swapBodyId
+      if (a[swkey] === undefined) a[swkey] = swappedEntry.guiId
+    }
+  }
+
+  return `${ind(depth)}<instance ${attrs(a)} />`
+}
+
+async function componentsBlock(): Promise<string> {
+  if (!_componentRegistry.size) return ''
+
+  const lines: string[] = []
+  const emittedSets = new Set<string>()
+
+  const compIds = Array.from(_componentRegistry.keys())
+  for (var ci = 0; ci < compIds.length; ci++) {
+    const entry = _componentRegistry.get(compIds[ci])
+    if (!entry || !entry.guiId) continue
+
+    if (entry.setGuiId) {
+      // Part of a component set — emit the whole set once
+      if (emittedSets.has(entry.setGuiId)) continue
+      emittedSets.add(entry.setGuiId)
+
+      const setEntry = Array.from(_componentSetRegistry.values()).find(function(s) { return s.guiId === entry.setGuiId })
+      if (!setEntry) continue
+
+      const variantLines: string[] = []
+      for (var vi = 0; vi < setEntry.componentIds.length; vi++) {
+        const ce = _componentRegistry.get(setEntry.componentIds[vi])
+        if (!ce || !ce.guiId) continue
+
+        const propsLines = ce.props.map(function(p) {
+          return `${ind(4)}<prop ${attrs({ name: p.name, type: p.type, target: p.target, bind: p.bind })} />`
+        })
+        const propsBlock = propsLines.length
+          ? `${ind(3)}<props>\n${propsLines.join('\n')}\n${ind(3)}</props>\n`
+          : ''
+
+        if (_debugExport) {
+          var dbgChildren = 'children' in ce.figmaNode ? (ce.figmaNode as any).children : []
+          console.log('dotgui variant debug', {
+            variant: ce.figmaNode.name,
+            children: dbgChildren.map(function(c: any) {
+              return {
+                name: c.name,
+                visible: c.visible,
+                type: c.type,
+                componentPropertyReferences: c.componentPropertyReferences,
+              }
+            }),
+          })
+        }
+        _generatingComponentBody = true
+        _generatingComponentRoot = true
+        _componentBodyUsedIds = new Set()
+        // NOTE: componentPropertyDefinitions is only valid on ComponentSet or standalone
+        // component — NOT on a variant ComponentNode. Always read from the set.
+        _currentComponentDefs = (setEntry.figmaNode as any).componentPropertyDefinitions || null
+        const body = await frameToGui(ce.figmaNode as FrameNode, 3)
+        _generatingComponentBody = false
+        _componentBodyUsedIds = null
+        _currentComponentDefs = null
+
+        const vA: Record<string, AttrVal> = { id: ce.guiId }
+        if (ce.variantAttrs) Object.assign(vA, ce.variantAttrs)
+        variantLines.push(
+          `${ind(2)}<variant ${attrs(vA)}>\n${propsBlock}${body}\n${ind(2)}</variant>`
+        )
+      }
+
+      lines.push(
+        `${ind(1)}<component-set ${attrs({ name: setEntry.name, id: setEntry.guiId })}>\n${variantLines.join('\n')}\n${ind(1)}</component-set>`
+      )
+    } else {
+      // Standalone component
+      const propsLines = entry.props.map(function(p) {
+        return `${ind(3)}<prop ${attrs({ name: p.name, type: p.type, target: p.target, bind: p.bind })} />`
+      })
+      const propsBlock = propsLines.length
+        ? `${ind(2)}<props>\n${propsLines.join('\n')}\n${ind(2)}</props>\n`
+        : ''
+
+      _generatingComponentBody = true
+      _generatingComponentRoot = true
+      _componentBodyUsedIds = new Set()
+      _currentComponentDefs = (entry.figmaNode as any).componentPropertyDefinitions || null
+      const body = await frameToGui(entry.figmaNode as FrameNode, 2)
+      _generatingComponentBody = false
+      _componentBodyUsedIds = null
+      _currentComponentDefs = null
+
+      lines.push(
+        `${ind(1)}<component ${attrs({ name: entry.figmaNode.name, id: entry.guiId })}>\n${propsBlock}${body}\n${ind(1)}</component>`
+      )
+    }
+  }
+
+  if (!lines.length) return ''
+  return `<components>\n${lines.join('\n')}\n</components>\n`
 }
 
 async function groupToGui(node: GroupNode, depth: number): Promise<string> {
@@ -993,21 +1934,24 @@ async function groupToGui(node: GroupNode, depth: number): Promise<string> {
     ? firstChild as SceneNode : null
 
   const a: Record<string, AttrVal> = {
+    id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: Math.round(node.width),
-    height: Math.round(node.height),
+    w: Math.round(node.width),
+    h: Math.round(node.height),
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
   }
 
   if (maskChild) {
     const maskAsset = maskNodeToAsset(maskChild)
     if (maskAsset) {
-      a['mask-src'] = '$' + maskAsset.id
+      a['mask-src'] = 'assets/' + maskAsset.id + '.svg'
       a['mask-x'] = Math.round((maskChild as LayoutMixin).x - node.x)
       a['mask-y'] = Math.round((maskChild as LayoutMixin).y - node.y)
       a['mask-width'] = Math.round((maskChild as LayoutMixin).width)
@@ -1229,15 +2173,33 @@ function resolveTextStyle(id: string): string | null {
     const fn = style.fontName as FontName
     const lh = style.lineHeight as LineHeight
     const ls = style.letterSpacing as LetterSpacing
+    const styleDecoRaw = (style.textDecoration as string)
+    const styleDecoVal = styleDecoRaw !== 'NONE' ? styleDecoRaw.toLowerCase() : undefined
+    const styleFeatures = style.openTypeFeatures
+    const styleVariations = style.fontVariations
+
     const entryAttrs: Record<string, AttrVal> = {
       name: style.name,
       'font-family': fn.family,
+      'font-postscript': fontPostscriptName(fn.family, fn.style),
+      'font-style-name': fn.style !== 'Regular' ? fn.style : undefined,
       'font-size': style.fontSize,
       'font-weight': fontWeight(fn.style),
       'font-style': fontStyle(fn.style) === 'italic' ? 'italic' : undefined,
+      'font-variation': styleVariations && typeof styleVariations === 'object'
+        ? fontVariationVal(styleVariations) : undefined,
+      'font-feature': styleFeatures && typeof styleFeatures === 'object'
+        ? fontFeatureVal(styleFeatures) : undefined,
       'line-height': lineHeightVal(lh),
       'letter-spacing': letterSpacingVal(ls),
-      'decoration': (style.textDecoration as string) !== 'NONE' ? (style.textDecoration as string).toLowerCase() : undefined,
+      'decoration': styleDecoVal,
+      'decoration-color': styleDecoVal && style.textDecorationColor && typeof style.textDecorationColor === 'object'
+        ? rgbaToHex(style.textDecorationColor, typeof style.textDecorationColor.a === 'number' ? style.textDecorationColor.a : 1)
+        : undefined,
+      'decoration-style': styleDecoVal && style.textDecorationStyle
+        ? decoStyleVal(style.textDecorationStyle) : undefined,
+      'decoration-thickness': styleDecoVal && typeof style.textDecorationThickness === 'number' && style.textDecorationThickness > 0
+        ? style.textDecorationThickness : undefined,
       'text-case': (style.textCase as string) !== 'ORIGINAL' ? TEXT_CASE[style.textCase as string] : undefined,
     }
     _styleRegistry.set(id, { name: style.name, tag: 'text-style', entryAttrs })
@@ -1371,6 +2333,119 @@ function letterSpacingVal(ls: LetterSpacing): string | undefined {
   return String(ls.value)
 }
 
+// Derive a best-effort PostScript name from Figma's family + style.
+// e.g. "Inter" + "Bold Italic" → "Inter-BoldItalic"
+function fontPostscriptName(family: string, style: string): string {
+  const s = style.replace(/\s+/g, '')
+  if (!s || s.toLowerCase() === 'regular' || s.toLowerCase() === 'roman') {
+    return family.replace(/\s+/g, '')
+  }
+  return family.replace(/\s+/g, '') + '-' + s
+}
+
+// Serialize Figma's openTypeFeatures object to CSS font-feature-settings syntax.
+// e.g. {TNUM: true, LIGA: false} → "tnum" (only enabled features)
+function fontFeatureVal(features: Record<string, boolean>): string | undefined {
+  const enabled: string[] = []
+  const keys = Object.keys(features)
+  for (let i = 0; i < keys.length; i++) {
+    if (features[keys[i]]) enabled.push('"' + keys[i].toLowerCase() + '"')
+  }
+  return enabled.length > 0 ? enabled.join(', ') : undefined
+}
+
+// Serialize Figma's fontVariations object to CSS font-variation-settings syntax.
+// e.g. {wght: 600, wdth: 75} → '"wght" 600, "wdth" 75'
+function fontVariationVal(variations: Record<string, number>): string | undefined {
+  const axes = Object.keys(variations)
+  if (!axes.length) return undefined
+  return axes.map(function(ax) { return '"' + ax + '" ' + variations[ax] }).join(', ')
+}
+
+// Map Figma textAutoResize to dotgui text-resize value.
+function textResizeVal(autoResize: string): string | undefined {
+  if (autoResize === 'WIDTH_AND_HEIGHT') return 'hug'
+  if (autoResize === 'HEIGHT') return 'hug-height'
+  if (autoResize === 'FIXED') return 'fixed'
+  if (autoResize === 'TRUNCATE') return 'truncate'
+  return undefined
+}
+
+// Map Figma list type to dotgui list value.
+function listTypeVal(type: string): string | undefined {
+  if (type === 'ORDERED_LIST') return 'decimal'
+  if (type === 'UNORDERED_LIST') return 'disc'
+  return undefined
+}
+
+// Convert Figma RGBA color object to hex string (best-effort).
+function rgbaToHex(color: RGB, opacity: number): string {
+  function ch(n: number): string {
+    const h = Math.round(n * 255).toString(16)
+    return h.length === 1 ? '0' + h : h
+  }
+  const base = '#' + ch(color.r) + ch(color.g) + ch(color.b)
+  if (opacity >= 1) return base
+  return base + ch(opacity)
+}
+
+// Map Figma text decoration style string to dotgui value.
+function decoStyleVal(style: string): string | undefined {
+  if (style === 'SOLID') return 'solid'
+  if (style === 'WAVY') return 'wavy'
+  if (style === 'DASHED') return 'dashed'
+  if (style === 'DOTTED') return 'dotted'
+  if (style === 'DOUBLE') return 'double'
+  return undefined
+}
+
+// --- flip helper ---
+
+function visibleAttr(node: SceneNode): string | undefined {
+  return _invisibleNodeIds.has(node.id) ? 'false' : undefined
+}
+
+function flipAttr(node: SceneNode): string | undefined {
+  var flipH = (node as any).flippedHorizontally
+  var flipV = (node as any).flippedVertically
+  if (flipH && flipV) return 'both'
+  if (flipH) return 'h'
+  if (flipV) return 'v'
+  return undefined
+}
+
+// --- stroke cap / join helpers ---
+
+function strokeCapVal(cap: string): string | undefined {
+  if (cap === 'ROUND') return 'round'
+  if (cap === 'SQUARE') return 'square'
+  if (cap === 'ARROW_LINES') return 'arrow-lines'
+  if (cap === 'ARROW_EQUILATERAL') return 'arrow-equilateral'
+  return undefined
+}
+
+function strokeJoinVal(join: string): string | undefined {
+  if (join === 'MITER') return 'miter'
+  if (join === 'ROUND') return 'round'
+  if (join === 'BEVEL') return 'bevel'
+  return undefined
+}
+
+// --- font stretch helper ---
+
+function fontStretchVal(style: string): string | undefined {
+  var s = style.toLowerCase()
+  if (s.indexOf('ultra condensed') !== -1 || s.indexOf('ultracondensed') !== -1) return 'ultra-condensed'
+  if (s.indexOf('extra condensed') !== -1 || s.indexOf('extracondensed') !== -1) return 'extra-condensed'
+  if (s.indexOf('semi condensed') !== -1 || s.indexOf('semicondensed') !== -1) return 'semi-condensed'
+  if (s.indexOf('condensed') !== -1) return 'condensed'
+  if (s.indexOf('semi expanded') !== -1 || s.indexOf('semiexpanded') !== -1) return 'semi-expanded'
+  if (s.indexOf('extra expanded') !== -1 || s.indexOf('extraexpanded') !== -1) return 'extra-expanded'
+  if (s.indexOf('ultra expanded') !== -1 || s.indexOf('ultraexpanded') !== -1) return 'ultra-expanded'
+  if (s.indexOf('expanded') !== -1) return 'expanded'
+  return undefined
+}
+
 interface TextSegment {
   characters: string
   fontName: FontName
@@ -1381,13 +2456,29 @@ interface TextSegment {
   letterSpacing: LetterSpacing
   lineHeight: LineHeight
   hyperlink: HyperlinkTarget | null
+  openTypeFeatures?: Record<string, boolean>
+  listOptions?: { type: string }
+  indentation?: number
+  baselineOffset?: number
 }
 
 function getTextSegments(node: TextNode): TextSegment[] {
+  var fn = (node as any).getStyledTextSegments
+  if (typeof fn !== 'function') return []
+  // Try full field set first; fall back to core fields if the call throws
+  // (some fields like 'indentation'/'baselineOffset' may not exist in all Figma versions)
+  var fullFields = [
+    'fontName', 'fontSize', 'fills', 'textDecoration', 'textCase',
+    'letterSpacing', 'lineHeight', 'hyperlink',
+    'openTypeFeatures', 'listOptions', 'indentation', 'baselineOffset',
+  ]
+  var coreFields = ['fontName', 'fontSize', 'fills', 'textDecoration', 'textCase', 'letterSpacing', 'lineHeight', 'hyperlink']
   try {
-    const fn = (node as any).getStyledTextSegments
-    if (typeof fn !== 'function') return []
-    return fn.call(node, ['fontName', 'fontSize', 'fills', 'textDecoration', 'textCase', 'letterSpacing', 'lineHeight', 'hyperlink'])
+    var result = fn.call(node, fullFields)
+    if (result && result.length) return result
+  } catch (e) {}
+  try {
+    return fn.call(node, coreFields)
   } catch (e) {
     return []
   }
@@ -1401,6 +2492,8 @@ function isMixedText(node: TextNode): boolean {
     || node.textCase === figma.mixed
     || node.letterSpacing === figma.mixed
     || node.lineHeight === figma.mixed
+    || (node as any).openTypeFeatures === figma.mixed
+    || (node as any).listOptions === figma.mixed
 }
 
 function textToGui(node: TextNode, depth: number): string {
@@ -1412,12 +2505,24 @@ function textToGui(node: TextNode, depth: number): string {
 
   const mixed = isMixedText(node)
 
+  var textDir = (node as any).textDirection || (node as any).direction
+  var textDirVal: string | undefined
+  if (textDir && textDir !== 'LTR' && textDir !== figma.mixed) {
+    textDirVal = 'rtl'
+  }
+  var wm = (node as any).writingMode
+  var wmVal: string | undefined
+  if (wm && typeof wm === 'string') {
+    wmVal = wm.toLowerCase().replace(/_/g, '-')
+  }
+
   const a: Record<string, AttrVal> = {
+    id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: hugW ? 'hug' : Math.round(node.width),
-    height: hugH ? 'hug' : Math.round(node.height),
+    w: hugW ? undefined : Math.round(node.width),
+    h: hugH ? undefined : Math.round(node.height),
     align: node.textAlignHorizontal !== 'LEFT' ? node.textAlignHorizontal.toLowerCase() : undefined,
     'vertical-align': node.textAlignVertical !== 'TOP' ? vAlign[node.textAlignVertical] : undefined,
     'paragraph-spacing': (node.paragraphSpacing !== figma.mixed && (node.paragraphSpacing as number) > 0)
@@ -1432,6 +2537,10 @@ function textToGui(node: TextNode, depth: number): string {
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
+    direction: textDirVal,
+    'writing-mode': wmVal,
   }
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
@@ -1456,55 +2565,166 @@ function textToGui(node: TextNode, depth: number): string {
     const textFillStyleIdRaw = (node as any).fillStyleId
     const textFillStyleId = typeof textFillStyleIdRaw === 'string' && textFillStyleIdRaw ? textFillStyleIdRaw : null
     const textFillStyleName = textFillStyleId ? resolveFillStyle(textFillStyleId) : null
-    a.color = textFillStyleName ? undefined : solidFill(node.fills)
+    a.fill = textFillStyleName ? undefined : solidFill(node.fills)
     a['fill-style'] = textFillStyleName || undefined
 
-    // Use named text style if applied — omit individual typography attrs
+    // Use named text style if applied — but always emit per-node typography attrs
+    // on top of it. Figma allows applying a text style and then overriding individual
+    // properties (font-size, line-height, etc.) per node. If we only emit text-style
+    // and skip the individual attrs, the renderer uses the style defaults and misses
+    // the override — causing wrong font size, different line wrapping, wrong height.
     const styleId = typeof node.textStyleId === 'string' ? node.textStyleId : null
     const styleName = styleId ? resolveTextStyle(styleId) : null
     if (styleName) {
       a['text-style'] = styleName
-    } else {
+      // Fall through — emit all typography attrs below so per-node overrides are captured
+    }
+    // Always emit all typography attrs — if a text-style is applied this captures
+    // any per-node overrides; if no style, this is the only source of truth.
+    {
       a['font-family'] = fontName.family
+      a['font-postscript'] = fontPostscriptName(fontName.family, fontName.style)
+      a['font-style-name'] = fontName.style !== 'Regular' ? fontName.style : undefined
       a['font-size'] = (textBv && textBv.fontSize && textBv.fontSize.id && tokenRef(textBv.fontSize.id)) || node.fontSize as number
       a['font-weight'] = fontWeight(fontName.style)
       a['font-style'] = fontStyle(fontName.style) === 'italic' ? 'italic' : undefined
+
+      // Variable font axes
+      const nodeVariations = (node as any).fontVariations
+      if (nodeVariations && typeof nodeVariations === 'object') {
+        a['font-variation'] = fontVariationVal(nodeVariations)
+      }
+
+      // OpenType features
+      const nodeFeatures = (node as any).openTypeFeatures
+      if (nodeFeatures && typeof nodeFeatures === 'object' && nodeFeatures !== figma.mixed) {
+        a['font-feature'] = fontFeatureVal(nodeFeatures)
+      }
+
       a['line-height'] = lineHeightVal(lh)
       a['letter-spacing'] = letterSpacingVal(ls)
-      a.decoration = (node.textDecoration as string) !== 'NONE' ? (node.textDecoration as string).toLowerCase() : undefined
+      a['font-stretch'] = fontStretchVal(fontName.style)
+
+      // Decoration attrs
+      const decoRaw = (node.textDecoration as string)
+      a.decoration = decoRaw !== 'NONE' ? decoRaw.toLowerCase() : undefined
+      if (a.decoration) {
+        const decoColor = (node as any).textDecorationColor
+        if (decoColor && typeof decoColor === 'object' && decoColor !== figma.mixed
+            && Number.isFinite(decoColor.r) && Number.isFinite(decoColor.g) && Number.isFinite(decoColor.b)) {
+          const opacity = typeof decoColor.a === 'number' && Number.isFinite(decoColor.a) ? decoColor.a : 1
+          a['decoration-color'] = rgbaToHex(decoColor, opacity)
+        }
+        const decoStyle = (node as any).textDecorationStyle
+        if (decoStyle && typeof decoStyle === 'string' && decoStyle !== figma.mixed) {
+          a['decoration-style'] = decoStyleVal(decoStyle)
+        }
+        const decoThick = (node as any).textDecorationThickness
+        if (typeof decoThick === 'number' && decoThick !== figma.mixed) {
+          a['decoration-thickness'] = decoThick > 0 ? decoThick : undefined
+        }
+      }
+
       a['text-case'] = (node.textCase as string) !== 'ORIGINAL' ? TEXT_CASE[node.textCase as string] : undefined
+    }
+
+    // text-resize: normalize the sizing mode for tooling
+    a['text-resize'] = textResizeVal(node.textAutoResize)
+
+    // List marker
+    const nodeListOpts = (node as any).listOptions
+    if (nodeListOpts && nodeListOpts !== figma.mixed && typeof nodeListOpts === 'object') {
+      const lv = listTypeVal(nodeListOpts.type)
+      if (lv) {
+        a['list'] = lv
+        if (typeof nodeListOpts.indentation === 'number' && nodeListOpts.indentation > 0) {
+          a['list-level'] = nodeListOpts.indentation
+        }
+      }
     }
 
     const emptyPaints: readonly Paint[] = []
     const fillsForAppearance = textFillStyleName ? emptyPaints : node.fills
-    const appearance = appearanceBlock(fillsForAppearance, node.effects, node.width, node.height, depth + 1)
+    const appearance = appearanceBlock(fillsForAppearance, node.effects, node.width, node.height, depth + 1, node)
     if (!appearance) return `${ind(depth)}<text ${attrs(a)} />`
     return `${ind(depth)}<text ${attrs(a)}>\n${appearance}\n${ind(depth)}</text>`
   }
 
   // Mixed-style text: output segments as children
   const segments = getTextSegments(node)
+
+  // If segment extraction failed (plugin sandbox error), fall back to flat output
+  // using node.characters and whatever non-mixed attrs are available.
+  if (!segments.length) {
+    a.value = node.characters
+    if (node.fontName !== figma.mixed) {
+      var fbFont = node.fontName as FontName
+      a['font-family'] = fbFont.family
+      a['font-postscript'] = fontPostscriptName(fbFont.family, fbFont.style)
+      a['font-style-name'] = fbFont.style !== 'Regular' ? fbFont.style : undefined
+      a['font-weight'] = fontWeight(fbFont.style)
+      a['font-style'] = fontStyle(fbFont.style) === 'italic' ? 'italic' : undefined
+      a['font-stretch'] = fontStretchVal(fbFont.style)
+    }
+    if (node.fontSize !== figma.mixed) a['font-size'] = node.fontSize as number
+    if (node.lineHeight !== figma.mixed) a['line-height'] = lineHeightVal(node.lineHeight as LineHeight)
+    if (node.letterSpacing !== figma.mixed) a['letter-spacing'] = letterSpacingVal(node.letterSpacing as LetterSpacing)
+    if (node.fills !== figma.mixed) a.fill = solidFill(node.fills)
+    a['text-resize'] = textResizeVal(node.textAutoResize)
+    const appearance = appearanceBlock(node.fills !== figma.mixed ? node.fills : [], node.effects, node.width, node.height, depth + 1, node)
+    if (!appearance) return ind(depth) + '<text ' + attrs(a) + ' />'
+    return ind(depth) + '<text ' + attrs(a) + '>\n' + appearance + '\n' + ind(depth) + '</text>'
+  }
+
   const segLines = segments.map(seg => {
     const segColor = solidFill(seg.fills)
+    const segDecoRaw = seg.textDecoration ? (seg.textDecoration as string) : 'NONE'
+    const segDeco = segDecoRaw !== 'NONE' ? segDecoRaw.toLowerCase() : undefined
+
     const sa: Record<string, AttrVal> = {
       value: seg.characters,
       'font-family': seg.fontName ? seg.fontName.family : undefined,
+      'font-postscript': seg.fontName ? fontPostscriptName(seg.fontName.family, seg.fontName.style) : undefined,
+      'font-style-name': (seg.fontName && seg.fontName.style !== 'Regular') ? seg.fontName.style : undefined,
       'font-size': seg.fontSize,
       'font-weight': seg.fontName ? fontWeight(seg.fontName.style) : undefined,
       'font-style': seg.fontName && fontStyle(seg.fontName.style) === 'italic' ? 'italic' : undefined,
+      'font-stretch': seg.fontName ? fontStretchVal(seg.fontName.style) : undefined,
+      'font-variation': (seg as any).fontVariations && typeof (seg as any).fontVariations === 'object'
+        ? fontVariationVal((seg as any).fontVariations) : undefined,
+      'font-feature': seg.openTypeFeatures && typeof seg.openTypeFeatures === 'object'
+        ? fontFeatureVal(seg.openTypeFeatures) : undefined,
       'line-height': seg.lineHeight ? lineHeightVal(seg.lineHeight) : undefined,
       'letter-spacing': seg.letterSpacing ? letterSpacingVal(seg.letterSpacing) : undefined,
-      color: segColor,
-      decoration: seg.textDecoration && (seg.textDecoration as string) !== 'NONE'
-        ? (seg.textDecoration as string).toLowerCase() : undefined,
+      'baseline-shift': typeof seg.baselineOffset === 'number' && seg.baselineOffset !== 0
+        ? seg.baselineOffset : undefined,
+      fill: segColor,
+      decoration: segDeco,
+      'decoration-color': (function() {
+        var dc = (seg as any).textDecorationColor
+        if (!segDeco || !dc || typeof dc !== 'object') return undefined
+        if (!Number.isFinite(dc.r) || !Number.isFinite(dc.g) || !Number.isFinite(dc.b)) return undefined
+        var opa = typeof dc.a === 'number' && Number.isFinite(dc.a) ? dc.a : 1
+        return rgbaToHex(dc, opa)
+      })(),
+      'decoration-style': segDeco && (seg as any).textDecorationStyle
+        ? decoStyleVal((seg as any).textDecorationStyle) : undefined,
+      'decoration-thickness': segDeco && typeof (seg as any).textDecorationThickness === 'number' && (seg as any).textDecorationThickness > 0
+        ? (seg as any).textDecorationThickness : undefined,
       'text-case': seg.textCase && (seg.textCase as string) !== 'ORIGINAL'
         ? TEXT_CASE[seg.textCase as string] : undefined,
+      'list': seg.listOptions && seg.listOptions.type ? listTypeVal(seg.listOptions.type) : undefined,
+      'list-level': seg.listOptions && typeof seg.indentation === 'number' && seg.indentation > 0
+        ? seg.indentation : undefined,
       href: seg.hyperlink && seg.hyperlink.type === 'URL' ? seg.hyperlink.value : undefined,
     }
     return `${ind(depth + 1)}<segment ${attrs(sa)} />`
   })
 
-  const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1)
+  // text-resize at the <text> level (applies to whole node, not per-segment)
+  a['text-resize'] = textResizeVal(node.textAutoResize)
+
+  const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1, node)
   const innerParts = [appearance, ...segLines].filter(Boolean)
   if (!innerParts.length) return `${ind(depth)}<text ${attrs(a)} />`
   return `${ind(depth)}<text ${attrs(a)}>\n${innerParts.join('\n')}\n${ind(depth)}</text>`
@@ -1513,12 +2733,13 @@ function textToGui(node: TextNode, depth: number): string {
 function imgToGui(node: RectangleNode, fill: ImagePaint, depth: number): string {
   const asset = _imageMap[fill.imageHash as string]
   const a: Record<string, AttrVal> = {
+    id: componentBodyId(node.name),
     name: node.name,
-    src: '$' + asset.id,
+    src: 'assets/' + asset.id + '.' + asset.format,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: Math.round(node.width),
-    height: Math.round(node.height),
+    w: Math.round(node.width),
+    h: Math.round(node.height),
     fit: FIT_MODE[fill.scaleMode] || 'cover',
     radius: cornerRadius(node),
     'corner-smoothing': node.cornerSmoothing > 0 ? node.cornerSmoothing : undefined,
@@ -1526,6 +2747,8 @@ function imgToGui(node: RectangleNode, fill: ImagePaint, depth: number): string 
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
   }
   Object.assign(a, strokeAttrs(node))
   Object.assign(a, constraintAttrs(node))
@@ -1544,13 +2767,19 @@ function rectToGui(node: RectangleNode, depth: number): string {
   const effectStyleId = typeof effectStyleIdRaw === 'string' && effectStyleIdRaw ? effectStyleIdRaw : null
   const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null
 
+  var rectVp = (node as any).vectorPaths
+  var rectFillRule: string | undefined
+  if (rectVp && rectVp.length > 0 && rectVp[0].windingRule) {
+    rectFillRule = rectVp[0].windingRule === 'EVENODD' ? 'evenodd' : 'nonzero'
+  }
+
   const a: Record<string, AttrVal> = {
-    type: 'rect',
+    id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: Math.round(node.width),
-    height: Math.round(node.height),
+    w: Math.round(node.width),
+    h: Math.round(node.height),
     fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
     'fill-style': fillStyleName || undefined,
     radius: cornerRadius(node),
@@ -1559,6 +2788,9 @@ function rectToGui(node: RectangleNode, depth: number): string {
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
+    'fill-rule': rectFillRule,
     'effect-style': effectStyleName || undefined,
   }
   Object.assign(a, strokeAttrs(node))
@@ -1571,12 +2803,13 @@ function rectToGui(node: RectangleNode, depth: number): string {
   const emptyEffects: readonly Effect[] = []
   const fillsForAppearance = fillStyleName ? emptyPaints : node.fills
   const effectsForAppearance = effectStyleName ? emptyEffects : node.effects
-  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1)
-  if (!appearance) return `${ind(depth)}<shape ${attrs(a)} />`
-  return `${ind(depth)}<shape ${attrs(a)}>\n${appearance}\n${ind(depth)}</shape>`
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1, node)
+  if (!appearance) return `${ind(depth)}<rect ${attrs(a)} />`
+  return `${ind(depth)}<rect ${attrs(a)}>\n${appearance}\n${ind(depth)}</rect>`
 }
 
 function ellipseToGui(node: EllipseNode, depth: number): string {
+  // Only called for full ellipses — arc/donut ellipses are routed to svgToGui()
   const fillStyleIdRaw = (node as any).fillStyleId
   const fillStyleId = typeof fillStyleIdRaw === 'string' && fillStyleIdRaw ? fillStyleIdRaw : null
   const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null
@@ -1584,26 +2817,28 @@ function ellipseToGui(node: EllipseNode, depth: number): string {
   const effectStyleId = typeof effectStyleIdRaw === 'string' && effectStyleIdRaw ? effectStyleIdRaw : null
   const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null
 
-  const arc = node.arcData
-  const TWO_PI = Math.PI * 2
+  var ellipseVp = (node as any).vectorPaths
+  var ellipseFillRule: string | undefined
+  if (ellipseVp && ellipseVp.length > 0 && ellipseVp[0].windingRule) {
+    ellipseFillRule = ellipseVp[0].windingRule === 'EVENODD' ? 'evenodd' : 'nonzero'
+  }
+
   const a: Record<string, AttrVal> = {
-    type: 'ellipse',
+    id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: Math.round(node.width),
-    height: Math.round(node.height),
+    w: Math.round(node.width),
+    h: Math.round(node.height),
     fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
     'fill-style': fillStyleName || undefined,
-    'arc-start': arc && Math.abs(arc.startingAngle) > 0.001
-      ? Math.round(arc.startingAngle * 180 / Math.PI * 100) / 100 : undefined,
-    'arc-end': arc && Math.abs(arc.endingAngle - TWO_PI) > 0.001
-      ? Math.round(arc.endingAngle * 180 / Math.PI * 100) / 100 : undefined,
-    'arc-inner': arc && arc.innerRadius > 0 ? arc.innerRadius : undefined,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
+    'fill-rule': ellipseFillRule,
     'effect-style': effectStyleName || undefined,
   }
   Object.assign(a, strokeAttrs(node))
@@ -1615,75 +2850,63 @@ function ellipseToGui(node: EllipseNode, depth: number): string {
   const emptyEffects: readonly Effect[] = []
   const fillsForAppearance = fillStyleName ? emptyPaints : node.fills
   const effectsForAppearance = effectStyleName ? emptyEffects : node.effects
-  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1)
-  if (!appearance) return `${ind(depth)}<shape ${attrs(a)} />`
-  return `${ind(depth)}<shape ${attrs(a)}>\n${appearance}\n${ind(depth)}</shape>`
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1, node)
+  if (!appearance) return `${ind(depth)}<ellipse ${attrs(a)} />`
+  return `${ind(depth)}<ellipse ${attrs(a)}>\n${appearance}\n${ind(depth)}</ellipse>`
 }
 
 function lineToGui(node: LineNode, depth: number): string {
-  const cap = node.strokeCap !== figma.mixed && (node.strokeCap as string) !== 'NONE'
-    ? (node.strokeCap as string).toLowerCase().replace(/_/g, '-') : undefined
+  // Extract fill color and thickness directly — stroke IS the line
+  let lineFill: string | undefined
+  let thickness: number | undefined
+  if (Array.isArray(node.strokes) && node.strokes.length > 0) {
+    const f = (node.strokes as Paint[]).find(function(p) { return p.type === 'SOLID' && p.visible !== false }) as SolidPaint | undefined
+    if (f) {
+      const bv = (f as any).boundVariables
+      lineFill = (bv && bv.color && bv.color.id && tokenRef(bv.color.id))
+        || rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1)
+    }
+  }
+  if (typeof node.strokeWeight === 'number' && node.strokeWeight !== 1) {
+    thickness = node.strokeWeight
+  }
+  var lineCap = (node as any).strokeCap
+  var lineCapVal = (lineCap && lineCap !== 'NONE' && lineCap !== figma.mixed) ? strokeCapVal(lineCap as string) : undefined
+  var lineSj = (node as any).strokeJoin
+  var lineSjVal = (lineSj && lineSj !== figma.mixed) ? strokeJoinVal(lineSj as string) : undefined
+  var lineDash = (node as any).strokeDashPattern
+  var lineDashArray = (lineDash && Array.isArray(lineDash) && lineDash.length > 0) ? lineDash.join(' ') : undefined
+  var lineDashOffset = (node as any).strokeDashOffset
+  var lineDashOffsetVal = (typeof lineDashOffset === 'number' && lineDashOffset !== 0) ? lineDashOffset : undefined
   const a: Record<string, AttrVal> = {
-    type: 'line',
+    id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: Math.round(node.width),
-    'stroke-cap': cap,
+    w: Math.round(node.width),
+    fill: lineFill,
+    thickness,
+    'stroke-cap': lineCapVal,
+    'stroke-join': lineSjVal,
+    'dash-array': lineDashArray,
+    'dash-offset': lineDashOffsetVal,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
   }
-  Object.assign(a, strokeAttrs(node))
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))
   Object.assign(a, layoutPositionAttrs(node))
   Object.assign(a, debugAttrs(node))
-  return `${ind(depth)}<shape ${attrs(a)} />`
-}
-
-function pathToGui(node: VectorNode, depth: number): string {
-  const fillStyleIdRaw = (node as any).fillStyleId
-  const fillStyleId = typeof fillStyleIdRaw === 'string' && fillStyleIdRaw ? fillStyleIdRaw : null
-  const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null
-  const effectStyleIdRaw = (node as any).effectStyleId
-  const effectStyleId = typeof effectStyleIdRaw === 'string' && effectStyleIdRaw ? effectStyleIdRaw : null
-  const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null
-
-  const geom = node as unknown as { fillGeometry?: ReadonlyArray<{ data: string }> }
-  // BOOLEAN_OPERATION nodes don't have vectorPaths — fall back to fillGeometry
-  const paths = (node.vectorPaths && node.vectorPaths.length > 0)
-    ? node.vectorPaths
-    : (geom.fillGeometry || [])
-  const d = paths.map(function(p) { return p.data }).join(' ').trim()
-  const a: Record<string, AttrVal> = {
-    type: 'path',
-    name: node.name,
-    x: Math.round(node.x),
-    y: Math.round(node.y),
-    width: Math.round(node.width),
-    height: Math.round(node.height),
-    fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
-    'fill-style': fillStyleName || undefined,
-    'effect-style': effectStyleName || undefined,
-    opacity: node.opacity < 1 ? node.opacity : undefined,
-    blend: blendModeAttr(node),
-    mask: maskAttr(node),
-    rotation: rotationAttr(node),
-  }
-  Object.assign(a, strokeAttrs(node))
-  Object.assign(a, constraintAttrs(node))
-  Object.assign(a, sizingAttrs(node))
-  Object.assign(a, layoutPositionAttrs(node))
-  Object.assign(a, debugAttrs(node))
-  if (!d) return `${ind(depth)}<shape ${attrs(a)} />`
-  return `${ind(depth)}<shape ${attrs(a)}>\n${ind(depth + 1)}<path d="${d}" />\n${ind(depth)}</shape>`
+  return `${ind(depth)}<line ${attrs(a)} />`
 }
 
 function shiftRootPosition(markup: string, offsetX: number, offsetY: number): string {
   let shifted = false
-  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/m, function(
+  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|rect|ellipse|line|svg|shape)\b)([^>]*?)(\/?>)/m, function(
     _,
     start: string,
     attrText: string,
@@ -1710,7 +2933,7 @@ function shiftAttr(attrText: string, attr: 'x' | 'y', delta: number): string {
 
 function normalizeWrappedRootPosition(markup: string): string {
   let isRoot = true
-  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/gm, function(
+  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|rect|ellipse|line|svg|shape)\b)([^>]*?)(\/?>)/gm, function(
     _,
     start: string,
     attrText: string,
@@ -1734,36 +2957,22 @@ function normalizeWrappedRootPosition(markup: string): string {
 async function generateGui(node: SceneNode): Promise<string> {
   const w = Math.round((node as FrameNode).width)
   const h = Math.round((node as FrameNode).height)
-  const viewport = `${w}x${h}`
+
+  // Collect component registrations before tree walk
+  await prewalkComponents(node)
 
   var inner: string
-  if (node.type === 'FRAME' || node.type === 'COMPONENT' || node.type === 'INSTANCE') {
+  if (node.type === 'FRAME' || node.type === 'COMPONENT' || (node.type as string) === 'COMPONENT_SET') {
     inner = await frameToGui(node as FrameNode, 1)
+  } else if (node.type === 'INSTANCE') {
+    inner = await instanceToGui(node as InstanceNode, 1)
   } else {
-    const wrapA = attrs({ width: w, height: h })
+    const wrapA = attrs({ w, h })
     const wrappedNode = normalizeWrappedRootPosition(await nodeToGui(node, 2))
     inner = `${ind(1)}<frame ${wrapA}>\n${wrappedNode}\n${ind(1)}</frame>`
   }
 
-  const assetKeys = Object.keys(_imageMap)
-  const lines = assetKeys.map(function(hash) {
-    const a = _imageMap[hash]
-    return `${ind(1)}<image id="${a.id}" format="${a.format}" src="base64:${a.b64}" />`
-  })
+  const compBlock = await componentsBlock()
 
-  const svgKeys = Object.keys(_svgNodeMap)
-  const seenSvgIds: Record<string, boolean> = {}
-  for (let i = 0; i < svgKeys.length; i++) {
-    const a = _svgNodeMap[svgKeys[i]]
-    if (seenSvgIds[a.id]) continue
-    seenSvgIds[a.id] = true
-    if (_svgUsageCounts[a.id] === 1) continue
-    lines.push(`${ind(1)}<image id="${a.id}" format="svg" src="base64:${a.b64}" />`)
-  }
-
-  const assetsBlock = lines.length > 0
-    ? `${ind(0)}<assets>\n${lines.join('\n')}\n${ind(0)}</assets>\n`
-    : ''
-
-  return `<gui version="1.0" name="${xmlEscape(node.name)}" viewport="${viewport}">\n${tokensBlock()}${stylesBlock()}${fontsBlock(node)}${assetsBlock}${inner}\n</gui>`
+  return `<gui version="1.0" name="${xmlEscape(node.name)}">\n${tokensBlock()}${stylesBlock()}${fontsBlock(node)}${compBlock}${inner}\n</gui>`
 }

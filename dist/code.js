@@ -6,13 +6,51 @@ figma.showUI(__html__, { width: 480, height: 600, title: "dotgui" });
 var ind = function(depth) {
   return "  ".repeat(depth);
 };
-var ALIGN = {
-  MIN: "start",
-  CENTER: "center",
-  MAX: "end",
-  BASELINE: "baseline",
-  SPACE_BETWEEN: "space-between"
-};
+var VERT_FROM = { MIN: "top", CENTER: "middle", MAX: "bottom" };
+var HORIZ_FROM = { MIN: "left", CENTER: "center", MAX: "right" };
+function ninePointAlign(node) {
+  var primary = node.primaryAxisAlignItems;
+  var counter = node.counterAxisAlignItems;
+  var direction = node.layoutMode;
+  if (counter === "BASELINE")
+    return "baseline";
+  if (primary === "SPACE_BETWEEN")
+    primary = "MIN";
+  var vert;
+  var horiz;
+  if (direction === "HORIZONTAL") {
+    vert = VERT_FROM[counter] || "top";
+    horiz = HORIZ_FROM[primary] || "left";
+  } else {
+    vert = VERT_FROM[primary] || "top";
+    horiz = HORIZ_FROM[counter] || "left";
+  }
+  return vert + "-" + horiz;
+}
+function stackGap(node) {
+  var primary = node.primaryAxisAlignItems;
+  var mainGapRaw = null;
+  if (primary === "SPACE_BETWEEN") {
+    mainGapRaw = "auto";
+  } else if (node.itemSpacing !== 0) {
+    var gapBv = node.boundVariables;
+    var tokenGap = gapBv && gapBv.itemSpacing && gapBv.itemSpacing.id && tokenRef(gapBv.itemSpacing.id);
+    mainGapRaw = tokenGap || String(node.itemSpacing);
+  }
+  var crossGapRaw = null;
+  if (node.layoutWrap === "WRAP") {
+    if (node.counterAxisAlignContent === "SPACE_BETWEEN") {
+      crossGapRaw = "auto";
+    } else if (node.counterAxisSpacing != null && node.counterAxisSpacing > 0) {
+      crossGapRaw = String(node.counterAxisSpacing);
+    }
+  }
+  if (mainGapRaw !== null && crossGapRaw !== null)
+    return mainGapRaw + " " + crossGapRaw;
+  if (mainGapRaw !== null)
+    return mainGapRaw;
+  return;
+}
 var FIT_MODE = {
   FILL: "cover",
   FIT: "contain",
@@ -72,7 +110,6 @@ var _imageMap = {};
 var _imageCounter = 0;
 var _svgNodeMap = {};
 var _svgB64Map = {};
-var _svgStringMap = {};
 var _svgUsageCounts = {};
 var _svgCounter = 0;
 var _debugExport = false;
@@ -80,6 +117,14 @@ var _tokenRegistry = new Map;
 var _usedTokenIds = new Set;
 var _styleRegistry = new Map;
 var _usedStyleIds = new Set;
+var _componentRegistry = new Map;
+var _componentSetRegistry = new Map;
+var _instanceOverrideAccum = new Map;
+var _generatingComponentBody = false;
+var _generatingComponentRoot = false;
+var _componentBodyUsedIds = null;
+var _invisibleNodeIds = new Set;
+var _currentComponentDefs = null;
 async function sendSelection() {
   const sel = figma.currentPage.selection;
   if (sel.length === 0) {
@@ -115,12 +160,13 @@ async function sendSelection() {
     var svgAssetId = _svgNodeMap[svgNodeIds[pi]].id;
     _svgUsageCounts[svgAssetId] = (_svgUsageCounts[svgAssetId] || 0) + 1;
   }
+  await prewalkAllInstances(node);
   const guiCode = await generateGui(node);
   const assetMap = {};
   const hks = Object.keys(_imageMap);
   for (let i = 0;i < hks.length; i++) {
     const a = _imageMap[hks[i]];
-    assetMap["$" + a.id] = dataUrl(a);
+    assetMap["assets/" + a.id + "." + a.format] = dataUrl(a);
   }
   const sks = Object.keys(_svgNodeMap);
   const seenSvgIds = {};
@@ -129,9 +175,7 @@ async function sendSelection() {
     if (seenSvgIds[a.id])
       continue;
     seenSvgIds[a.id] = true;
-    if (_svgUsageCounts[a.id] === 1)
-      continue;
-    assetMap["$" + a.id] = dataUrl(a);
+    assetMap["assets/" + a.id + ".svg"] = dataUrl(a);
   }
   figma.ui.postMessage({
     type: "gui",
@@ -245,53 +289,79 @@ function cropBoxAttrs(img, nodeW, nodeH) {
   const sy = t[1][1];
   if (!Number.isFinite(sx) || !Number.isFinite(sy) || Math.abs(sx) < 0.0001 || Math.abs(sy) < 0.0001)
     return {};
-  const width = nodeW / sx;
-  const height = nodeH / sy;
+  const imgW = nodeW / sx;
+  const imgH = nodeH / sy;
   return {
-    x: rounded(-width * t[0][2]),
-    y: rounded(-height * t[1][2]),
-    width: rounded(width),
-    height: rounded(height)
+    x: rounded(-imgW * t[0][2]),
+    y: rounded(-imgH * t[1][2]),
+    w: rounded(imgW),
+    h: rounded(imgH)
   };
 }
 function appearanceFillLines(fills, nodeW, nodeH, depth) {
-  const paints = visiblePaints(fills);
-  if (paints.length <= 1 && (!paints[0] || paints[0].type !== "IMAGE"))
+  const visible = visiblePaints(fills);
+  if (visible.length <= 1 && (!visible[0] || visible[0].type !== "IMAGE"))
     return [];
+  const allFills = fills === figma.mixed || !Array.isArray(fills) ? [] : fills;
   const fillLines = [];
-  for (let i = 0;i < paints.length; i++) {
-    const p = paints[i];
+  for (let i = 0;i < allFills.length; i++) {
+    const p = allFills[i];
+    const isHidden = p.visible === false;
+    const blendMapped = p.blendMode && p.blendMode !== "NORMAL" ? BLEND_MODE[p.blendMode] || undefined : undefined;
     if (p.type === "IMAGE") {
       const img = p;
       if (!img.imageHash || !_imageMap[img.imageHash])
         continue;
-      const fillAttrs = {
+      const cropAttrs = cropBoxAttrs(img, nodeW, nodeH);
+      var imgFillAttrs = {
         type: "image",
-        src: "$" + _imageMap[img.imageHash].id,
+        src: "assets/" + _imageMap[img.imageHash].id + "." + _imageMap[img.imageHash].format,
         fit: FIT_MODE[img.scaleMode] || "cover",
-        opacity: img.opacity !== undefined && img.opacity < 1 ? img.opacity : undefined
+        opacity: img.opacity !== undefined && img.opacity < 1 ? img.opacity : undefined,
+        blend: blendMapped,
+        visible: isHidden ? "false" : undefined,
+        x: cropAttrs.x,
+        y: cropAttrs.y,
+        w: cropAttrs.w,
+        h: cropAttrs.h
       };
-      Object.assign(fillAttrs, cropBoxAttrs(img, nodeW, nodeH));
-      fillLines.push(`${ind(depth + 1)}<fill ${attrs({
-        type: fillAttrs.type,
-        src: fillAttrs.src,
-        fit: fillAttrs.fit,
-        opacity: fillAttrs.opacity,
-        x: fillAttrs.x,
-        y: fillAttrs.y,
-        width: fillAttrs.width,
-        height: fillAttrs.height
-      })} />`);
+      var imgFilters = p.imageFilters;
+      if (imgFilters && typeof imgFilters === "object") {
+        if (typeof imgFilters.exposure === "number" && imgFilters.exposure !== 0)
+          imgFillAttrs["filter-exposure"] = parseFloat(imgFilters.exposure.toFixed(3));
+        if (typeof imgFilters.contrast === "number" && imgFilters.contrast !== 0)
+          imgFillAttrs["filter-contrast"] = parseFloat(imgFilters.contrast.toFixed(3));
+        if (typeof imgFilters.saturation === "number" && imgFilters.saturation !== 0)
+          imgFillAttrs["filter-saturation"] = parseFloat(imgFilters.saturation.toFixed(3));
+        if (typeof imgFilters.temperature === "number" && imgFilters.temperature !== 0)
+          imgFillAttrs["filter-temperature"] = parseFloat(imgFilters.temperature.toFixed(3));
+        if (typeof imgFilters.tint === "number" && imgFilters.tint !== 0)
+          imgFillAttrs["filter-tint"] = parseFloat(imgFilters.tint.toFixed(3));
+        if (typeof imgFilters.highlights === "number" && imgFilters.highlights !== 0)
+          imgFillAttrs["filter-highlights"] = parseFloat(imgFilters.highlights.toFixed(3));
+        if (typeof imgFilters.shadows === "number" && imgFilters.shadows !== 0)
+          imgFillAttrs["filter-shadows"] = parseFloat(imgFilters.shadows.toFixed(3));
+      }
+      fillLines.push(ind(depth + 1) + "<fill " + attrs(imgFillAttrs) + " />");
       continue;
     }
     const value = paintValue(p, nodeW, nodeH);
     if (!value)
       continue;
-    fillLines.push(`${ind(depth + 1)}<fill ${attrs({
-      type: p.type === "SOLID" ? "color" : p.type === "GRADIENT_LINEAR" ? "linear-gradient" : p.type === "GRADIENT_ANGULAR" ? "angular-gradient" : "radial-gradient",
+    var fillType = "color";
+    if (p.type === "GRADIENT_LINEAR")
+      fillType = "linear-gradient";
+    else if (p.type === "GRADIENT_ANGULAR")
+      fillType = "angular-gradient";
+    else if (p.type === "GRADIENT_RADIAL")
+      fillType = "radial-gradient";
+    fillLines.push(ind(depth + 1) + "<fill " + attrs({
+      type: fillType,
       value,
-      opacity: p.opacity !== undefined && p.opacity < 1 ? p.opacity : undefined
-    })} />`);
+      opacity: p.opacity !== undefined && p.opacity < 1 ? p.opacity : undefined,
+      blend: blendMapped,
+      visible: isHidden ? "false" : undefined
+    }) + " />");
   }
   return fillLines;
 }
@@ -317,33 +387,42 @@ function appearanceEffectLines(effects, depth) {
   for (let i = 0;i < items.length; i++) {
     const e = items[i];
     if (e.type === "DROP_SHADOW" || e.type === "INNER_SHADOW") {
-      out.push(`${ind(depth + 1)}<effect ${attrs({
+      var effOpacity = e.opacity;
+      out.push(ind(depth + 1) + "<effect " + attrs({
         type: effectType(e),
         x: e.offset.x,
         y: e.offset.y,
         radius: e.radius,
         spread: e.spread !== undefined ? e.spread : 0,
         color: rgbToHex(e.color.r, e.color.g, e.color.b, e.color.a),
-        blend: e.blendMode && e.blendMode !== "NORMAL" ? e.blendMode.toLowerCase() : undefined
-      })} />`);
-    } else if ((e.type === "LAYER_BLUR" || e.type === "BACKGROUND_BLUR") && e.blurType === "NORMAL") {
-      out.push(`${ind(depth + 1)}<effect ${attrs({
-        type: effectType(e),
-        radius: e.radius
-      })} />`);
+        blend: e.blendMode && e.blendMode !== "NORMAL" ? e.blendMode.toLowerCase() : undefined,
+        opacity: typeof effOpacity === "number" && effOpacity < 1 ? parseFloat(effOpacity.toFixed(3)) : undefined
+      }) + " />");
+    } else if (e.type === "LAYER_BLUR" || e.type === "BACKGROUND_BLUR") {
+      if (e.blurType === "NORMAL") {
+        out.push(ind(depth + 1) + "<effect " + attrs({
+          type: effectType(e),
+          radius: e.radius
+        }) + " />");
+      } else {
+        out.push(ind(depth + 1) + "<!-- unsupported-effect: " + e.type + " blurType=" + e.blurType + " -->");
+      }
     } else if (e.type === "GLASS") {
       const ge = e;
-      out.push(`${ind(depth + 1)}<effect ${attrs({
+      out.push(ind(depth + 1) + "<effect " + attrs({
         type: "glass",
         radius: ge.radius !== undefined ? ge.radius : 20,
         saturation: ge.saturation !== undefined ? Math.round(ge.saturation * 100) : 180
-      })} />`);
+      }) + " />");
+    } else {
+      out.push(ind(depth + 1) + "<!-- unsupported-effect: " + e.type + " -->");
     }
   }
   return out;
 }
-function appearanceBlock(fills, effects, nodeW, nodeH, depth) {
-  const lines = appearanceFillLines(fills, nodeW, nodeH, depth).concat(appearanceEffectLines(effects, depth));
+function appearanceBlock(fills, effects, nodeW, nodeH, depth, strokeNode) {
+  var strokeLines = strokeNode ? appearanceStrokeLines(strokeNode, nodeW, nodeH, depth) : [];
+  const lines = appearanceFillLines(fills, nodeW, nodeH, depth).concat(appearanceEffectLines(effects, depth)).concat(strokeLines);
   if (!lines.length)
     return "";
   return `${ind(depth)}<appearance>
@@ -354,16 +433,100 @@ ${ind(depth)}</appearance>`;
 function strokeAttrs(node) {
   if (!Array.isArray(node.strokes) || node.strokes.length === 0)
     return {};
-  const f = node.strokes.find((p) => p.type === "SOLID" && p.visible !== false);
-  if (!f)
+  const f = node.strokes.find(function(p) {
+    return p.type === "SOLID" && p.visible !== false;
+  });
+  if (!f) {
+    const gf = node.strokes.find(function(p) {
+      return p.visible !== false && (p.type === "GRADIENT_LINEAR" || p.type === "GRADIENT_RADIAL" || p.type === "GRADIENT_ANGULAR");
+    });
+    if (!gf)
+      return {};
     return {};
+  }
   const bv = f.boundVariables;
-  const stroke = bv && bv.color && bv.color.id && tokenRef(bv.color.id) || rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1);
-  return {
-    stroke,
-    "stroke-width": typeof node.strokeWeight === "number" ? node.strokeWeight : null,
-    "stroke-position": node.strokeAlign ? node.strokeAlign.toLowerCase() : null
-  };
+  const color = bv && bv.color && bv.color.id && tokenRef(bv.color.id) || rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1);
+  const width = typeof node.strokeWeight === "number" ? node.strokeWeight : 1;
+  const align = node.strokeAlign ? node.strokeAlign.toLowerCase() : "center";
+  const parts = [];
+  if (width !== 1)
+    parts.push(String(width));
+  parts.push(color);
+  if (align !== "center")
+    parts.push(align);
+  var result = { border: parts.join(" ") };
+  var sj = node.strokeJoin;
+  if (sj && sj !== figma.mixed) {
+    var sjVal = strokeJoinVal(sj);
+    if (sjVal)
+      result["stroke-join"] = sjVal;
+  }
+  var dashPattern = node.strokeDashPattern;
+  if (dashPattern && Array.isArray(dashPattern) && dashPattern.length > 0) {
+    result["dash-array"] = dashPattern.join(" ");
+  }
+  var dashOffset = node.strokeDashOffset;
+  if (typeof dashOffset === "number" && dashOffset !== 0) {
+    result["dash-offset"] = dashOffset;
+  }
+  return result;
+}
+function appearanceStrokeLines(node, nodeW, nodeH, depth) {
+  if (!Array.isArray(node.strokes) || node.strokes.length === 0)
+    return [];
+  var strokePaints = node.strokes;
+  var width = typeof node.strokeWeight === "number" ? node.strokeWeight : 1;
+  var align = node.strokeAlign ? node.strokeAlign.toLowerCase() : "center";
+  var sj = node.strokeJoin;
+  var sjVal = sj && sj !== figma.mixed ? strokeJoinVal(sj) : undefined;
+  var dashPattern = node.strokeDashPattern;
+  var dashArray = dashPattern && Array.isArray(dashPattern) && dashPattern.length > 0 ? dashPattern.join(" ") : undefined;
+  var dashOffset = node.strokeDashOffset;
+  var dashOffsetVal = typeof dashOffset === "number" && dashOffset !== 0 ? dashOffset : undefined;
+  var hasSolid = false;
+  for (var si = 0;si < strokePaints.length; si++) {
+    if (strokePaints[si].type === "SOLID" && strokePaints[si].visible !== false) {
+      hasSolid = true;
+      break;
+    }
+  }
+  var lines = [];
+  var solidCount = 0;
+  for (var gi = 0;gi < strokePaints.length; gi++) {
+    var sp = strokePaints[gi];
+    var isHidden = sp.visible === false;
+    if (sp.type === "SOLID") {
+      solidCount++;
+      if (solidCount <= 1 && hasSolid)
+        continue;
+      var sf = sp;
+      var bv = sf.boundVariables;
+      var sColor = bv && bv.color && bv.color.id && tokenRef(bv.color.id) || rgbToHex(sf.color.r, sf.color.g, sf.color.b, sf.opacity !== undefined ? sf.opacity : 1);
+      lines.push(ind(depth + 1) + "<border " + attrs({
+        color: sColor,
+        w: width !== 1 ? width : undefined,
+        align: align !== "center" ? align : undefined,
+        join: sjVal,
+        "dash-array": dashArray,
+        "dash-offset": dashOffsetVal,
+        visible: isHidden ? "false" : undefined
+      }) + " />");
+    } else if (sp.type === "GRADIENT_LINEAR" || sp.type === "GRADIENT_RADIAL" || sp.type === "GRADIENT_ANGULAR") {
+      var gradVal = paintValue(sp, nodeW, nodeH);
+      if (!gradVal)
+        continue;
+      lines.push(ind(depth + 1) + "<border " + attrs({
+        paint: gradVal,
+        w: width !== 1 ? width : undefined,
+        align: align !== "center" ? align : undefined,
+        join: sjVal,
+        "dash-array": dashArray,
+        "dash-offset": dashOffsetVal,
+        visible: isHidden ? "false" : undefined
+      }) + " />");
+    }
+  }
+  return lines;
 }
 function shadowAttr(node) {
   if (!Array.isArray(node.effects))
@@ -394,34 +557,51 @@ function maskAttr(node) {
     return;
   return node.isMask || undefined;
 }
+var CONSTRAINT_H_MAP = {
+  MAX: "right",
+  CENTER: "center",
+  SCALE: "scale",
+  STRETCH: "stretch"
+};
+var CONSTRAINT_V_MAP = {
+  MAX: "bottom",
+  CENTER: "center",
+  SCALE: "scale",
+  STRETCH: "stretch"
+};
 function constraintAttrs(node) {
   if (!("constraints" in node))
     return {};
   const c = node.constraints;
   if (!c)
     return {};
-  const h = c.horizontal !== "LEFT" ? c.horizontal.toLowerCase() : undefined;
-  const v = c.vertical !== "TOP" ? c.vertical.toLowerCase() : undefined;
-  return { "constraint-h": h, "constraint-v": v };
+  return {
+    "constraint-h": CONSTRAINT_H_MAP[c.horizontal] || undefined,
+    "constraint-v": CONSTRAINT_V_MAP[c.vertical] || undefined
+  };
 }
 function sizingAttrs(node) {
   const result = {};
   if ("layoutSizingHorizontal" in node) {
     const h = node.layoutSizingHorizontal;
-    if (h === "HUG" || h === "FILL")
-      result["sizing-h"] = h.toLowerCase();
+    if (h === "FILL")
+      result.w = "fill";
+    else if (h === "HUG")
+      result.w = undefined;
   }
   if ("layoutSizingVertical" in node) {
     const v = node.layoutSizingVertical;
-    if (v === "HUG" || v === "FILL")
-      result["sizing-v"] = v.toLowerCase();
+    if (v === "FILL")
+      result.h = "fill";
+    else if (v === "HUG")
+      result.h = undefined;
   }
   return result;
 }
 function layoutPositionAttrs(node) {
   if (!("layoutPositioning" in node))
     return {};
-  return node.layoutPositioning === "ABSOLUTE" ? { "layout-position": "absolute" } : {};
+  return node.layoutPositioning === "ABSOLUTE" ? { abs: true } : {};
 }
 function minMaxAttrs(node) {
   if (!("minWidth" in node))
@@ -509,9 +689,16 @@ async function collectAndFetchImages(root) {
   _imageCounter = 0;
   _svgNodeMap = {};
   _svgB64Map = {};
-  _svgStringMap = {};
   _svgUsageCounts = {};
   _svgCounter = 0;
+  _componentRegistry = new Map;
+  _componentSetRegistry = new Map;
+  _instanceOverrideAccum = new Map;
+  _generatingComponentBody = false;
+  _generatingComponentRoot = false;
+  _componentBodyUsedIds = null;
+  _invisibleNodeIds = new Set;
+  _currentComponentDefs = null;
   const hashes = [];
   collectImageHashes(root, hashes);
   for (let i = 0;i < hashes.length; i++) {
@@ -526,35 +713,6 @@ async function collectAndFetchImages(root) {
     } catch (e) {}
   }
 }
-function decodeSvgBytes(bytes) {
-  var result = "";
-  var i = 0;
-  while (i < bytes.length) {
-    var b = bytes[i];
-    if (b < 128) {
-      result += String.fromCharCode(b);
-      i++;
-    } else if (b < 224 && i + 1 < bytes.length) {
-      result += String.fromCharCode((b & 31) << 6 | bytes[i + 1] & 63);
-      i += 2;
-    } else if (b < 240 && i + 2 < bytes.length) {
-      result += String.fromCharCode((b & 15) << 12 | (bytes[i + 1] & 63) << 6 | bytes[i + 2] & 63);
-      i += 3;
-    } else {
-      i += b < 240 ? 3 : 4;
-    }
-  }
-  return result;
-}
-function extractSvgInner(svgStr) {
-  var firstClose = svgStr.indexOf(">");
-  if (firstClose < 0)
-    return "";
-  var lastOpen = svgStr.lastIndexOf("</");
-  if (lastOpen <= firstClose)
-    return "";
-  return svgStr.slice(firstClose + 1, lastOpen).trim();
-}
 function dataUrl(asset) {
   const mime = asset.format === "svg" ? "svg+xml" : asset.format;
   return "data:image/" + mime + ";base64," + asset.b64;
@@ -564,17 +722,21 @@ function xmlEscape(s) {
 `).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "&#10;");
 }
 function attrs(obj) {
-  return Object.entries(obj).filter(([, v]) => v !== null && v !== undefined && v !== false).map(([k, v]) => `${k}="${typeof v === "string" ? xmlEscape(v) : v}"`).join(" ");
+  return Object.entries(obj).filter(([, v]) => v !== null && v !== undefined && v !== false).map(([k, v]) => v === true ? k : `${k}="${typeof v === "string" ? xmlEscape(v) : v}"`).join(" ");
 }
 function debugAttrs(node) {
   if (!_debugExport)
     return {};
   const layout = node;
+  var propRefs = node.componentPropertyReferences;
+  var visRef = propRefs && propRefs.visible ? String(propRefs.visible) : undefined;
   return {
     "debug-id": node.id,
     "debug-type": node.type,
     "debug-raw-x": typeof layout.x === "number" ? Math.round(layout.x) : undefined,
-    "debug-raw-y": typeof layout.y === "number" ? Math.round(layout.y) : undefined
+    "debug-raw-y": typeof layout.y === "number" ? Math.round(layout.y) : undefined,
+    "debug-node-visible": String(node.visible),
+    "debug-vis-prop-ref": visRef
   };
 }
 function logDebugTree(node) {
@@ -617,6 +779,327 @@ function makeDisplayCode(code) {
 }
 function isBase64Char(code) {
   return code >= 65 && code <= 90 || code >= 97 && code <= 122 || code >= 48 && code <= 57 || code === 43 || code === 47 || code === 61;
+}
+function sanitizeId(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "node";
+}
+function componentBodyId(name) {
+  if (!_generatingComponentBody || !_componentBodyUsedIds)
+    return;
+  const base = sanitizeId(name);
+  if (!base)
+    return;
+  let final = base;
+  let i = 1;
+  while (_componentBodyUsedIds.has(final))
+    final = base + "-" + ++i;
+  _componentBodyUsedIds.add(final);
+  return final;
+}
+function sanitizePropName(name) {
+  const base = name.replace(/#[^#]*$/, "").trim();
+  return sanitizeId(base) || "prop";
+}
+function parseVariantAttrs(compName) {
+  const result = {};
+  const parts = compName.split(",");
+  for (var i = 0;i < parts.length; i++) {
+    const eq = parts[i].indexOf("=");
+    if (eq === -1)
+      continue;
+    const key = sanitizeId(parts[i].slice(0, eq).trim());
+    const value = sanitizeId(parts[i].slice(eq + 1).trim());
+    if (key && value)
+      result[key] = value;
+  }
+  return result;
+}
+function generateComponentGuiId(component) {
+  const parent = component.parent;
+  if (parent && parent.type === "COMPONENT_SET") {
+    return "comp-" + sanitizeId(parent.name) + "-" + sanitizeId(component.name);
+  }
+  return "comp-" + sanitizeId(component.name);
+}
+function findPropTargetNode(root, propRawName, refAttr) {
+  const refs = root.componentPropertyReferences;
+  if (refs && refs[refAttr] === propRawName)
+    return root;
+  if ("children" in root) {
+    const ch = root.children;
+    for (var i = 0;i < ch.length; i++) {
+      const found = findPropTargetNode(ch[i], propRawName, refAttr);
+      if (found)
+        return found;
+    }
+  }
+  return null;
+}
+function simulateBodyIds(root) {
+  var used = new Set;
+  var result = new Map;
+  function walk(n) {
+    if (n.type !== "INSTANCE") {
+      var base = sanitizeId(n.name);
+      if (base) {
+        var final = base;
+        var i = 1;
+        while (used.has(final)) {
+          i++;
+          final = base + "-" + i;
+        }
+        used.add(final);
+        result.set(n.id, final);
+      }
+    }
+    if ("children" in n) {
+      var ch = n.children;
+      for (var j = 0;j < ch.length; j++)
+        walk(ch[j]);
+    }
+  }
+  walk(root);
+  return result;
+}
+function buildInstanceBodyIdMap(instRoot, compRoot) {
+  var used = new Set;
+  var result = new Map;
+  function walk(instNode, compNode) {
+    if (instNode.type !== "INSTANCE") {
+      var base = sanitizeId(instNode.name);
+      if (base) {
+        var final = base;
+        var i = 1;
+        while (used.has(final)) {
+          i++;
+          final = base + "-" + i;
+        }
+        used.add(final);
+        result.set(instNode.id, final);
+        result.set(compNode.id, final);
+      }
+    }
+    if ("children" in instNode && "children" in compNode) {
+      var instCh = instNode.children;
+      var compCh = compNode.children;
+      var len = instCh.length < compCh.length ? instCh.length : compCh.length;
+      for (var j = 0;j < len; j++) {
+        walk(instCh[j], compCh[j]);
+      }
+    }
+  }
+  walk(instRoot, compRoot);
+  return result;
+}
+function countComponentBodyLayers(component) {
+  var count = 0;
+  function walkCount(n) {
+    count++;
+    if ("children" in n) {
+      var ch2 = n.children;
+      for (var i2 = 0;i2 < ch2.length; i2++)
+        walkCount(ch2[i2]);
+    }
+  }
+  if ("children" in component) {
+    var ch = component.children;
+    for (var i = 0;i < ch.length; i++)
+      walkCount(ch[i]);
+  }
+  return count;
+}
+function collectInstanceOverrideTypes(node) {
+  var comp = node.mainComponent;
+  if (!comp)
+    return;
+  var bodyIds = buildInstanceBodyIdMap(node, comp);
+  var accum = _instanceOverrideAccum.get(comp.id);
+  if (!accum) {
+    accum = [];
+    _instanceOverrideAccum.set(comp.id, accum);
+  }
+  var overrides = node.overrides;
+  if (overrides) {
+    for (var i = 0;i < overrides.length; i++) {
+      var ov = overrides[i];
+      if (!ov.overriddenFields)
+        continue;
+      var bodyId = bodyIds.get(ov.id);
+      if (!bodyId)
+        continue;
+      for (var j = 0;j < ov.overriddenFields.length; j++) {
+        var field = ov.overriddenFields[j];
+        if (field === "characters") {
+          accum.push({ bodyId, type: "string" });
+        } else if (field === "visible") {
+          accum.push({ bodyId, type: "boolean" });
+        } else if (field === "fills") {
+          var ovNode = findNodeInTree(node, ov.id);
+          if (ovNode) {
+            var imgFill = getImageFillFromNode(ovNode);
+            if (imgFill) {
+              accum.push({ bodyId, type: "image" });
+            } else {
+              var sf = "fills" in ovNode ? solidFill(ovNode.fills) : null;
+              if (sf)
+                accum.push({ bodyId, type: "color" });
+            }
+          }
+        } else if (field === "strokes") {
+          var sov = findNodeInTree(node, ov.id);
+          if (sov && "strokes" in sov) {
+            var strk = sov.strokes;
+            if (strk && strk.length > 0 && strk[0].type === "SOLID") {
+              accum.push({ bodyId, type: "color", bind: "stroke" });
+            }
+          }
+        } else if (field === "textStyleId") {
+          accum.push({ bodyId, type: "style", bind: "text-style" });
+        } else if (field === "fillStyleId") {
+          accum.push({ bodyId, type: "style", bind: "fill-style" });
+        } else if (field === "effectStyleId") {
+          accum.push({ bodyId, type: "style", bind: "effect-style" });
+        } else if (field === "strokeStyleId") {
+          accum.push({ bodyId, type: "style", bind: "stroke-style" });
+        }
+      }
+    }
+  }
+  var compProps = node.componentProperties;
+  if (compProps) {
+    var propKeys = Object.keys(compProps);
+    for (var pi = 0;pi < propKeys.length; pi++) {
+      var propDef = compProps[propKeys[pi]];
+      if (propDef.type !== "INSTANCE_SWAP")
+        continue;
+      var swapTarget = findPropTargetNode(comp, propKeys[pi], "mainComponent");
+      if (swapTarget) {
+        var swapBodyId = bodyIds.get(swapTarget.id);
+        if (swapBodyId)
+          accum.push({ bodyId: swapBodyId, type: "component" });
+      }
+    }
+  }
+}
+async function prewalkAllInstances(node) {
+  if (node.type === "INSTANCE") {
+    var inst = node;
+    if (inst.mainComponent) {
+      await registerComponent(inst.mainComponent);
+      collectInstanceOverrideTypes(inst);
+    }
+  }
+  if ("children" in node) {
+    var ch = node.children;
+    for (var i = 0;i < ch.length; i++) {
+      await prewalkAllInstances(ch[i]);
+    }
+  }
+}
+function extractComponentProps(component) {
+  const isVariant = component.parent && component.parent.type === "COMPONENT_SET";
+  const defSource = isVariant ? component.parent : component;
+  var defs = null;
+  try {
+    defs = defSource.componentPropertyDefinitions || null;
+  } catch (_e) {}
+  const props = [];
+  const usedTargets = new Set;
+  const bodyIds = simulateBodyIds(component);
+  if (defs) {
+    var entries = Object.keys(defs);
+    for (var i = 0;i < entries.length; i++) {
+      var rawName = entries[i];
+      var figmaType = defs[rawName].type;
+      var guiType = null;
+      var refAttr = "";
+      if (figmaType === "TEXT") {
+        guiType = "string";
+        refAttr = "characters";
+      } else if (figmaType === "BOOLEAN") {
+        guiType = "boolean";
+        refAttr = "visible";
+      } else if (figmaType === "INSTANCE_SWAP") {
+        guiType = "component";
+        refAttr = "mainComponent";
+      }
+      if (!guiType)
+        continue;
+      var targetNode = findPropTargetNode(component, rawName, refAttr);
+      if (!targetNode)
+        continue;
+      var target = bodyIds.get(targetNode.id) || sanitizeId(targetNode.name);
+      props.push({ name: sanitizePropName(rawName), type: guiType, target });
+      usedTargets.add(target);
+    }
+  }
+  var inferred = _instanceOverrideAccum.get(component.id);
+  if (inferred) {
+    var seen = new Set;
+    for (var ii = 0;ii < inferred.length; ii++) {
+      var inf = inferred[ii];
+      var key = inf.bodyId + ":" + inf.type + (inf.bind ? ":" + inf.bind : "");
+      if (seen.has(key))
+        continue;
+      seen.add(key);
+      if (!inf.bind && usedTargets.has(inf.bodyId))
+        continue;
+      var propName = inf.bind ? inf.bodyId + "-" + inf.bind.replace(/-style$/, "") : inf.bodyId;
+      var entry = { name: propName, type: inf.type, target: inf.bodyId };
+      if (inf.bind)
+        entry.bind = inf.bind;
+      props.push(entry);
+      if (!inf.bind)
+        usedTargets.add(inf.bodyId);
+    }
+  }
+  return props;
+}
+async function registerComponent(component) {
+  if (!component || _componentRegistry.has(component.id))
+    return;
+  _componentRegistry.set(component.id, { guiId: "", figmaNode: component, props: [] });
+  await prewalkNode(component, 2);
+  const props = extractComponentProps(component);
+  var setGuiId;
+  var variantAttrs;
+  const parent = component.parent;
+  if (parent && parent.type === "COMPONENT_SET") {
+    const set = parent;
+    if (!_componentSetRegistry.has(set.id)) {
+      _componentSetRegistry.set(set.id, {
+        guiId: "compset-" + sanitizeId(set.name),
+        name: set.name,
+        figmaNode: set,
+        componentIds: []
+      });
+    }
+    const setEntry = _componentSetRegistry.get(set.id);
+    setGuiId = setEntry.guiId;
+    if (setEntry.componentIds.indexOf(component.id) === -1)
+      setEntry.componentIds.push(component.id);
+    variantAttrs = parseVariantAttrs(component.name);
+  }
+  const guiId = generateComponentGuiId(component);
+  _componentRegistry.set(component.id, { guiId, figmaNode: component, props, setGuiId, variantAttrs });
+  if ("children" in component) {
+    const ch = component.children;
+    for (var i = 0;i < ch.length; i++) {
+      await prewalkComponents(ch[i]);
+    }
+  }
+}
+async function prewalkComponents(node) {
+  if (node.type === "INSTANCE") {
+    await registerComponent(node.mainComponent);
+  }
+  if ("children" in node) {
+    const ch = node.children;
+    for (var i = 0;i < ch.length; i++) {
+      if (ch[i].visible !== false)
+        await prewalkComponents(ch[i]);
+    }
+  }
 }
 function visibleChildren(node) {
   if (!("children" in node))
@@ -686,7 +1169,6 @@ async function svgAsset(node) {
     }
     _svgCounter++;
     const asset = { id: "svg-" + _svgCounter, format: "svg", b64 };
-    _svgStringMap[asset.id] = extractSvgInner(decodeSvgBytes(bytes));
     _svgB64Map[b64] = asset;
     _svgNodeMap[node.id] = asset;
     return asset;
@@ -712,67 +1194,73 @@ async function svgToGui(node, depth) {
   const asset = await svgAsset(node);
   if (!asset)
     return "";
-  const isInline = _svgUsageCounts[asset.id] === 1;
   const baseAttrs = {
+    id: componentBodyId(node.name),
     name: node.name,
-    src: isInline ? undefined : "$" + asset.id,
+    src: "assets/" + asset.id + ".svg",
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: Math.round(node.width),
-    height: Math.round(node.height),
+    w: Math.round(node.width),
+    h: Math.round(node.height),
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
-    rotation: rotationAttr(node)
+    rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node)
   };
   Object.assign(baseAttrs, constraintAttrs(node));
   Object.assign(baseAttrs, sizingAttrs(node));
   Object.assign(baseAttrs, layoutPositionAttrs(node));
   Object.assign(baseAttrs, debugAttrs(node));
-  if (isInline) {
-    const innerMarkup = _svgStringMap[asset.id] || "";
-    if (!innerMarkup)
-      return `${ind(depth)}<svg ${attrs(baseAttrs)} />`;
-    const innerLines = innerMarkup.split(`
-`).map(function(line) {
-      var t = line.trim();
-      return t ? ind(depth + 1) + t : "";
-    }).filter(Boolean).join(`
-`);
-    return `${ind(depth)}<svg ${attrs(baseAttrs)}>
-${innerLines}
-${ind(depth)}</svg>`;
-  }
-  return `${ind(depth)}<svg ${attrs(baseAttrs)} />`;
+  return `${ind(depth)}<img ${attrs(baseAttrs)} />`;
 }
 async function nodeToGui(node, depth) {
-  if (node.visible === false)
-    return "";
+  if (node.visible === false) {
+    _invisibleNodeIds.add(node.id);
+  } else if (_generatingComponentBody && _currentComponentDefs) {
+    var propRefs = node.componentPropertyReferences;
+    if (propRefs && propRefs.visible) {
+      var propDef = _currentComponentDefs[propRefs.visible];
+      if (propDef && propDef.type === "BOOLEAN" && propDef.defaultValue === false) {
+        _invisibleNodeIds.add(node.id);
+      }
+    }
+  }
   if (shouldExportAsSvg(node, depth)) {
     return svgToGui(node, depth);
   }
   switch (node.type) {
     case "FRAME":
     case "COMPONENT":
-    case "INSTANCE":
       return frameToGui(node, depth);
+    case "INSTANCE":
+      return instanceToGui(node, depth);
     case "GROUP":
       return groupToGui(node, depth);
     case "TEXT":
       return textToGui(node, depth);
     case "RECTANGLE":
       return rectToGui(node, depth);
-    case "ELLIPSE":
+    case "ELLIPSE": {
+      const arc = node.arcData;
+      const TWO_PI = Math.PI * 2;
+      const hasArc = arc && (Math.abs(arc.startingAngle) > 0.001 || Math.abs(arc.endingAngle - TWO_PI) > 0.001 || arc.innerRadius > 0);
+      if (hasArc)
+        return await svgToGui(node, depth);
       return ellipseToGui(node, depth);
+    }
     case "LINE":
       return lineToGui(node, depth);
     case "VECTOR":
     case "STAR":
     case "POLYGON":
     case "BOOLEAN_OPERATION":
-      return pathToGui(node, depth);
+      return await svgToGui(node, depth);
     default:
       if ("children" in node) {
+        if (node.type === "COMPONENT_SET")
+          return frameToGui(node, depth);
         const lm = node.layoutMode;
         if (lm && lm !== "NONE")
           return frameToGui(node, depth);
@@ -839,10 +1327,19 @@ async function frameToGui(node, depth) {
   const effectStyleIdRaw = node.effectStyleId;
   const effectStyleId = typeof effectStyleIdRaw === "string" && effectStyleIdRaw ? effectStyleIdRaw : null;
   const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null;
+  const isCompRoot = _generatingComponentRoot;
+  if (_generatingComponentRoot)
+    _generatingComponentRoot = false;
+  var rootAutoH = false;
+  if (isRoot && isStack && !isGrid) {
+    var pas = node.primaryAxisSizingMode;
+    rootAutoH = pas === "AUTO";
+  }
   const a = {
+    id: componentBodyId(node.name),
     name: node.name,
-    width: Math.round(node.width),
-    height: Math.round(node.height),
+    w: Math.round(node.width),
+    h: rootAutoH ? undefined : Math.round(node.height),
     fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
     "fill-style": fillStyleName || undefined,
     radius: cornerRadius(node),
@@ -851,11 +1348,13 @@ async function frameToGui(node, depth) {
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: !isRoot ? rotationAttr(node) : undefined,
+    flip: !isRoot ? flipAttr(node) : undefined,
+    visible: !isRoot ? visibleAttr(node) : undefined,
     clip: node.clipsContent || undefined,
     shadow: effectStyleName || visibleEffects(node.effects).length ? undefined : shadowAttr(node),
     "effect-style": effectStyleName || undefined
   };
-  if (!isRoot) {
+  if (!isRoot && !isCompRoot) {
     a.x = Math.round(node.x);
     a.y = Math.round(node.y);
   }
@@ -875,28 +1374,18 @@ async function frameToGui(node, depth) {
       a["col-gap"] = gn.gridColumnGap > 0 ? gn.gridColumnGap : undefined;
       a["row-gap"] = gn.gridRowGap > 0 ? gn.gridRowGap : undefined;
     } else {
-      if (node.itemSpacing !== 0) {
-        const gapBv = node.boundVariables;
-        a.gap = gapBv && gapBv.itemSpacing && gapBv.itemSpacing.id && tokenRef(gapBv.itemSpacing.id) || node.itemSpacing;
-      }
+      a.gap = stackGap(node);
       a["reverse-z"] = node.itemReverseZIndex || undefined;
+      a.wrap = node.layoutWrap === "WRAP" ? true : undefined;
     }
-    a.padding = padding(node);
-    a.align = ALIGN[node.counterAxisAlignItems];
-    a.justify = ALIGN[node.primaryAxisAlignItems];
-    if (node.layoutWrap === "WRAP") {
-      a.wrap = true;
-      if (node.counterAxisAlignContent === "SPACE_BETWEEN")
-        a["wrap-align"] = "space-between";
-      if (node.counterAxisSpacing != null && node.counterAxisSpacing > 0)
-        a["wrap-gap"] = node.counterAxisSpacing;
-    }
+    a.p = padding(node);
+    a.align = ninePointAlign(node);
   }
   const emptyPaints = [];
   const emptyEffects = [];
   const fillsForAppearance = fillStyleName ? emptyPaints : node.fills;
   const effectsForAppearance = effectStyleName ? emptyEffects : node.effects;
-  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1);
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1, node);
   const childInner = await children(node, depth + 1);
   const inner = [appearance, childInner].filter(Boolean).join(`
 `);
@@ -906,25 +1395,431 @@ async function frameToGui(node, depth) {
 ${inner}
 ${ind(depth)}</${tag}>`;
 }
+function findNodeInTree(root, id) {
+  if (root.id === id)
+    return root;
+  if ("children" in root) {
+    const ch = root.children;
+    for (var i = 0;i < ch.length; i++) {
+      const found = findNodeInTree(ch[i], id);
+      if (found)
+        return found;
+    }
+  }
+  return null;
+}
+async function instanceToGui(node, depth) {
+  const comp = node.mainComponent;
+  if (!comp)
+    return frameToGui(node, depth);
+  if (!_componentRegistry.has(comp.id))
+    await registerComponent(comp);
+  const entry = _componentRegistry.get(comp.id);
+  if (!entry || !entry.guiId)
+    return frameToGui(node, depth);
+  var allOverrides = node.overrides;
+  var overrideCount = 0;
+  if (allOverrides) {
+    for (var di = 0;di < allOverrides.length; di++) {
+      if (allOverrides[di].overriddenFields && allOverrides[di].overriddenFields.length > 0)
+        overrideCount++;
+    }
+  }
+  var totalLayers = countComponentBodyLayers(comp);
+  if (totalLayers >= 4 && overrideCount / totalLayers >= 0.75) {
+    var detached = await frameToGui(node, depth);
+    return detached.replace(/^(\s*<\w+)/, '$1 component="' + entry.guiId + '"');
+  }
+  const isRoot = depth === 1;
+  const a = {
+    component: entry.guiId,
+    name: node.name !== comp.name ? node.name : undefined,
+    x: isRoot ? undefined : Math.round(node.x),
+    y: isRoot ? undefined : Math.round(node.y),
+    w: Math.round(node.width),
+    h: Math.round(node.height),
+    radius: cornerRadius(node),
+    opacity: node.opacity < 1 ? node.opacity : undefined,
+    blend: blendModeAttr(node),
+    rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node)
+  };
+  Object.assign(a, constraintAttrs(node));
+  Object.assign(a, sizingAttrs(node));
+  Object.assign(a, layoutPositionAttrs(node));
+  Object.assign(a, minMaxAttrs(node));
+  Object.assign(a, debugAttrs(node));
+  var bodyIds = buildInstanceBodyIdMap(node, comp);
+  var overrides = allOverrides;
+  var bodyIdToPropName = {};
+  for (var pi = 0;pi < entry.props.length; pi++) {
+    var ep = entry.props[pi];
+    var targets = ep.target.split(" ");
+    for (var ti = 0;ti < targets.length; ti++) {
+      if (targets[ti])
+        bodyIdToPropName[targets[ti]] = ep.name;
+    }
+  }
+  const compProps = node.componentProperties;
+  if (compProps) {
+    var compDefs = null;
+    try {
+      var defSource = comp.parent && comp.parent.type === "COMPONENT_SET" ? comp.parent : comp;
+      compDefs = defSource.componentPropertyDefinitions || null;
+    } catch (_e) {}
+    var propKeys = Object.keys(compProps);
+    for (var i = 0;i < propKeys.length; i++) {
+      var rawName = propKeys[i];
+      var propDef = compProps[rawName];
+      if (propDef.type !== "TEXT")
+        continue;
+      var val = propDef.value;
+      if (typeof val !== "string")
+        continue;
+      var defaultVal = compDefs && compDefs[rawName] && compDefs[rawName].defaultValue;
+      if (!defaultVal || val !== defaultVal)
+        a[sanitizePropName(rawName)] = val;
+    }
+  }
+  if (overrides) {
+    for (var oi = 0;oi < overrides.length; oi++) {
+      var ov = overrides[oi];
+      if (!ov.overriddenFields || ov.overriddenFields.indexOf("characters") === -1)
+        continue;
+      var ovNode = findNodeInTree(node, ov.id);
+      if (!ovNode || ovNode.type !== "TEXT")
+        continue;
+      var bid = bodyIds.get(ov.id) || sanitizeId(ovNode.name);
+      if (!bid)
+        continue;
+      var textKey = bodyIdToPropName[bid] || bid;
+      if (a[textKey] !== undefined)
+        continue;
+      var chars = ovNode.characters;
+      if (typeof chars === "string")
+        a[textKey] = chars;
+    }
+  }
+  if (overrides) {
+    for (var vi = 0;vi < overrides.length; vi++) {
+      var vov = overrides[vi];
+      if (!vov.overriddenFields || vov.overriddenFields.indexOf("visible") === -1)
+        continue;
+      var vbid = bodyIds.get(vov.id);
+      if (!vbid)
+        continue;
+      var vkey = bodyIdToPropName[vbid] || vbid;
+      if (a[vkey] !== undefined)
+        continue;
+      var vovNode = findNodeInTree(node, vov.id);
+      if (vovNode)
+        a[vkey] = vovNode.visible === false ? "false" : "true";
+    }
+  }
+  function walkVisibility(n) {
+    if (n.visible === false) {
+      var wbid = bodyIds.get(n.id);
+      if (wbid) {
+        var wkey = bodyIdToPropName[wbid] || wbid;
+        if (a[wkey] === undefined)
+          a[wkey] = "false";
+      }
+    }
+    if ("children" in n) {
+      var wch = n.children;
+      for (var wci = 0;wci < wch.length; wci++)
+        walkVisibility(wch[wci]);
+    }
+  }
+  if ("children" in node) {
+    var instCh = node.children;
+    for (var ic = 0;ic < instCh.length; ic++)
+      walkVisibility(instCh[ic]);
+  }
+  if (overrides) {
+    for (var fi = 0;fi < overrides.length; fi++) {
+      var fov = overrides[fi];
+      if (!fov.overriddenFields || fov.overriddenFields.indexOf("fills") === -1)
+        continue;
+      var fovNode = findNodeInTree(node, fov.id);
+      if (!fovNode)
+        continue;
+      if (getImageFillFromNode(fovNode))
+        continue;
+      var fillColor = "fills" in fovNode ? solidFill(fovNode.fills) : null;
+      if (!fillColor)
+        continue;
+      var fbid = bodyIds.get(fov.id);
+      if (!fbid)
+        continue;
+      var fkey = bodyIdToPropName[fbid] || fbid;
+      if (a[fkey] === undefined)
+        a[fkey] = fillColor;
+    }
+  }
+  if (overrides) {
+    for (var imi = 0;imi < overrides.length; imi++) {
+      var imov = overrides[imi];
+      if (!imov.overriddenFields || imov.overriddenFields.indexOf("fills") === -1)
+        continue;
+      var imNode = findNodeInTree(node, imov.id);
+      if (!imNode)
+        continue;
+      var imFill = getImageFillFromNode(imNode);
+      if (!imFill || !imFill.imageHash)
+        continue;
+      var imAsset = _imageMap[imFill.imageHash];
+      if (!imAsset)
+        continue;
+      var imbid = bodyIds.get(imov.id);
+      if (!imbid)
+        continue;
+      var imkey = bodyIdToPropName[imbid] || imbid;
+      if (a[imkey] === undefined)
+        a[imkey] = "$" + imAsset.id;
+    }
+  }
+  if (overrides) {
+    for (var sti = 0;sti < overrides.length; sti++) {
+      var stov = overrides[sti];
+      if (!stov.overriddenFields || stov.overriddenFields.indexOf("strokes") === -1)
+        continue;
+      var stNode = findNodeInTree(node, stov.id);
+      if (!stNode || !("strokes" in stNode))
+        continue;
+      var strokes = stNode.strokes;
+      if (!strokes || strokes.length === 0 || strokes[0].type !== "SOLID")
+        continue;
+      var stColor = solidFill(strokes);
+      if (!stColor)
+        continue;
+      var stbid = bodyIds.get(stov.id);
+      if (!stbid)
+        continue;
+      var stPropName = stbid + "-stroke";
+      var stDeclared = bodyIdToPropName[stPropName];
+      var stkey = stDeclared || stPropName;
+      if (a[stkey] === undefined)
+        a[stkey] = stColor;
+    }
+  }
+  if (overrides) {
+    var styleFields = [
+      { field: "textStyleId", bind: "text-style", suffix: "-text" },
+      { field: "fillStyleId", bind: "fill-style", suffix: "-fill" },
+      { field: "effectStyleId", bind: "effect-style", suffix: "-effect" },
+      { field: "strokeStyleId", bind: "stroke-style", suffix: "-stroke-style" }
+    ];
+    for (var sfi = 0;sfi < overrides.length; sfi++) {
+      var sfov = overrides[sfi];
+      if (!sfov.overriddenFields)
+        continue;
+      var sfbid = bodyIds.get(sfov.id);
+      if (!sfbid)
+        continue;
+      var sfNode = findNodeInTree(node, sfov.id);
+      if (!sfNode)
+        continue;
+      for (var sff = 0;sff < styleFields.length; sff++) {
+        var sf = styleFields[sff];
+        if (sfov.overriddenFields.indexOf(sf.field) === -1)
+          continue;
+        var rawStyleId = sfNode[sf.field];
+        if (!rawStyleId || typeof rawStyleId !== "string")
+          continue;
+        var resolvedName = null;
+        if (sf.bind === "text-style")
+          resolvedName = resolveTextStyle(rawStyleId);
+        else if (sf.bind === "fill-style")
+          resolvedName = resolveFillStyle(rawStyleId);
+        else if (sf.bind === "effect-style")
+          resolvedName = resolveEffectStyle(rawStyleId);
+        if (!resolvedName)
+          continue;
+        var sfPropName = sfbid + sf.suffix;
+        var sfDeclared = bodyIdToPropName[sfPropName];
+        var sfkey = sfDeclared || sfPropName;
+        if (a[sfkey] === undefined)
+          a[sfkey] = resolvedName;
+      }
+    }
+  }
+  if (overrides) {
+    var numericFields = [
+      { field: "cornerRadius", suffix: "-radius" },
+      { field: "opacity", suffix: "-opacity" }
+    ];
+    for (var nfi = 0;nfi < overrides.length; nfi++) {
+      var nfov = overrides[nfi];
+      if (!nfov.overriddenFields)
+        continue;
+      var nfbid = bodyIds.get(nfov.id);
+      if (!nfbid)
+        continue;
+      var nfNode = findNodeInTree(node, nfov.id);
+      if (!nfNode)
+        continue;
+      for (var nff = 0;nff < numericFields.length; nff++) {
+        var nf = numericFields[nff];
+        if (nfov.overriddenFields.indexOf(nf.field) === -1)
+          continue;
+        var nfVal = nfNode[nf.field];
+        if (typeof nfVal !== "number" || nfVal === figma.mixed)
+          continue;
+        var nfPropName = nfbid + nf.suffix;
+        var nfDeclared = bodyIdToPropName[nfPropName];
+        var nfkey = nfDeclared || nfPropName;
+        if (a[nfkey] === undefined)
+          a[nfkey] = String(Math.round(nfVal * 100) / 100);
+      }
+    }
+  }
+  if (compProps) {
+    var swapKeys = Object.keys(compProps);
+    for (var swi = 0;swi < swapKeys.length; swi++) {
+      var swapDef = compProps[swapKeys[swi]];
+      if (swapDef.type !== "INSTANCE_SWAP")
+        continue;
+      var swapTargetInComp = findPropTargetNode(comp, swapKeys[swi], "mainComponent");
+      if (!swapTargetInComp)
+        continue;
+      var swapBodyId = bodyIds.get(swapTargetInComp.id);
+      if (!swapBodyId)
+        continue;
+      var swapInstanceNode = findNodeInTree(node, swapTargetInComp.id);
+      if (!swapInstanceNode || swapInstanceNode.type !== "INSTANCE")
+        continue;
+      var swappedComp = swapInstanceNode.mainComponent;
+      if (!swappedComp)
+        continue;
+      var swappedEntry = _componentRegistry.get(swappedComp.id);
+      if (!swappedEntry || !swappedEntry.guiId)
+        continue;
+      var swkey = bodyIdToPropName[swapBodyId] || swapBodyId;
+      if (a[swkey] === undefined)
+        a[swkey] = swappedEntry.guiId;
+    }
+  }
+  return `${ind(depth)}<instance ${attrs(a)} />`;
+}
+async function componentsBlock() {
+  if (!_componentRegistry.size)
+    return "";
+  const lines = [];
+  const emittedSets = new Set;
+  const compIds = Array.from(_componentRegistry.keys());
+  for (var ci = 0;ci < compIds.length; ci++) {
+    const entry = _componentRegistry.get(compIds[ci]);
+    if (!entry || !entry.guiId)
+      continue;
+    if (entry.setGuiId) {
+      if (emittedSets.has(entry.setGuiId))
+        continue;
+      emittedSets.add(entry.setGuiId);
+      const setEntry = Array.from(_componentSetRegistry.values()).find(function(s) {
+        return s.guiId === entry.setGuiId;
+      });
+      if (!setEntry)
+        continue;
+      const variantLines = [];
+      for (var vi = 0;vi < setEntry.componentIds.length; vi++) {
+        const ce = _componentRegistry.get(setEntry.componentIds[vi]);
+        if (!ce || !ce.guiId)
+          continue;
+        const propsLines = ce.props.map(function(p) {
+          return `${ind(4)}<prop ${attrs({ name: p.name, type: p.type, target: p.target, bind: p.bind })} />`;
+        });
+        const propsBlock = propsLines.length ? `${ind(3)}<props>
+${propsLines.join(`
+`)}
+${ind(3)}</props>
+` : "";
+        if (_debugExport) {
+          var dbgChildren = "children" in ce.figmaNode ? ce.figmaNode.children : [];
+          console.log("dotgui variant debug", {
+            variant: ce.figmaNode.name,
+            children: dbgChildren.map(function(c) {
+              return {
+                name: c.name,
+                visible: c.visible,
+                type: c.type,
+                componentPropertyReferences: c.componentPropertyReferences
+              };
+            })
+          });
+        }
+        _generatingComponentBody = true;
+        _generatingComponentRoot = true;
+        _componentBodyUsedIds = new Set;
+        _currentComponentDefs = setEntry.figmaNode.componentPropertyDefinitions || null;
+        const body = await frameToGui(ce.figmaNode, 3);
+        _generatingComponentBody = false;
+        _componentBodyUsedIds = null;
+        _currentComponentDefs = null;
+        const vA = { id: ce.guiId };
+        if (ce.variantAttrs)
+          Object.assign(vA, ce.variantAttrs);
+        variantLines.push(`${ind(2)}<variant ${attrs(vA)}>
+${propsBlock}${body}
+${ind(2)}</variant>`);
+      }
+      lines.push(`${ind(1)}<component-set ${attrs({ name: setEntry.name, id: setEntry.guiId })}>
+${variantLines.join(`
+`)}
+${ind(1)}</component-set>`);
+    } else {
+      const propsLines = entry.props.map(function(p) {
+        return `${ind(3)}<prop ${attrs({ name: p.name, type: p.type, target: p.target, bind: p.bind })} />`;
+      });
+      const propsBlock = propsLines.length ? `${ind(2)}<props>
+${propsLines.join(`
+`)}
+${ind(2)}</props>
+` : "";
+      _generatingComponentBody = true;
+      _generatingComponentRoot = true;
+      _componentBodyUsedIds = new Set;
+      _currentComponentDefs = entry.figmaNode.componentPropertyDefinitions || null;
+      const body = await frameToGui(entry.figmaNode, 2);
+      _generatingComponentBody = false;
+      _componentBodyUsedIds = null;
+      _currentComponentDefs = null;
+      lines.push(`${ind(1)}<component ${attrs({ name: entry.figmaNode.name, id: entry.guiId })}>
+${propsBlock}${body}
+${ind(1)}</component>`);
+    }
+  }
+  if (!lines.length)
+    return "";
+  return `<components>
+${lines.join(`
+`)}
+</components>
+`;
+}
 async function groupToGui(node, depth) {
   const visChildren = node.children.filter((c) => c.visible !== false);
   const firstChild = visChildren[0];
   const maskChild = firstChild && "isMask" in firstChild && firstChild.isMask ? firstChild : null;
   const a = {
+    id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: Math.round(node.width),
-    height: Math.round(node.height),
+    w: Math.round(node.width),
+    h: Math.round(node.height),
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
-    rotation: rotationAttr(node)
+    rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node)
   };
   if (maskChild) {
     const maskAsset = maskNodeToAsset(maskChild);
     if (maskAsset) {
-      a["mask-src"] = "$" + maskAsset.id;
+      a["mask-src"] = "assets/" + maskAsset.id + ".svg";
       a["mask-x"] = Math.round(maskChild.x - node.x);
       a["mask-y"] = Math.round(maskChild.y - node.y);
       a["mask-width"] = Math.round(maskChild.width);
@@ -1147,15 +2042,26 @@ function resolveTextStyle(id) {
     const fn = style.fontName;
     const lh = style.lineHeight;
     const ls = style.letterSpacing;
+    const styleDecoRaw = style.textDecoration;
+    const styleDecoVal = styleDecoRaw !== "NONE" ? styleDecoRaw.toLowerCase() : undefined;
+    const styleFeatures = style.openTypeFeatures;
+    const styleVariations = style.fontVariations;
     const entryAttrs = {
       name: style.name,
       "font-family": fn.family,
+      "font-postscript": fontPostscriptName(fn.family, fn.style),
+      "font-style-name": fn.style !== "Regular" ? fn.style : undefined,
       "font-size": style.fontSize,
       "font-weight": fontWeight(fn.style),
       "font-style": fontStyle(fn.style) === "italic" ? "italic" : undefined,
+      "font-variation": styleVariations && typeof styleVariations === "object" ? fontVariationVal(styleVariations) : undefined,
+      "font-feature": styleFeatures && typeof styleFeatures === "object" ? fontFeatureVal(styleFeatures) : undefined,
       "line-height": lineHeightVal(lh),
       "letter-spacing": letterSpacingVal(ls),
-      decoration: style.textDecoration !== "NONE" ? style.textDecoration.toLowerCase() : undefined,
+      decoration: styleDecoVal,
+      "decoration-color": styleDecoVal && style.textDecorationColor && typeof style.textDecorationColor === "object" ? rgbaToHex(style.textDecorationColor, typeof style.textDecorationColor.a === "number" ? style.textDecorationColor.a : 1) : undefined,
+      "decoration-style": styleDecoVal && style.textDecorationStyle ? decoStyleVal(style.textDecorationStyle) : undefined,
+      "decoration-thickness": styleDecoVal && typeof style.textDecorationThickness === "number" && style.textDecorationThickness > 0 ? style.textDecorationThickness : undefined,
       "text-case": style.textCase !== "ORIGINAL" ? TEXT_CASE[style.textCase] : undefined
     };
     _styleRegistry.set(id, { name: style.name, tag: "text-style", entryAttrs });
@@ -1313,18 +2219,157 @@ function letterSpacingVal(ls) {
     return ls.value + "%";
   return String(ls.value);
 }
+function fontPostscriptName(family, style) {
+  const s = style.replace(/\s+/g, "");
+  if (!s || s.toLowerCase() === "regular" || s.toLowerCase() === "roman") {
+    return family.replace(/\s+/g, "");
+  }
+  return family.replace(/\s+/g, "") + "-" + s;
+}
+function fontFeatureVal(features) {
+  const enabled = [];
+  const keys = Object.keys(features);
+  for (let i = 0;i < keys.length; i++) {
+    if (features[keys[i]])
+      enabled.push('"' + keys[i].toLowerCase() + '"');
+  }
+  return enabled.length > 0 ? enabled.join(", ") : undefined;
+}
+function fontVariationVal(variations) {
+  const axes = Object.keys(variations);
+  if (!axes.length)
+    return;
+  return axes.map(function(ax) {
+    return '"' + ax + '" ' + variations[ax];
+  }).join(", ");
+}
+function textResizeVal(autoResize) {
+  if (autoResize === "WIDTH_AND_HEIGHT")
+    return "hug";
+  if (autoResize === "HEIGHT")
+    return "hug-height";
+  if (autoResize === "FIXED")
+    return "fixed";
+  if (autoResize === "TRUNCATE")
+    return "truncate";
+  return;
+}
+function listTypeVal(type) {
+  if (type === "ORDERED_LIST")
+    return "decimal";
+  if (type === "UNORDERED_LIST")
+    return "disc";
+  return;
+}
+function rgbaToHex(color, opacity) {
+  function ch(n) {
+    const h = Math.round(n * 255).toString(16);
+    return h.length === 1 ? "0" + h : h;
+  }
+  const base = "#" + ch(color.r) + ch(color.g) + ch(color.b);
+  if (opacity >= 1)
+    return base;
+  return base + ch(opacity);
+}
+function decoStyleVal(style) {
+  if (style === "SOLID")
+    return "solid";
+  if (style === "WAVY")
+    return "wavy";
+  if (style === "DASHED")
+    return "dashed";
+  if (style === "DOTTED")
+    return "dotted";
+  if (style === "DOUBLE")
+    return "double";
+  return;
+}
+function visibleAttr(node) {
+  return _invisibleNodeIds.has(node.id) ? "false" : undefined;
+}
+function flipAttr(node) {
+  var flipH = node.flippedHorizontally;
+  var flipV = node.flippedVertically;
+  if (flipH && flipV)
+    return "both";
+  if (flipH)
+    return "h";
+  if (flipV)
+    return "v";
+  return;
+}
+function strokeCapVal(cap) {
+  if (cap === "ROUND")
+    return "round";
+  if (cap === "SQUARE")
+    return "square";
+  if (cap === "ARROW_LINES")
+    return "arrow-lines";
+  if (cap === "ARROW_EQUILATERAL")
+    return "arrow-equilateral";
+  return;
+}
+function strokeJoinVal(join) {
+  if (join === "MITER")
+    return "miter";
+  if (join === "ROUND")
+    return "round";
+  if (join === "BEVEL")
+    return "bevel";
+  return;
+}
+function fontStretchVal(style) {
+  var s = style.toLowerCase();
+  if (s.indexOf("ultra condensed") !== -1 || s.indexOf("ultracondensed") !== -1)
+    return "ultra-condensed";
+  if (s.indexOf("extra condensed") !== -1 || s.indexOf("extracondensed") !== -1)
+    return "extra-condensed";
+  if (s.indexOf("semi condensed") !== -1 || s.indexOf("semicondensed") !== -1)
+    return "semi-condensed";
+  if (s.indexOf("condensed") !== -1)
+    return "condensed";
+  if (s.indexOf("semi expanded") !== -1 || s.indexOf("semiexpanded") !== -1)
+    return "semi-expanded";
+  if (s.indexOf("extra expanded") !== -1 || s.indexOf("extraexpanded") !== -1)
+    return "extra-expanded";
+  if (s.indexOf("ultra expanded") !== -1 || s.indexOf("ultraexpanded") !== -1)
+    return "ultra-expanded";
+  if (s.indexOf("expanded") !== -1)
+    return "expanded";
+  return;
+}
 function getTextSegments(node) {
+  var fn = node.getStyledTextSegments;
+  if (typeof fn !== "function")
+    return [];
+  var fullFields = [
+    "fontName",
+    "fontSize",
+    "fills",
+    "textDecoration",
+    "textCase",
+    "letterSpacing",
+    "lineHeight",
+    "hyperlink",
+    "openTypeFeatures",
+    "listOptions",
+    "indentation",
+    "baselineOffset"
+  ];
+  var coreFields = ["fontName", "fontSize", "fills", "textDecoration", "textCase", "letterSpacing", "lineHeight", "hyperlink"];
   try {
-    const fn = node.getStyledTextSegments;
-    if (typeof fn !== "function")
-      return [];
-    return fn.call(node, ["fontName", "fontSize", "fills", "textDecoration", "textCase", "letterSpacing", "lineHeight", "hyperlink"]);
+    var result = fn.call(node, fullFields);
+    if (result && result.length)
+      return result;
+  } catch (e) {}
+  try {
+    return fn.call(node, coreFields);
   } catch (e) {
     return [];
   }
 }
 function isMixedText(node) {
-  return node.fontName === figma.mixed || node.fontSize === figma.mixed || node.fills === figma.mixed || node.textDecoration === figma.mixed || node.textCase === figma.mixed || node.letterSpacing === figma.mixed || node.lineHeight === figma.mixed;
+  return node.fontName === figma.mixed || node.fontSize === figma.mixed || node.fills === figma.mixed || node.textDecoration === figma.mixed || node.textCase === figma.mixed || node.letterSpacing === figma.mixed || node.lineHeight === figma.mixed || node.openTypeFeatures === figma.mixed || node.listOptions === figma.mixed;
 }
 function textToGui(node, depth) {
   const vAlign = { TOP: "top", CENTER: "center", BOTTOM: "bottom" };
@@ -1333,12 +2378,23 @@ function textToGui(node, depth) {
   const hugH = autoResize === "WIDTH_AND_HEIGHT" || autoResize === "HEIGHT";
   const isTruncated = autoResize === "TRUNCATE";
   const mixed = isMixedText(node);
+  var textDir = node.textDirection || node.direction;
+  var textDirVal;
+  if (textDir && textDir !== "LTR" && textDir !== figma.mixed) {
+    textDirVal = "rtl";
+  }
+  var wm = node.writingMode;
+  var wmVal;
+  if (wm && typeof wm === "string") {
+    wmVal = wm.toLowerCase().replace(/_/g, "-");
+  }
   const a = {
+    id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: hugW ? "hug" : Math.round(node.width),
-    height: hugH ? "hug" : Math.round(node.height),
+    w: hugW ? undefined : Math.round(node.width),
+    h: hugH ? undefined : Math.round(node.height),
     align: node.textAlignHorizontal !== "LEFT" ? node.textAlignHorizontal.toLowerCase() : undefined,
     "vertical-align": node.textAlignVertical !== "TOP" ? vAlign[node.textAlignVertical] : undefined,
     "paragraph-spacing": node.paragraphSpacing !== figma.mixed && node.paragraphSpacing > 0 ? node.paragraphSpacing : undefined,
@@ -1349,7 +2405,11 @@ function textToGui(node, depth) {
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
-    rotation: rotationAttr(node)
+    rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
+    direction: textDirVal,
+    "writing-mode": wmVal
   };
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
@@ -1371,25 +2431,64 @@ function textToGui(node, depth) {
     const textFillStyleIdRaw = node.fillStyleId;
     const textFillStyleId = typeof textFillStyleIdRaw === "string" && textFillStyleIdRaw ? textFillStyleIdRaw : null;
     const textFillStyleName = textFillStyleId ? resolveFillStyle(textFillStyleId) : null;
-    a.color = textFillStyleName ? undefined : solidFill(node.fills);
+    a.fill = textFillStyleName ? undefined : solidFill(node.fills);
     a["fill-style"] = textFillStyleName || undefined;
     const styleId = typeof node.textStyleId === "string" ? node.textStyleId : null;
     const styleName = styleId ? resolveTextStyle(styleId) : null;
     if (styleName) {
       a["text-style"] = styleName;
-    } else {
+    }
+    {
       a["font-family"] = fontName.family;
+      a["font-postscript"] = fontPostscriptName(fontName.family, fontName.style);
+      a["font-style-name"] = fontName.style !== "Regular" ? fontName.style : undefined;
       a["font-size"] = textBv && textBv.fontSize && textBv.fontSize.id && tokenRef(textBv.fontSize.id) || node.fontSize;
       a["font-weight"] = fontWeight(fontName.style);
       a["font-style"] = fontStyle(fontName.style) === "italic" ? "italic" : undefined;
+      const nodeVariations = node.fontVariations;
+      if (nodeVariations && typeof nodeVariations === "object") {
+        a["font-variation"] = fontVariationVal(nodeVariations);
+      }
+      const nodeFeatures = node.openTypeFeatures;
+      if (nodeFeatures && typeof nodeFeatures === "object" && nodeFeatures !== figma.mixed) {
+        a["font-feature"] = fontFeatureVal(nodeFeatures);
+      }
       a["line-height"] = lineHeightVal(lh);
       a["letter-spacing"] = letterSpacingVal(ls);
-      a.decoration = node.textDecoration !== "NONE" ? node.textDecoration.toLowerCase() : undefined;
+      a["font-stretch"] = fontStretchVal(fontName.style);
+      const decoRaw = node.textDecoration;
+      a.decoration = decoRaw !== "NONE" ? decoRaw.toLowerCase() : undefined;
+      if (a.decoration) {
+        const decoColor = node.textDecorationColor;
+        if (decoColor && typeof decoColor === "object" && decoColor !== figma.mixed && Number.isFinite(decoColor.r) && Number.isFinite(decoColor.g) && Number.isFinite(decoColor.b)) {
+          const opacity = typeof decoColor.a === "number" && Number.isFinite(decoColor.a) ? decoColor.a : 1;
+          a["decoration-color"] = rgbaToHex(decoColor, opacity);
+        }
+        const decoStyle = node.textDecorationStyle;
+        if (decoStyle && typeof decoStyle === "string" && decoStyle !== figma.mixed) {
+          a["decoration-style"] = decoStyleVal(decoStyle);
+        }
+        const decoThick = node.textDecorationThickness;
+        if (typeof decoThick === "number" && decoThick !== figma.mixed) {
+          a["decoration-thickness"] = decoThick > 0 ? decoThick : undefined;
+        }
+      }
       a["text-case"] = node.textCase !== "ORIGINAL" ? TEXT_CASE[node.textCase] : undefined;
+    }
+    a["text-resize"] = textResizeVal(node.textAutoResize);
+    const nodeListOpts = node.listOptions;
+    if (nodeListOpts && nodeListOpts !== figma.mixed && typeof nodeListOpts === "object") {
+      const lv = listTypeVal(nodeListOpts.type);
+      if (lv) {
+        a["list"] = lv;
+        if (typeof nodeListOpts.indentation === "number" && nodeListOpts.indentation > 0) {
+          a["list-level"] = nodeListOpts.indentation;
+        }
+      }
     }
     const emptyPaints = [];
     const fillsForAppearance = textFillStyleName ? emptyPaints : node.fills;
-    const appearance2 = appearanceBlock(fillsForAppearance, node.effects, node.width, node.height, depth + 1);
+    const appearance2 = appearanceBlock(fillsForAppearance, node.effects, node.width, node.height, depth + 1, node);
     if (!appearance2)
       return `${ind(depth)}<text ${attrs(a)} />`;
     return `${ind(depth)}<text ${attrs(a)}>
@@ -1397,24 +2496,73 @@ ${appearance2}
 ${ind(depth)}</text>`;
   }
   const segments = getTextSegments(node);
+  if (!segments.length) {
+    a.value = node.characters;
+    if (node.fontName !== figma.mixed) {
+      var fbFont = node.fontName;
+      a["font-family"] = fbFont.family;
+      a["font-postscript"] = fontPostscriptName(fbFont.family, fbFont.style);
+      a["font-style-name"] = fbFont.style !== "Regular" ? fbFont.style : undefined;
+      a["font-weight"] = fontWeight(fbFont.style);
+      a["font-style"] = fontStyle(fbFont.style) === "italic" ? "italic" : undefined;
+      a["font-stretch"] = fontStretchVal(fbFont.style);
+    }
+    if (node.fontSize !== figma.mixed)
+      a["font-size"] = node.fontSize;
+    if (node.lineHeight !== figma.mixed)
+      a["line-height"] = lineHeightVal(node.lineHeight);
+    if (node.letterSpacing !== figma.mixed)
+      a["letter-spacing"] = letterSpacingVal(node.letterSpacing);
+    if (node.fills !== figma.mixed)
+      a.fill = solidFill(node.fills);
+    a["text-resize"] = textResizeVal(node.textAutoResize);
+    const appearance2 = appearanceBlock(node.fills !== figma.mixed ? node.fills : [], node.effects, node.width, node.height, depth + 1, node);
+    if (!appearance2)
+      return ind(depth) + "<text " + attrs(a) + " />";
+    return ind(depth) + "<text " + attrs(a) + `>
+` + appearance2 + `
+` + ind(depth) + "</text>";
+  }
   const segLines = segments.map((seg) => {
     const segColor = solidFill(seg.fills);
+    const segDecoRaw = seg.textDecoration ? seg.textDecoration : "NONE";
+    const segDeco = segDecoRaw !== "NONE" ? segDecoRaw.toLowerCase() : undefined;
     const sa = {
       value: seg.characters,
       "font-family": seg.fontName ? seg.fontName.family : undefined,
+      "font-postscript": seg.fontName ? fontPostscriptName(seg.fontName.family, seg.fontName.style) : undefined,
+      "font-style-name": seg.fontName && seg.fontName.style !== "Regular" ? seg.fontName.style : undefined,
       "font-size": seg.fontSize,
       "font-weight": seg.fontName ? fontWeight(seg.fontName.style) : undefined,
       "font-style": seg.fontName && fontStyle(seg.fontName.style) === "italic" ? "italic" : undefined,
+      "font-stretch": seg.fontName ? fontStretchVal(seg.fontName.style) : undefined,
+      "font-variation": seg.fontVariations && typeof seg.fontVariations === "object" ? fontVariationVal(seg.fontVariations) : undefined,
+      "font-feature": seg.openTypeFeatures && typeof seg.openTypeFeatures === "object" ? fontFeatureVal(seg.openTypeFeatures) : undefined,
       "line-height": seg.lineHeight ? lineHeightVal(seg.lineHeight) : undefined,
       "letter-spacing": seg.letterSpacing ? letterSpacingVal(seg.letterSpacing) : undefined,
-      color: segColor,
-      decoration: seg.textDecoration && seg.textDecoration !== "NONE" ? seg.textDecoration.toLowerCase() : undefined,
+      "baseline-shift": typeof seg.baselineOffset === "number" && seg.baselineOffset !== 0 ? seg.baselineOffset : undefined,
+      fill: segColor,
+      decoration: segDeco,
+      "decoration-color": function() {
+        var dc = seg.textDecorationColor;
+        if (!segDeco || !dc || typeof dc !== "object")
+          return;
+        if (!Number.isFinite(dc.r) || !Number.isFinite(dc.g) || !Number.isFinite(dc.b))
+          return;
+        var opa = typeof dc.a === "number" && Number.isFinite(dc.a) ? dc.a : 1;
+        return rgbaToHex(dc, opa);
+      }(),
+      "decoration-style": segDeco && seg.textDecorationStyle ? decoStyleVal(seg.textDecorationStyle) : undefined,
+      "decoration-thickness": segDeco && typeof seg.textDecorationThickness === "number" && seg.textDecorationThickness > 0 ? seg.textDecorationThickness : undefined,
       "text-case": seg.textCase && seg.textCase !== "ORIGINAL" ? TEXT_CASE[seg.textCase] : undefined,
+      list: seg.listOptions && seg.listOptions.type ? listTypeVal(seg.listOptions.type) : undefined,
+      "list-level": seg.listOptions && typeof seg.indentation === "number" && seg.indentation > 0 ? seg.indentation : undefined,
       href: seg.hyperlink && seg.hyperlink.type === "URL" ? seg.hyperlink.value : undefined
     };
     return `${ind(depth + 1)}<segment ${attrs(sa)} />`;
   });
-  const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1);
+  a["text-resize"] = textResizeVal(node.textAutoResize);
+  const appearance = appearanceBlock(node.fills, node.effects, node.width, node.height, depth + 1, node);
   const innerParts = [appearance, ...segLines].filter(Boolean);
   if (!innerParts.length)
     return `${ind(depth)}<text ${attrs(a)} />`;
@@ -1430,13 +2578,18 @@ function rectToGui(node, depth) {
   const effectStyleIdRaw = node.effectStyleId;
   const effectStyleId = typeof effectStyleIdRaw === "string" && effectStyleIdRaw ? effectStyleIdRaw : null;
   const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null;
+  var rectVp = node.vectorPaths;
+  var rectFillRule;
+  if (rectVp && rectVp.length > 0 && rectVp[0].windingRule) {
+    rectFillRule = rectVp[0].windingRule === "EVENODD" ? "evenodd" : "nonzero";
+  }
   const a = {
-    type: "rect",
+    id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: Math.round(node.width),
-    height: Math.round(node.height),
+    w: Math.round(node.width),
+    h: Math.round(node.height),
     fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
     "fill-style": fillStyleName || undefined,
     radius: cornerRadius(node),
@@ -1445,6 +2598,9 @@ function rectToGui(node, depth) {
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
+    "fill-rule": rectFillRule,
     "effect-style": effectStyleName || undefined
   };
   Object.assign(a, strokeAttrs(node));
@@ -1457,12 +2613,12 @@ function rectToGui(node, depth) {
   const emptyEffects = [];
   const fillsForAppearance = fillStyleName ? emptyPaints : node.fills;
   const effectsForAppearance = effectStyleName ? emptyEffects : node.effects;
-  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1);
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1, node);
   if (!appearance)
-    return `${ind(depth)}<shape ${attrs(a)} />`;
-  return `${ind(depth)}<shape ${attrs(a)}>
+    return `${ind(depth)}<rect ${attrs(a)} />`;
+  return `${ind(depth)}<rect ${attrs(a)}>
 ${appearance}
-${ind(depth)}</shape>`;
+${ind(depth)}</rect>`;
 }
 function ellipseToGui(node, depth) {
   const fillStyleIdRaw = node.fillStyleId;
@@ -1471,24 +2627,27 @@ function ellipseToGui(node, depth) {
   const effectStyleIdRaw = node.effectStyleId;
   const effectStyleId = typeof effectStyleIdRaw === "string" && effectStyleIdRaw ? effectStyleIdRaw : null;
   const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null;
-  const arc = node.arcData;
-  const TWO_PI = Math.PI * 2;
+  var ellipseVp = node.vectorPaths;
+  var ellipseFillRule;
+  if (ellipseVp && ellipseVp.length > 0 && ellipseVp[0].windingRule) {
+    ellipseFillRule = ellipseVp[0].windingRule === "EVENODD" ? "evenodd" : "nonzero";
+  }
   const a = {
-    type: "ellipse",
+    id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: Math.round(node.width),
-    height: Math.round(node.height),
+    w: Math.round(node.width),
+    h: Math.round(node.height),
     fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
     "fill-style": fillStyleName || undefined,
-    "arc-start": arc && Math.abs(arc.startingAngle) > 0.001 ? Math.round(arc.startingAngle * 180 / Math.PI * 100) / 100 : undefined,
-    "arc-end": arc && Math.abs(arc.endingAngle - TWO_PI) > 0.001 ? Math.round(arc.endingAngle * 180 / Math.PI * 100) / 100 : undefined,
-    "arc-inner": arc && arc.innerRadius > 0 ? arc.innerRadius : undefined,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
     rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node),
+    "fill-rule": ellipseFillRule,
     "effect-style": effectStyleName || undefined
   };
   Object.assign(a, strokeAttrs(node));
@@ -1500,75 +2659,64 @@ function ellipseToGui(node, depth) {
   const emptyEffects = [];
   const fillsForAppearance = fillStyleName ? emptyPaints : node.fills;
   const effectsForAppearance = effectStyleName ? emptyEffects : node.effects;
-  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1);
+  const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1, node);
   if (!appearance)
-    return `${ind(depth)}<shape ${attrs(a)} />`;
-  return `${ind(depth)}<shape ${attrs(a)}>
+    return `${ind(depth)}<ellipse ${attrs(a)} />`;
+  return `${ind(depth)}<ellipse ${attrs(a)}>
 ${appearance}
-${ind(depth)}</shape>`;
+${ind(depth)}</ellipse>`;
 }
 function lineToGui(node, depth) {
-  const cap = node.strokeCap !== figma.mixed && node.strokeCap !== "NONE" ? node.strokeCap.toLowerCase().replace(/_/g, "-") : undefined;
+  let lineFill;
+  let thickness;
+  if (Array.isArray(node.strokes) && node.strokes.length > 0) {
+    const f = node.strokes.find(function(p) {
+      return p.type === "SOLID" && p.visible !== false;
+    });
+    if (f) {
+      const bv = f.boundVariables;
+      lineFill = bv && bv.color && bv.color.id && tokenRef(bv.color.id) || rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1);
+    }
+  }
+  if (typeof node.strokeWeight === "number" && node.strokeWeight !== 1) {
+    thickness = node.strokeWeight;
+  }
+  var lineCap = node.strokeCap;
+  var lineCapVal = lineCap && lineCap !== "NONE" && lineCap !== figma.mixed ? strokeCapVal(lineCap) : undefined;
+  var lineSj = node.strokeJoin;
+  var lineSjVal = lineSj && lineSj !== figma.mixed ? strokeJoinVal(lineSj) : undefined;
+  var lineDash = node.strokeDashPattern;
+  var lineDashArray = lineDash && Array.isArray(lineDash) && lineDash.length > 0 ? lineDash.join(" ") : undefined;
+  var lineDashOffset = node.strokeDashOffset;
+  var lineDashOffsetVal = typeof lineDashOffset === "number" && lineDashOffset !== 0 ? lineDashOffset : undefined;
   const a = {
-    type: "line",
+    id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    width: Math.round(node.width),
-    "stroke-cap": cap,
+    w: Math.round(node.width),
+    fill: lineFill,
+    thickness,
+    "stroke-cap": lineCapVal,
+    "stroke-join": lineSjVal,
+    "dash-array": lineDashArray,
+    "dash-offset": lineDashOffsetVal,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
-    rotation: rotationAttr(node)
+    rotation: rotationAttr(node),
+    flip: flipAttr(node),
+    visible: visibleAttr(node)
   };
-  Object.assign(a, strokeAttrs(node));
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
   Object.assign(a, layoutPositionAttrs(node));
   Object.assign(a, debugAttrs(node));
-  return `${ind(depth)}<shape ${attrs(a)} />`;
-}
-function pathToGui(node, depth) {
-  const fillStyleIdRaw = node.fillStyleId;
-  const fillStyleId = typeof fillStyleIdRaw === "string" && fillStyleIdRaw ? fillStyleIdRaw : null;
-  const fillStyleName = fillStyleId ? resolveFillStyle(fillStyleId) : null;
-  const effectStyleIdRaw = node.effectStyleId;
-  const effectStyleId = typeof effectStyleIdRaw === "string" && effectStyleIdRaw ? effectStyleIdRaw : null;
-  const effectStyleName = effectStyleId ? resolveEffectStyle(effectStyleId) : null;
-  const geom = node;
-  const paths = node.vectorPaths && node.vectorPaths.length > 0 ? node.vectorPaths : geom.fillGeometry || [];
-  const d = paths.map(function(p) {
-    return p.data;
-  }).join(" ").trim();
-  const a = {
-    type: "path",
-    name: node.name,
-    x: Math.round(node.x),
-    y: Math.round(node.y),
-    width: Math.round(node.width),
-    height: Math.round(node.height),
-    fill: fillStyleName ? undefined : fillValue(node.fills, node.width, node.height),
-    "fill-style": fillStyleName || undefined,
-    "effect-style": effectStyleName || undefined,
-    opacity: node.opacity < 1 ? node.opacity : undefined,
-    blend: blendModeAttr(node),
-    mask: maskAttr(node),
-    rotation: rotationAttr(node)
-  };
-  Object.assign(a, strokeAttrs(node));
-  Object.assign(a, constraintAttrs(node));
-  Object.assign(a, sizingAttrs(node));
-  Object.assign(a, layoutPositionAttrs(node));
-  Object.assign(a, debugAttrs(node));
-  if (!d)
-    return `${ind(depth)}<shape ${attrs(a)} />`;
-  return `${ind(depth)}<shape ${attrs(a)}>
-${ind(depth + 1)}<path d="${d}" />
-${ind(depth)}</shape>`;
+  return `${ind(depth)}<line ${attrs(a)} />`;
 }
 function shiftRootPosition(markup, offsetX, offsetY) {
   let shifted = false;
-  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/m, function(_, start, attrText, end) {
+  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|rect|ellipse|line|svg|shape)\b)([^>]*?)(\/?>)/m, function(_, start, attrText, end) {
     if (shifted)
       return start + attrText + end;
     shifted = true;
@@ -1589,7 +2737,7 @@ function shiftAttr(attrText, attr, delta) {
 }
 function normalizeWrappedRootPosition(markup) {
   let isRoot = true;
-  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|svg|shape)\b)([^>]*?)(\/?>)/gm, function(_, start, attrText, end) {
+  return markup.replace(/^(\s*<(?:frame|stack|row|col|grid|group|text|img|rect|ellipse|line|svg|shape)\b)([^>]*?)(\/?>)/gm, function(_, start, attrText, end) {
     if (isRoot) {
       isRoot = false;
       const withX = /\sx="[^"]*"/.test(attrText) ? attrText.replace(/\sx="[^"]*"/, ' x="0"') : attrText + ' x="0"';
@@ -1602,39 +2750,21 @@ function normalizeWrappedRootPosition(markup) {
 async function generateGui(node) {
   const w = Math.round(node.width);
   const h = Math.round(node.height);
-  const viewport = `${w}x${h}`;
+  await prewalkComponents(node);
   var inner;
-  if (node.type === "FRAME" || node.type === "COMPONENT" || node.type === "INSTANCE") {
+  if (node.type === "FRAME" || node.type === "COMPONENT" || node.type === "COMPONENT_SET") {
     inner = await frameToGui(node, 1);
+  } else if (node.type === "INSTANCE") {
+    inner = await instanceToGui(node, 1);
   } else {
-    const wrapA = attrs({ width: w, height: h });
+    const wrapA = attrs({ w, h });
     const wrappedNode = normalizeWrappedRootPosition(await nodeToGui(node, 2));
     inner = `${ind(1)}<frame ${wrapA}>
 ${wrappedNode}
 ${ind(1)}</frame>`;
   }
-  const assetKeys = Object.keys(_imageMap);
-  const lines = assetKeys.map(function(hash) {
-    const a = _imageMap[hash];
-    return `${ind(1)}<image id="${a.id}" format="${a.format}" src="base64:${a.b64}" />`;
-  });
-  const svgKeys = Object.keys(_svgNodeMap);
-  const seenSvgIds = {};
-  for (let i = 0;i < svgKeys.length; i++) {
-    const a = _svgNodeMap[svgKeys[i]];
-    if (seenSvgIds[a.id])
-      continue;
-    seenSvgIds[a.id] = true;
-    if (_svgUsageCounts[a.id] === 1)
-      continue;
-    lines.push(`${ind(1)}<image id="${a.id}" format="svg" src="base64:${a.b64}" />`);
-  }
-  const assetsBlock = lines.length > 0 ? `${ind(0)}<assets>
-${lines.join(`
-`)}
-${ind(0)}</assets>
-` : "";
-  return `<gui version="1.0" name="${xmlEscape(node.name)}" viewport="${viewport}">
-${tokensBlock()}${stylesBlock()}${fontsBlock(node)}${assetsBlock}${inner}
+  const compBlock = await componentsBlock();
+  return `<gui version="1.0" name="${xmlEscape(node.name)}">
+${tokensBlock()}${stylesBlock()}${fontsBlock(node)}${compBlock}${inner}
 </gui>`;
 }

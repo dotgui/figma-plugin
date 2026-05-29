@@ -326,18 +326,20 @@ function formatFromDataUrl(url: string, fallback: string): string {
 }
 
 function parseGuiAssets(guiCode: string, assets: Record<string, string>): GuiAsset[] {
-  const doc = new DOMParser().parseFromString(guiCode, 'text/xml')
-  if (doc.querySelector('parsererror')) return []
-
+  const seen = new Set<string>()
   const out: GuiAsset[] = []
-  for (const node of Array.from(doc.querySelectorAll('assets > image'))) {
-    const id = node.getAttribute('id')
-    const format = node.getAttribute('format') || 'png'
-    if (!id) continue
-
-    const key = `$${id}`
-    const src = assets[key] || ''
+  const re = /\bsrc="(assets\/([^"]+))"/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(guiCode)) !== null) {
+    const path = m[1]
+    const filename = m[2]
+    if (seen.has(path)) continue
+    seen.add(path)
+    const src = assets[path] || ''
     if (!src.startsWith('data:')) continue
+    const dotIdx = filename.lastIndexOf('.')
+    const format = dotIdx >= 0 ? filename.slice(dotIdx + 1) : 'webp'
+    const id = dotIdx >= 0 ? filename.slice(0, dotIdx) : filename
     const actualFormat = formatFromDataUrl(src, format)
     out.push({ id, format: actualFormat, src, bytes: dataUrlBytes(src) })
   }
@@ -385,20 +387,8 @@ function parsePreview(guiCode: string): GuiPreview | null {
   return { format, src: dataUrl, bytes: dataUrlBytes(dataUrl) }
 }
 
-function packagedIndex(guiCode: string, assets: GuiAsset[], preview: GuiPreview): string {
+function packagedIndex(guiCode: string, preview: GuiPreview): string {
   let out = addInstructions(guiCode)
-  for (const asset of assets) {
-    const b64 = asset.src.split(',')[1]
-    if (!b64) continue
-    out = out.replace(
-      `src="base64:${b64}"`,
-      `src="assets/${asset.id}.${asset.format}"`
-    )
-    out = out.replace(
-      new RegExp(`(<image\\b[^>]*\\bid="${asset.id}"[^>]*\\bformat=")[^"]+("[^>]*>)`),
-      `$1${asset.format}$2`
-    )
-  }
   const b64 = preview.src.split(',')[1]
   if (b64) {
     out = out.replace(`src="base64:${b64}"`, 'src="preview.webp"')
@@ -479,7 +469,7 @@ function zipStore(entries: { name: string; bytes: Uint8Array }[]): Uint8Array {
 }
 
 function makePackage(guiCode: string, assets: GuiAsset[], preview: GuiPreview): Blob {
-  const index = packagedIndex(guiCode, assets, preview)
+  const index = packagedIndex(guiCode, preview)
   const encoder = new TextEncoder()
   const entries = [
     { name: 'index.gui', bytes: encoder.encode(index) },
@@ -518,31 +508,27 @@ async function applyWebP(
   rawCode: string,
   rawAssetMap: Record<string, string>
 ): Promise<{ code: string; assetMap: Record<string, string> }> {
-  const ids = Object.keys(rawAssetMap)
-  if (!ids.length) return { code: rawCode, assetMap: rawAssetMap }
+  const paths = Object.keys(rawAssetMap)
+  if (!paths.length) return { code: rawCode, assetMap: rawAssetMap }
 
   let patched = rawCode
   const newMap: Record<string, string> = {}
 
-  for (const id of ids) {
-    const origUrl = rawAssetMap[id]
+  for (const path of paths) {
+    const origUrl = rawAssetMap[path]
     if (origUrl.startsWith('data:image/svg+xml')) {
-      newMap[id] = origUrl
+      newMap[path] = origUrl
       continue
     }
     try {
       const webpUrl = await toWebP(origUrl)
-      newMap[id] = webpUrl
-      const webpB64 = webpUrl.split(',')[1]
-      const assetId = id.slice(1)
-      patched = patched.replace(
-        new RegExp(`<image\\b[^>]*\\bid="${assetId}"[^>]*>`),
-        (tag) => tag
-          .replace(/format="[^"]*"/, 'format="webp"')
-          .replace(/src="base64:[^"]*"/, `src="base64:${webpB64}"`)
-      )
+      const webpPath = path.replace(/\.[^.]+$/, '.webp')
+      if (webpPath !== path) {
+        patched = patched.split(path).join(webpPath)
+      }
+      newMap[webpPath] = webpUrl
     } catch {
-      newMap[id] = origUrl
+      newMap[path] = origUrl
     }
   }
 
@@ -675,7 +661,7 @@ function triggerRender() {
   zoomFactor.value = 1
   applyZoom = null
   nextTick(() => {
-    if (previewEl.value) applyZoom = render(code.value, previewEl.value, assetMap.value)
+    if (previewEl.value) applyZoom = render(code.value, previewEl.value, assetMap.value, { zoom: true })
   })
 }
 
