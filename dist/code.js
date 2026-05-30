@@ -536,13 +536,27 @@ function shadowAttr(node) {
     return null;
   return `${s.offset.x} ${s.offset.y} ${s.radius} ${s.spread !== undefined ? s.spread : 0} ${rgbToHex(s.color.r, s.color.g, s.color.b, s.color.a)}`;
 }
+var _groupRotationCtx = 0;
 function rotationAttr(node) {
-  if (!("rotation" in node))
+  if (!("relativeTransform" in node))
     return;
-  const rotation = node.rotation;
-  if (!rotation)
+  const t = node.relativeTransform;
+  const angle = Math.atan2(t[1][0], t[0][0]) * (180 / Math.PI);
+  const local = angle - _groupRotationCtx;
+  if (Math.abs(local) < 0.01)
     return;
-  return Math.round(rotation * 100) / 100;
+  return Math.round(local * 100) / 100;
+}
+function correctedGroupXY(node) {
+  if (!("relativeTransform" in node))
+    return { x: Math.round(node.x), y: Math.round(node.y) };
+  const t = node.relativeTransform;
+  const tx = t[0][2], ty = t[1][2];
+  const w = node.width;
+  const h = node.height;
+  const cx = t[0][0] * (w / 2) + t[0][1] * (h / 2) + tx;
+  const cy = t[1][0] * (w / 2) + t[1][1] * (h / 2) + ty;
+  return { x: Math.round(cx - w / 2), y: Math.round(cy - h / 2) };
 }
 function blendModeAttr(node) {
   if (!("blendMode" in node))
@@ -1443,12 +1457,15 @@ async function frameToGui(node, depth) {
   const effectsForAppearance = effectStyleName ? emptyEffects : node.effects;
   const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1, node);
   const frameMaskChild = await applyMaskAttrs(a, node, 0, 0);
+  const savedGroupCtx = _groupRotationCtx;
+  _groupRotationCtx = 0;
   var childInner;
   if (frameMaskChild) {
     childInner = await children(node, depth + 1, frameMaskChild);
   } else {
     childInner = await children(node, depth + 1);
   }
+  _groupRotationCtx = savedGroupCtx;
   const inner = [appearance, childInner].filter(Boolean).join(`
 `);
   if (!inner)
@@ -1861,17 +1878,59 @@ ${lines.join(`
 `;
 }
 async function groupToGui(node, depth) {
+  const localRotation = rotationAttr(node);
+  if (localRotation !== undefined) {
+    const asset = await svgAsset(node);
+    if (asset) {
+      const t = "relativeTransform" in node ? node.relativeTransform : null;
+      var vx, vy, vw, vh;
+      if (t) {
+        const w = node.width;
+        const h = node.height;
+        const cx = t[0][0] * (w / 2) + t[0][1] * (h / 2) + t[0][2];
+        const cy = t[1][0] * (w / 2) + t[1][1] * (h / 2) + t[1][2];
+        const ac = Math.abs(t[0][0]), as_ = Math.abs(t[1][0]);
+        vw = Math.round(ac * w + as_ * h);
+        vh = Math.round(as_ * w + ac * h);
+        vx = Math.round(cx - vw / 2);
+        vy = Math.round(cy - vh / 2);
+      } else {
+        vx = Math.round(node.x);
+        vy = Math.round(node.y);
+        vw = Math.round(node.width);
+        vh = Math.round(node.height);
+      }
+      const a2 = {
+        id: componentBodyId(node.name),
+        name: node.name,
+        src: "assets/" + asset.id + ".svg",
+        x: vx,
+        y: vy,
+        w: vw,
+        h: vh,
+        opacity: node.opacity < 1 ? node.opacity : undefined,
+        blend: blendModeAttr(node),
+        visible: visibleAttr(node)
+      };
+      Object.assign(a2, constraintAttrs(node));
+      Object.assign(a2, sizingAttrs(node));
+      Object.assign(a2, layoutPositionAttrs(node));
+      Object.assign(a2, debugAttrs(node));
+      return `${ind(depth)}<img ${attrs(a2)} />`;
+    }
+  }
+  const pos = localRotation !== undefined ? correctedGroupXY(node) : { x: Math.round(node.x), y: Math.round(node.y) };
   const a = {
     id: componentBodyId(node.name),
     name: node.name,
-    x: Math.round(node.x),
-    y: Math.round(node.y),
+    x: pos.x,
+    y: pos.y,
     w: Math.round(node.width),
     h: Math.round(node.height),
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
-    rotation: rotationAttr(node),
+    rotation: localRotation,
     flip: flipAttr(node),
     visible: visibleAttr(node)
   };
@@ -1881,7 +1940,10 @@ async function groupToGui(node, depth) {
   Object.assign(a, layoutPositionAttrs(node));
   Object.assign(a, minMaxAttrs(node));
   Object.assign(a, debugAttrs(node));
+  const savedCtx = _groupRotationCtx;
+  _groupRotationCtx += localRotation || 0;
   const inner = await positionedChildren(node, depth + 1, node.x || 0, node.y || 0, maskChild || undefined);
+  _groupRotationCtx = savedCtx;
   if (!inner)
     return `${ind(depth)}<group ${attrs(a)} />`;
   return `${ind(depth)}<group ${attrs(a)}>

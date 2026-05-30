@@ -596,11 +596,36 @@ function shadowAttr(node: BlendMixin): string | null {
   return `${s.offset.x} ${s.offset.y} ${s.radius} ${s.spread !== undefined ? s.spread : 0} ${rgbToHex(s.color.r, s.color.g, s.color.b, s.color.a)}`
 }
 
+// Accumulated rotation (degrees) from ancestor GROUP nodes. Figma groups don't create
+// their own coordinate system, so a child's relativeTransform is in the outer frame's
+// space and already includes the group's rotation. We subtract the group stack's total
+// rotation to recover the child's true local rotation.
+var _groupRotationCtx: number = 0
+
 function rotationAttr(node: SceneNode): number | undefined {
-  if (!('rotation' in node)) return undefined
-  const rotation = (node as unknown as { rotation: number }).rotation
-  if (!rotation) return undefined
-  return Math.round(rotation * 100) / 100
+  if (!('relativeTransform' in node)) return undefined
+  const t = (node as LayoutMixin).relativeTransform
+  const angle = Math.atan2(t[1][0], t[0][0]) * (180 / Math.PI)
+  const local = angle - _groupRotationCtx
+  if (Math.abs(local) < 0.01) return undefined
+  return Math.round(local * 100) / 100
+}
+
+// Compute the position a rotated GROUP div must be placed at so that CSS
+// transform-origin:center rotation lands the visual center at the correct spot.
+// node.x/y for groups = relativeTransform origin (pre-rotation top-left in parent space),
+// not the bounding box. w/h are local (pre-rotation) dimensions.
+function correctedGroupXY(node: GroupNode): { x: number; y: number } {
+  if (!('relativeTransform' in node)) return { x: Math.round((node as any).x), y: Math.round((node as any).y) }
+  const t = (node as unknown as LayoutMixin).relativeTransform
+  const tx = t[0][2], ty = t[1][2]
+  const w = (node as unknown as LayoutMixin).width
+  const h = (node as unknown as LayoutMixin).height
+  // Transform local center (w/2, h/2) to parent space to find visual center
+  const cx = t[0][0] * (w / 2) + t[0][1] * (h / 2) + tx
+  const cy = t[1][0] * (w / 2) + t[1][1] * (h / 2) + ty
+  // CSS div must be placed so its center matches the visual center
+  return { x: Math.round(cx - w / 2), y: Math.round(cy - h / 2) }
 }
 
 function blendModeAttr(node: SceneNode): string | undefined {
@@ -1321,8 +1346,8 @@ async function svgToGui(node: SceneNode, depth: number): Promise<string> {
     id: componentBodyId(node.name),
     name: node.name,
     src: 'assets/' + asset.id + '.svg',
-    x: Math.round((node as LayoutMixin).x),
-    y: Math.round((node as LayoutMixin).y),
+    x: Math.round(node.x),
+    y: Math.round(node.y),
     w: Math.round((node as LayoutMixin).width),
     h: Math.round((node as LayoutMixin).height),
     opacity: node.opacity < 1 ? node.opacity : undefined,
@@ -1612,6 +1637,10 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
   // which use canvas-absolute coords — so pass 0,0 as the child origin offset.
   const frameMaskChild = await applyMaskAttrs(a, node as any, 0, 0)
 
+  // Frames create a new coordinate system; children's relativeTransform is frame-relative
+  // so the accumulated group rotation context must be reset.
+  const savedGroupCtx = _groupRotationCtx
+  _groupRotationCtx = 0
   var childInner: string
   if (frameMaskChild) {
     // Frame children are already frame-relative; just exclude the mask child, no position shift.
@@ -1619,6 +1648,7 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
   } else {
     childInner = await children(node, depth + 1)
   }
+  _groupRotationCtx = savedGroupCtx
   const inner = [appearance, childInner].filter(Boolean).join('\n')
   if (!inner) return `${ind(depth)}<${tag} ${attrs(a)} />`
   return `${ind(depth)}<${tag} ${attrs(a)}>\n${inner}\n${ind(depth)}</${tag}>`
@@ -2014,29 +2044,85 @@ async function componentsBlock(): Promise<string> {
 }
 
 async function groupToGui(node: GroupNode, depth: number): Promise<string> {
+  const localRotation = rotationAttr(node)
+
+  // When a group has rotation, Figma's exportAsync bakes ALL ancestor transforms
+  // (including this group's rotation) into the SVG path data. Emitting a CSS rotation
+  // on top would double-rotate the already-correct visual. Instead, export the whole
+  // group as one SVG using the visual bounding box — no rotation attr needed.
+  if (localRotation !== undefined) {
+    const asset = await svgAsset(node as unknown as SceneNode)
+    if (asset) {
+      // Visual bounding box: compute from relativeTransform and local dims
+      const t = ('relativeTransform' in (node as unknown as LayoutMixin))
+        ? (node as unknown as LayoutMixin).relativeTransform
+        : null
+      var vx: number, vy: number, vw: number, vh: number
+      if (t) {
+        const w = (node as unknown as LayoutMixin).width
+        const h = (node as unknown as LayoutMixin).height
+        const cx = t[0][0] * (w / 2) + t[0][1] * (h / 2) + t[0][2]
+        const cy = t[1][0] * (w / 2) + t[1][1] * (h / 2) + t[1][2]
+        const ac = Math.abs(t[0][0]), as_ = Math.abs(t[1][0])
+        vw = Math.round(ac * w + as_ * h)
+        vh = Math.round(as_ * w + ac * h)
+        vx = Math.round(cx - vw / 2)
+        vy = Math.round(cy - vh / 2)
+      } else {
+        vx = Math.round((node as any).x)
+        vy = Math.round((node as any).y)
+        vw = Math.round((node as unknown as LayoutMixin).width)
+        vh = Math.round((node as unknown as LayoutMixin).height)
+      }
+      const a: Record<string, AttrVal> = {
+        id: componentBodyId(node.name),
+        name: node.name,
+        src: 'assets/' + asset.id + '.svg',
+        x: vx,
+        y: vy,
+        w: vw,
+        h: vh,
+        opacity: node.opacity < 1 ? node.opacity : undefined,
+        blend: blendModeAttr(node as unknown as SceneNode),
+        visible: visibleAttr(node as unknown as SceneNode),
+      }
+      Object.assign(a, constraintAttrs(node as unknown as SceneNode))
+      Object.assign(a, sizingAttrs(node as unknown as SceneNode))
+      Object.assign(a, layoutPositionAttrs(node as unknown as SceneNode))
+      Object.assign(a, debugAttrs(node as unknown as SceneNode))
+      return `${ind(depth)}<img ${attrs(a)} />`
+    }
+  }
+
+  const pos = localRotation !== undefined ? correctedGroupXY(node) : { x: Math.round((node as any).x), y: Math.round((node as any).y) }
   const a: Record<string, AttrVal> = {
     id: componentBodyId(node.name),
     name: node.name,
-    x: Math.round(node.x),
-    y: Math.round(node.y),
-    w: Math.round(node.width),
-    h: Math.round(node.height),
+    x: pos.x,
+    y: pos.y,
+    w: Math.round((node as unknown as LayoutMixin).width),
+    h: Math.round((node as unknown as LayoutMixin).height),
     opacity: node.opacity < 1 ? node.opacity : undefined,
-    blend: blendModeAttr(node),
-    mask: maskAttr(node),
-    rotation: rotationAttr(node),
-    flip: flipAttr(node),
-    visible: visibleAttr(node),
+    blend: blendModeAttr(node as unknown as SceneNode),
+    mask: maskAttr(node as unknown as SceneNode),
+    rotation: localRotation,
+    flip: flipAttr(node as unknown as SceneNode),
+    visible: visibleAttr(node as unknown as SceneNode),
   }
 
   const maskChild = await applyMaskAttrs(a, node as any, node.x || 0, node.y || 0)
 
-  Object.assign(a, constraintAttrs(node))
-  Object.assign(a, sizingAttrs(node))
-  Object.assign(a, layoutPositionAttrs(node))
-  Object.assign(a, minMaxAttrs(node))
-  Object.assign(a, debugAttrs(node))
+  Object.assign(a, constraintAttrs(node as unknown as SceneNode))
+  Object.assign(a, sizingAttrs(node as unknown as SceneNode))
+  Object.assign(a, layoutPositionAttrs(node as unknown as SceneNode))
+  Object.assign(a, minMaxAttrs(node as unknown as SceneNode))
+  Object.assign(a, debugAttrs(node as unknown as SceneNode))
+
+  const savedCtx = _groupRotationCtx
+  _groupRotationCtx += (localRotation || 0)
   const inner = await positionedChildren(node, depth + 1, node.x || 0, node.y || 0, maskChild || undefined)
+  _groupRotationCtx = savedCtx
+
   if (!inner) return `${ind(depth)}<group ${attrs(a)} />`
   return `${ind(depth)}<group ${attrs(a)}>\n${inner}\n${ind(depth)}</group>`
 }
