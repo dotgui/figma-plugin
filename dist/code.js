@@ -1150,6 +1150,8 @@ function shouldExportAsSvg(node, depth) {
     return true;
   if (!isSvgClusterContainer(node))
     return false;
+  if ("children" in node && findMaskChild(node))
+    return false;
   const leaves = visibleLeaves(node).filter((n) => n !== node);
   if (leaves.length < 2)
     return false;
@@ -1185,6 +1187,9 @@ async function prewalkNode(node, depth) {
   }
   if ("children" in node) {
     var ch = node.children;
+    var maskCh = findMaskChild(node);
+    if (maskCh)
+      maskNodeToAsset(maskCh);
     for (var i = 0;i < ch.length; i++) {
       await prewalkNode(ch[i], depth + 1);
     }
@@ -1269,10 +1274,61 @@ async function nodeToGui(node, depth) {
       return "";
   }
 }
-async function children(node, depth) {
-  const parts = await Promise.all(node.children.map((c) => nodeToGui(c, depth)));
-  return parts.filter(Boolean).join(`
+async function children(node, depth, exclude) {
+  var parts = [];
+  var ch = node.children;
+  for (var i = 0;i < ch.length; i++) {
+    var c = ch[i];
+    if (c === exclude)
+      continue;
+    var s = await nodeToGui(c, depth);
+    if (s)
+      parts.push(s);
+  }
+  return parts.join(`
 `);
+}
+function findMaskChild(node) {
+  var ch = node.children;
+  for (var i = 0;i < ch.length; i++) {
+    var c = ch[i];
+    if ("isMask" in c && c.isMask)
+      return c;
+  }
+  return null;
+}
+async function applyMaskAttrs(a, node, childOriginX, childOriginY) {
+  var maskChild = findMaskChild(node);
+  if (!maskChild)
+    return null;
+  var maskAsset = null;
+  if ("fills" in maskChild) {
+    var imgFill = getImageFill(maskChild.fills);
+    if (imgFill && imgFill.imageHash) {
+      maskAsset = _imageMap[imgFill.imageHash] || null;
+    }
+  }
+  if (!maskAsset) {
+    maskAsset = maskNodeToAsset(maskChild) || await svgAsset(maskChild);
+  }
+  if (!maskAsset)
+    return null;
+  a["mask-src"] = "assets/" + maskAsset.id + "." + maskAsset.format;
+  a["mask-x"] = Math.round(maskChild.x - childOriginX);
+  a["mask-y"] = Math.round(maskChild.y - childOriginY);
+  a["mask-width"] = Math.round(maskChild.width);
+  a["mask-height"] = Math.round(maskChild.height);
+  if (maskAsset.format !== "svg") {
+    a["mask-mode"] = "alpha";
+  } else {
+    var maskType = maskChild.maskType;
+    if (maskType === "LUMINANCE") {
+      a["mask-mode"] = "luminance";
+    } else {
+      a["mask-mode"] = "alpha";
+    }
+  }
+  return maskChild;
 }
 function maskNodeToAsset(node) {
   const w = Math.round(node.width);
@@ -1386,7 +1442,13 @@ async function frameToGui(node, depth) {
   const fillsForAppearance = fillStyleName ? emptyPaints : node.fills;
   const effectsForAppearance = effectStyleName ? emptyEffects : node.effects;
   const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1, node);
-  const childInner = await children(node, depth + 1);
+  const frameMaskChild = await applyMaskAttrs(a, node, 0, 0);
+  var childInner;
+  if (frameMaskChild) {
+    childInner = await children(node, depth + 1, frameMaskChild);
+  } else {
+    childInner = await children(node, depth + 1);
+  }
   const inner = [appearance, childInner].filter(Boolean).join(`
 `);
   if (!inner)
@@ -1799,9 +1861,6 @@ ${lines.join(`
 `;
 }
 async function groupToGui(node, depth) {
-  const visChildren = node.children.filter((c) => c.visible !== false);
-  const firstChild = visChildren[0];
-  const maskChild = firstChild && "isMask" in firstChild && firstChild.isMask ? firstChild : null;
   const a = {
     id: componentBodyId(node.name),
     name: node.name,
@@ -1816,16 +1875,7 @@ async function groupToGui(node, depth) {
     flip: flipAttr(node),
     visible: visibleAttr(node)
   };
-  if (maskChild) {
-    const maskAsset = maskNodeToAsset(maskChild);
-    if (maskAsset) {
-      a["mask-src"] = "assets/" + maskAsset.id + ".svg";
-      a["mask-x"] = Math.round(maskChild.x - node.x);
-      a["mask-y"] = Math.round(maskChild.y - node.y);
-      a["mask-width"] = Math.round(maskChild.width);
-      a["mask-height"] = Math.round(maskChild.height);
-    }
-  }
+  const maskChild = await applyMaskAttrs(a, node, node.x || 0, node.y || 0);
   Object.assign(a, constraintAttrs(node));
   Object.assign(a, sizingAttrs(node));
   Object.assign(a, layoutPositionAttrs(node));

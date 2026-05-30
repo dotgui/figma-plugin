@@ -1262,6 +1262,9 @@ function shouldExportAsSvg(node: SceneNode, depth: number): boolean {
 
   if (!isSvgClusterContainer(node)) return false
 
+  // Never flatten a mask group — it must be emitted as <group mask-src="...">
+  if ('children' in node && findMaskChild(node as ChildrenMixin)) return false
+
   const leaves = visibleLeaves(node).filter(n => n !== node)
   if (leaves.length < 2) return false
   if (!leaves.every(isGraphicLeaf)) return false
@@ -1301,6 +1304,9 @@ async function prewalkNode(node: SceneNode, depth: number): Promise<void> {
   }
   if ('children' in node) {
     var ch = (node as ChildrenMixin).children
+    // Pre-register mask child SVG assets so they appear in usage counts
+    var maskCh = findMaskChild(node as ChildrenMixin)
+    if (maskCh) maskNodeToAsset(maskCh)
     for (var i = 0; i < ch.length; i++) {
       await prewalkNode(ch[i] as SceneNode, depth + 1)
     }
@@ -1397,9 +1403,77 @@ async function nodeToGui(node: SceneNode, depth: number): Promise<string> {
   }
 }
 
-async function children(node: ChildrenMixin, depth: number): Promise<string> {
-  const parts = await Promise.all(node.children.map(c => nodeToGui(c, depth)))
-  return parts.filter(Boolean).join('\n')
+async function children(node: ChildrenMixin, depth: number, exclude?: SceneNode): Promise<string> {
+  // Sequential — NOT Promise.all — so componentBodyId() assigns IDs in consistent
+  // DFS order, matching simulateBodyIds() and buildInstanceBodyIdMap().
+  var parts: string[] = []
+  var ch = node.children
+  for (var i = 0; i < ch.length; i++) {
+    var c = ch[i] as SceneNode
+    if (c === exclude) continue
+    var s = await nodeToGui(c, depth)
+    if (s) parts.push(s)
+  }
+  return parts.join('\n')
+}
+
+// Find the first visible mask child in a node's children (bottom of layer stack = index 0).
+// Returns null if none found.
+function findMaskChild(node: ChildrenMixin): SceneNode | null {
+  var ch = node.children
+  for (var i = 0; i < ch.length; i++) {
+    var c = ch[i] as SceneNode
+    if ('isMask' in c && (c as BlendMixin).isMask) return c
+  }
+  return null
+}
+
+// Apply mask attrs to an attrs object and return the mask node (to exclude from children).
+// childOriginX/Y: the coordinate origin that child positions are relative to.
+// Groups: pass node.x/node.y (children use canvas-absolute coords).
+// Frames: pass 0/0 (children are already frame-relative).
+async function applyMaskAttrs(
+  a: Record<string, AttrVal>,
+  node: ChildrenMixin & SceneNode,
+  childOriginX: number,
+  childOriginY: number
+): Promise<SceneNode | null> {
+  var maskChild = findMaskChild(node)
+  if (!maskChild) return null
+
+  // If the mask node has an image fill (e.g. a transparent PNG used as an alpha mask),
+  // use that image directly — its alpha channel defines the visible area.
+  var maskAsset: ImageAsset | null = null
+  if ('fills' in maskChild) {
+    var imgFill = getImageFill((maskChild as GeometryMixin).fills)
+    if (imgFill && imgFill.imageHash) {
+      maskAsset = _imageMap[imgFill.imageHash] || null
+    }
+  }
+
+  // Fall back to shape-based SVG extraction then full Figma SVG export
+  if (!maskAsset) {
+    maskAsset = maskNodeToAsset(maskChild) || await svgAsset(maskChild)
+  }
+  if (!maskAsset) return null
+
+  a['mask-src'] = 'assets/' + maskAsset.id + '.' + maskAsset.format
+  a['mask-x'] = Math.round((maskChild as LayoutMixin).x - childOriginX)
+  a['mask-y'] = Math.round((maskChild as LayoutMixin).y - childOriginY)
+  a['mask-width'] = Math.round((maskChild as LayoutMixin).width)
+  a['mask-height'] = Math.round((maskChild as LayoutMixin).height)
+  // Image-fill masks always use alpha; for SVG shapes check Figma's mask type setting
+  if (maskAsset.format !== 'svg') {
+    a['mask-mode'] = 'alpha'
+  } else {
+    var maskType = (maskChild as any).maskType
+    if (maskType === 'LUMINANCE') {
+      a['mask-mode'] = 'luminance'
+    } else {
+      a['mask-mode'] = 'alpha'
+    }
+  }
+  return maskChild
 }
 
 function maskNodeToAsset(node: SceneNode): ImageAsset | null {
@@ -1532,7 +1606,19 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
   const fillsForAppearance = fillStyleName ? emptyPaints : node.fills
   const effectsForAppearance = effectStyleName ? emptyEffects : node.effects
   const appearance = appearanceBlock(fillsForAppearance, effectsForAppearance, node.width, node.height, depth + 1, node)
-  const childInner = await children(node, depth + 1)
+
+  // Detect mask children inside frames.
+  // Frame children use frame-relative coords (origin 0,0), unlike group children
+  // which use canvas-absolute coords — so pass 0,0 as the child origin offset.
+  const frameMaskChild = await applyMaskAttrs(a, node as any, 0, 0)
+
+  var childInner: string
+  if (frameMaskChild) {
+    // Frame children are already frame-relative; just exclude the mask child, no position shift.
+    childInner = await children(node, depth + 1, frameMaskChild)
+  } else {
+    childInner = await children(node, depth + 1)
+  }
   const inner = [appearance, childInner].filter(Boolean).join('\n')
   if (!inner) return `${ind(depth)}<${tag} ${attrs(a)} />`
   return `${ind(depth)}<${tag} ${attrs(a)}>\n${inner}\n${ind(depth)}</${tag}>`
@@ -1928,11 +2014,6 @@ async function componentsBlock(): Promise<string> {
 }
 
 async function groupToGui(node: GroupNode, depth: number): Promise<string> {
-  const visChildren = node.children.filter(c => c.visible !== false)
-  const firstChild = visChildren[0]
-  const maskChild = firstChild && 'isMask' in firstChild && (firstChild as BlendMixin).isMask
-    ? firstChild as SceneNode : null
-
   const a: Record<string, AttrVal> = {
     id: componentBodyId(node.name),
     name: node.name,
@@ -1948,16 +2029,7 @@ async function groupToGui(node: GroupNode, depth: number): Promise<string> {
     visible: visibleAttr(node),
   }
 
-  if (maskChild) {
-    const maskAsset = maskNodeToAsset(maskChild)
-    if (maskAsset) {
-      a['mask-src'] = 'assets/' + maskAsset.id + '.svg'
-      a['mask-x'] = Math.round((maskChild as LayoutMixin).x - node.x)
-      a['mask-y'] = Math.round((maskChild as LayoutMixin).y - node.y)
-      a['mask-width'] = Math.round((maskChild as LayoutMixin).width)
-      a['mask-height'] = Math.round((maskChild as LayoutMixin).height)
-    }
-  }
+  const maskChild = await applyMaskAttrs(a, node as any, node.x || 0, node.y || 0)
 
   Object.assign(a, constraintAttrs(node))
   Object.assign(a, sizingAttrs(node))

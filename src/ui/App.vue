@@ -328,7 +328,7 @@ function formatFromDataUrl(url: string, fallback: string): string {
 function parseGuiAssets(guiCode: string, assets: Record<string, string>): GuiAsset[] {
   const seen = new Set<string>()
   const out: GuiAsset[] = []
-  const re = /\bsrc="(assets\/([^"]+))"/g
+  const re = /\b(?:mask-)?src="(assets\/([^"]+))"/g
   let m: RegExpExecArray | null
   while ((m = re.exec(guiCode)) !== null) {
     const path = m[1]
