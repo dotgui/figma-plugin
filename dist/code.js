@@ -175,7 +175,7 @@ async function sendSelection() {
     if (seenSvgIds[a.id])
       continue;
     seenSvgIds[a.id] = true;
-    assetMap["assets/" + a.id + ".svg"] = dataUrl(a);
+    assetMap[assetSrc(a)] = dataUrl(a);
   }
   figma.ui.postMessage({
     type: "gui",
@@ -731,6 +731,9 @@ function dataUrl(asset) {
   const mime = asset.format === "svg" ? "svg+xml" : asset.format;
   return "data:image/" + mime + ";base64," + asset.b64;
 }
+function assetSrc(asset) {
+  return "assets/" + asset.id + "." + asset.format;
+}
 function xmlEscape(s) {
   return s.replace(/\r\n?/g, `
 `).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/\n/g, "&#10;");
@@ -1177,7 +1180,7 @@ async function svgAsset(node) {
   if (_svgNodeMap[node.id])
     return _svgNodeMap[node.id];
   try {
-    const bytes = await node.exportAsync({ format: "SVG" });
+    const bytes = await node.exportAsync({ format: "SVG", useAbsoluteBounds: true });
     const b64 = bytesToBase64(bytes);
     if (_svgB64Map[b64]) {
       _svgNodeMap[node.id] = _svgB64Map[b64];
@@ -1209,18 +1212,46 @@ async function prewalkNode(node, depth) {
     }
   }
 }
+function renderBoundsOverflow(node) {
+  const rb = node.absoluteRenderBounds;
+  const bb = node.absoluteBoundingBox;
+  if (!rb || !bb)
+    return null;
+  var w = Math.round(rb.width);
+  var h = Math.round(rb.height);
+  if (w <= 0 || h <= 0)
+    return null;
+  return { dx: rb.x - bb.x, dy: rb.y - bb.y, w, h };
+}
 async function svgToGui(node, depth) {
   const asset = await svgAsset(node);
   if (!asset)
     return "";
+  var nodeW = Math.round(node.width);
+  var nodeH = Math.round(node.height);
+  var nodeX = Math.round(node.x);
+  var nodeY = Math.round(node.y);
+  if (nodeW === 0 || nodeH === 0) {
+    var ov = renderBoundsOverflow(node);
+    if (ov) {
+      if (nodeW === 0) {
+        nodeW = ov.w;
+        nodeX = Math.round(nodeX + ov.dx);
+      }
+      if (nodeH === 0) {
+        nodeH = ov.h;
+        nodeY = Math.round(nodeY + ov.dy);
+      }
+    }
+  }
   const baseAttrs = {
     id: componentBodyId(node.name),
     name: node.name,
-    src: "assets/" + asset.id + ".svg",
-    x: Math.round(node.x),
-    y: Math.round(node.y),
-    w: Math.round(node.width),
-    h: Math.round(node.height),
+    src: assetSrc(asset),
+    x: nodeX,
+    y: nodeY,
+    w: nodeW,
+    h: nodeH,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
@@ -1879,31 +1910,52 @@ ${lines.join(`
 }
 async function groupToGui(node, depth) {
   const localRotation = rotationAttr(node);
-  if (localRotation !== undefined) {
+  const nodeW = Math.round(node.width);
+  const nodeH = Math.round(node.height);
+  const hasZeroDim = nodeW === 0 || nodeH === 0;
+  if (localRotation !== undefined || hasZeroDim) {
     const asset = await svgAsset(node);
     if (asset) {
-      const t = "relativeTransform" in node ? node.relativeTransform : null;
       var vx, vy, vw, vh;
-      if (t) {
-        const w = node.width;
-        const h = node.height;
-        const cx = t[0][0] * (w / 2) + t[0][1] * (h / 2) + t[0][2];
-        const cy = t[1][0] * (w / 2) + t[1][1] * (h / 2) + t[1][2];
-        const ac = Math.abs(t[0][0]), as_ = Math.abs(t[1][0]);
-        vw = Math.round(ac * w + as_ * h);
-        vh = Math.round(as_ * w + ac * h);
-        vx = Math.round(cx - vw / 2);
-        vy = Math.round(cy - vh / 2);
+      if (localRotation !== undefined) {
+        const t = "relativeTransform" in node ? node.relativeTransform : null;
+        if (t) {
+          const w = node.width;
+          const h = node.height;
+          const cx = t[0][0] * (w / 2) + t[0][1] * (h / 2) + t[0][2];
+          const cy = t[1][0] * (w / 2) + t[1][1] * (h / 2) + t[1][2];
+          const ac = Math.abs(t[0][0]), as_ = Math.abs(t[1][0]);
+          vw = Math.round(ac * w + as_ * h);
+          vh = Math.round(as_ * w + ac * h);
+          vx = Math.round(cx - vw / 2);
+          vy = Math.round(cy - vh / 2);
+        } else {
+          vx = Math.round(node.x);
+          vy = Math.round(node.y);
+          vw = nodeW;
+          vh = nodeH;
+        }
       } else {
         vx = Math.round(node.x);
         vy = Math.round(node.y);
-        vw = Math.round(node.width);
-        vh = Math.round(node.height);
+        vw = nodeW;
+        vh = nodeH;
+        var ov = renderBoundsOverflow(node);
+        if (ov) {
+          if (vw === 0) {
+            vw = ov.w;
+            vx = Math.round(vx + ov.dx);
+          }
+          if (vh === 0) {
+            vh = ov.h;
+            vy = Math.round(vy + ov.dy);
+          }
+        }
       }
       const a2 = {
         id: componentBodyId(node.name),
         name: node.name,
-        src: "assets/" + asset.id + ".svg",
+        src: assetSrc(asset),
         x: vx,
         y: vy,
         w: vw,
@@ -2801,12 +2853,16 @@ function lineToGui(node, depth) {
   var lineDashArray = lineDash && Array.isArray(lineDash) && lineDash.length > 0 ? lineDash.join(" ") : undefined;
   var lineDashOffset = node.strokeDashOffset;
   var lineDashOffsetVal = typeof lineDashOffset === "number" && lineDashOffset !== 0 ? lineDashOffset : undefined;
+  const localRotation = rotationAttr(node);
+  const isVertical = localRotation !== undefined && (Math.abs(Math.abs(localRotation) - 90) < 1 || Math.abs(Math.abs(localRotation) - 270) < 1);
   const a = {
     id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    w: Math.round(node.width),
+    w: isVertical ? undefined : Math.round(node.width),
+    h: isVertical ? Math.round(node.width) : undefined,
+    direction: isVertical ? "vertical" : undefined,
     fill: lineFill,
     thickness,
     "stroke-cap": lineCapVal,
@@ -2816,7 +2872,7 @@ function lineToGui(node, depth) {
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
-    rotation: rotationAttr(node),
+    rotation: isVertical ? undefined : localRotation,
     flip: flipAttr(node),
     visible: visibleAttr(node)
   };

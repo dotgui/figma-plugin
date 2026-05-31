@@ -224,7 +224,7 @@ async function sendSelection() {
     const a = _svgNodeMap[sks[i]]
     if (seenSvgIds[a.id]) continue
     seenSvgIds[a.id] = true
-    assetMap['assets/' + a.id + '.svg'] = dataUrl(a)
+    assetMap[assetSrc(a)] = dataUrl(a)
   }
 
   figma.ui.postMessage({
@@ -793,6 +793,11 @@ function dataUrl(asset: ImageAsset): string {
   return 'data:image/' + mime + ';base64,' + asset.b64
 }
 
+function assetSrc(asset: ImageAsset): string {
+  return 'assets/' + asset.id + '.' + asset.format
+}
+
+
 function xmlEscape(s: string): string {
   return s
     .replace(/\r\n?/g, '\n')
@@ -1301,10 +1306,10 @@ async function svgAsset(node: SceneNode): Promise<ImageAsset | null> {
   if (_svgNodeMap[node.id]) return _svgNodeMap[node.id]
 
   try {
-    // The emitted <svg> already carries the node's own x/y/width/height in GUI.
-    // Keep the asset itself local to that node box so flattened groups still lay
-    // out like the original Figma child inside stacks.
-    const bytes = await node.exportAsync({ format: 'SVG' })
+    // useAbsoluteBounds: true exports at the node's actual displayed dimensions
+    // (including any parent scale transforms on component instances), rather than
+    // the master component's original dimensions.
+    const bytes = await node.exportAsync({ format: 'SVG', useAbsoluteBounds: true })
     const b64 = bytesToBase64(bytes)
     if (_svgB64Map[b64]) {
       _svgNodeMap[node.id] = _svgB64Map[b64]
@@ -1338,18 +1343,42 @@ async function prewalkNode(node: SceneNode, depth: number): Promise<void> {
   }
 }
 
+// Returns the offset and size of the full visual bounds (stroke/effect inclusive) vs
+// the geometric bounding box. absoluteRenderBounds is Figma's native render-bounds API.
+function renderBoundsOverflow(node: SceneNode): { dx: number; dy: number; w: number; h: number } | null {
+  const rb = (node as any).absoluteRenderBounds
+  const bb = (node as any).absoluteBoundingBox
+  if (!rb || !bb) return null
+  var w = Math.round(rb.width)
+  var h = Math.round(rb.height)
+  if (w <= 0 || h <= 0) return null
+  return { dx: rb.x - bb.x, dy: rb.y - bb.y, w: w, h: h }
+}
+
 async function svgToGui(node: SceneNode, depth: number): Promise<string> {
   const asset = await svgAsset(node)
   if (!asset) return ''
 
+  var nodeW = Math.round((node as LayoutMixin).width)
+  var nodeH = Math.round((node as LayoutMixin).height)
+  var nodeX = Math.round(node.x)
+  var nodeY = Math.round(node.y)
+  if (nodeW === 0 || nodeH === 0) {
+    var ov = renderBoundsOverflow(node)
+    if (ov) {
+      if (nodeW === 0) { nodeW = ov.w; nodeX = Math.round(nodeX + ov.dx) }
+      if (nodeH === 0) { nodeH = ov.h; nodeY = Math.round(nodeY + ov.dy) }
+    }
+  }
+
   const baseAttrs: Record<string, AttrVal> = {
     id: componentBodyId(node.name),
     name: node.name,
-    src: 'assets/' + asset.id + '.svg',
-    x: Math.round(node.x),
-    y: Math.round(node.y),
-    w: Math.round((node as LayoutMixin).width),
-    h: Math.round((node as LayoutMixin).height),
+    src: assetSrc(asset),
+    x: nodeX,
+    y: nodeY,
+    w: nodeW,
+    h: nodeH,
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
@@ -2045,39 +2074,54 @@ async function componentsBlock(): Promise<string> {
 
 async function groupToGui(node: GroupNode, depth: number): Promise<string> {
   const localRotation = rotationAttr(node)
+  const nodeW = Math.round((node as unknown as LayoutMixin).width)
+  const nodeH = Math.round((node as unknown as LayoutMixin).height)
+  const hasZeroDim = nodeW === 0 || nodeH === 0
 
-  // When a group has rotation, Figma's exportAsync bakes ALL ancestor transforms
-  // (including this group's rotation) into the SVG path data. Emitting a CSS rotation
-  // on top would double-rotate the already-correct visual. Instead, export the whole
-  // group as one SVG using the visual bounding box — no rotation attr needed.
-  if (localRotation !== undefined) {
+  // Export as flat SVG when:
+  // 1. Group has rotation (CSS rotation would double-rotate already-baked SVG paths), OR
+  // 2. Group has zero width/height (stroke-only paths; node dims don't reflect visual stroke bounds)
+  if (localRotation !== undefined || hasZeroDim) {
     const asset = await svgAsset(node as unknown as SceneNode)
     if (asset) {
-      // Visual bounding box: compute from relativeTransform and local dims
-      const t = ('relativeTransform' in (node as unknown as LayoutMixin))
-        ? (node as unknown as LayoutMixin).relativeTransform
-        : null
       var vx: number, vy: number, vw: number, vh: number
-      if (t) {
-        const w = (node as unknown as LayoutMixin).width
-        const h = (node as unknown as LayoutMixin).height
-        const cx = t[0][0] * (w / 2) + t[0][1] * (h / 2) + t[0][2]
-        const cy = t[1][0] * (w / 2) + t[1][1] * (h / 2) + t[1][2]
-        const ac = Math.abs(t[0][0]), as_ = Math.abs(t[1][0])
-        vw = Math.round(ac * w + as_ * h)
-        vh = Math.round(as_ * w + ac * h)
-        vx = Math.round(cx - vw / 2)
-        vy = Math.round(cy - vh / 2)
+      if (localRotation !== undefined) {
+        // Visual bounding box: compute from relativeTransform and local dims
+        const t = ('relativeTransform' in (node as unknown as LayoutMixin))
+          ? (node as unknown as LayoutMixin).relativeTransform
+          : null
+        if (t) {
+          const w = (node as unknown as LayoutMixin).width
+          const h = (node as unknown as LayoutMixin).height
+          const cx = t[0][0] * (w / 2) + t[0][1] * (h / 2) + t[0][2]
+          const cy = t[1][0] * (w / 2) + t[1][1] * (h / 2) + t[1][2]
+          const ac = Math.abs(t[0][0]), as_ = Math.abs(t[1][0])
+          vw = Math.round(ac * w + as_ * h)
+          vh = Math.round(as_ * w + ac * h)
+          vx = Math.round(cx - vw / 2)
+          vy = Math.round(cy - vh / 2)
+        } else {
+          vx = Math.round((node as any).x)
+          vy = Math.round((node as any).y)
+          vw = nodeW
+          vh = nodeH
+        }
       } else {
+        // Zero-dimension: use SVG viewBox to get real visual bounds including stroke overflow
         vx = Math.round((node as any).x)
         vy = Math.round((node as any).y)
-        vw = Math.round((node as unknown as LayoutMixin).width)
-        vh = Math.round((node as unknown as LayoutMixin).height)
+        vw = nodeW
+        vh = nodeH
+        var ov = renderBoundsOverflow(node as unknown as SceneNode)
+        if (ov) {
+          if (vw === 0) { vw = ov.w; vx = Math.round(vx + ov.dx) }
+          if (vh === 0) { vh = ov.h; vy = Math.round(vy + ov.dy) }
+        }
       }
       const a: Record<string, AttrVal> = {
         id: componentBodyId(node.name),
         name: node.name,
-        src: 'assets/' + asset.id + '.svg',
+        src: assetSrc(asset),
         x: vx,
         y: vy,
         w: vw,
@@ -3036,12 +3080,17 @@ function lineToGui(node: LineNode, depth: number): string {
   var lineDashArray = (lineDash && Array.isArray(lineDash) && lineDash.length > 0) ? lineDash.join(' ') : undefined
   var lineDashOffset = (node as any).strokeDashOffset
   var lineDashOffsetVal = (typeof lineDashOffset === 'number' && lineDashOffset !== 0) ? lineDashOffset : undefined
+  const localRotation = rotationAttr(node)
+  const isVertical = localRotation !== undefined &&
+    (Math.abs(Math.abs(localRotation) - 90) < 1 || Math.abs(Math.abs(localRotation) - 270) < 1)
   const a: Record<string, AttrVal> = {
     id: componentBodyId(node.name),
     name: node.name,
     x: Math.round(node.x),
     y: Math.round(node.y),
-    w: Math.round(node.width),
+    w: isVertical ? undefined : Math.round(node.width),
+    h: isVertical ? Math.round(node.width) : undefined,
+    direction: isVertical ? 'vertical' : undefined,
     fill: lineFill,
     thickness,
     'stroke-cap': lineCapVal,
@@ -3051,7 +3100,7 @@ function lineToGui(node: LineNode, depth: number): string {
     opacity: node.opacity < 1 ? node.opacity : undefined,
     blend: blendModeAttr(node),
     mask: maskAttr(node),
-    rotation: rotationAttr(node),
+    rotation: isVertical ? undefined : localRotation,
     flip: flipAttr(node),
     visible: visibleAttr(node),
   }
