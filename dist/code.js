@@ -119,6 +119,56 @@ var _styleRegistry = new Map;
 var _usedStyleIds = new Set;
 var _componentRegistry = new Map;
 var _componentSetRegistry = new Map;
+var DEVICE_PLATFORM = [
+  { w: 320, h: 568, platform: "ios" },
+  { w: 375, h: 667, platform: "ios" },
+  { w: 375, h: 812, platform: "ios" },
+  { w: 390, h: 844, platform: "ios" },
+  { w: 393, h: 852, platform: "ios" },
+  { w: 402, h: 874, platform: "ios" },
+  { w: 414, h: 896, platform: "ios" },
+  { w: 428, h: 926, platform: "ios" },
+  { w: 430, h: 932, platform: "ios" },
+  { w: 440, h: 956, platform: "ios" },
+  { w: 768, h: 1024, platform: "ios" },
+  { w: 820, h: 1180, platform: "ios" },
+  { w: 834, h: 1194, platform: "ios" },
+  { w: 1024, h: 1366, platform: "ios" },
+  { w: 162, h: 197, platform: "watch" },
+  { w: 176, h: 215, platform: "watch" },
+  { w: 184, h: 224, platform: "watch" },
+  { w: 198, h: 242, platform: "watch" },
+  { w: 360, h: 640, platform: "android" },
+  { w: 360, h: 780, platform: "android" },
+  { w: 360, h: 800, platform: "android" },
+  { w: 360, h: 900, platform: "android" },
+  { w: 412, h: 732, platform: "android" },
+  { w: 412, h: 869, platform: "android" },
+  { w: 412, h: 892, platform: "android" },
+  { w: 412, h: 915, platform: "android" },
+  { w: 800, h: 1280, platform: "android" },
+  { w: 1280, h: 800, platform: "android" },
+  { w: 1280, h: 720, platform: "desktop" },
+  { w: 1280, h: 800, platform: "desktop" },
+  { w: 1280, h: 1024, platform: "desktop" },
+  { w: 1440, h: 900, platform: "desktop" },
+  { w: 1440, h: 1024, platform: "desktop" },
+  { w: 1920, h: 1080, platform: "desktop" },
+  { w: 1920, h: 1080, platform: "tv" },
+  { w: 3840, h: 2160, platform: "tv" }
+];
+function inferPlatform(w, h) {
+  var portrait = w < h ? w : h;
+  var landscape = w < h ? h : w;
+  for (var i = 0;i < DEVICE_PLATFORM.length; i++) {
+    var d = DEVICE_PLATFORM[i];
+    var dp = d.w < d.h ? d.w : d.h;
+    var dl = d.w < d.h ? d.h : d.w;
+    if (dp === portrait && dl === landscape)
+      return d.platform;
+  }
+  return "";
+}
 var _instanceOverrideAccum = new Map;
 var _generatingComponentBody = false;
 var _generatingComponentRoot = false;
@@ -1538,7 +1588,7 @@ async function instanceToGui(node, depth) {
   var totalLayers = countComponentBodyLayers(comp);
   if (totalLayers >= 4 && overrideCount / totalLayers >= 0.75) {
     var detached = await frameToGui(node, depth);
-    return detached.replace(/^(\s*<\w+)/, '$1 component="' + entry.guiId + '"');
+    return detached.replace(/^(\s*<\w+)/, '$1 detached-from="' + entry.guiId + '"');
   }
   const isRoot = depth === 1;
   const a = {
@@ -2932,7 +2982,12 @@ ${wrappedNode}
 ${ind(1)}</frame>`;
   }
   const compBlock = await componentsBlock();
-  return `<gui version="1.0" name="${xmlEscape(node.name)}">
-${tokensBlock()}${stylesBlock()}${fontsBlock(node)}${compBlock}${inner}
+  var platform = inferPlatform(w, h);
+  var platformAttr = platform ? ' platform="' + platform + '"' : "";
+  var exportedAt = new Date().toISOString();
+  var metaBlock = '  <meta source="figma" source-node="' + xmlEscape(node.id) + '" exported-at="' + exportedAt + `" />
+`;
+  return '<gui version="1.0" name="' + xmlEscape(node.name) + '"' + platformAttr + `>
+` + metaBlock + tokensBlock() + stylesBlock() + fontsBlock(node) + compBlock + inner + `
 </gui>`;
 }
