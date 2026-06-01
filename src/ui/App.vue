@@ -7,16 +7,11 @@
           <button :class="{ active: tab === 'code' }" @click="tab = 'code'">Code</button>
           <button :class="{ active: tab === 'preview' }" @click="tab = 'preview'">Preview</button>
         </div>
-        <div class="tab-sep" />
-        <div class="tabs">
-          <button :class="{ active: optimized }" @click="setOptimized(true)">Optimized</button>
-          <button :class="{ active: !optimized }" @click="setOptimized(false)">Raw</button>
-        </div>
       </div>
       <div class="actions">
         <template v-if="code">
           <button class="action-btn" @click="copyCode">Copy</button>
-          <button v-if="optimized" class="action-btn" @click="saveFile">Save</button>
+          <button class="action-btn" @click="saveFile">Save</button>
         </template>
       </div>
     </header>
@@ -42,6 +37,29 @@
     </div>
 
     <div class="body">
+      <div v-if="mode === 'export'" class="empty">
+        <p>Exporting…</p>
+      </div>
+
+      <div v-else-if="mode === 'import'" class="import-panel">
+        <div
+          class="import-drop"
+          :class="{ over: importDragOver }"
+          @dragover.prevent="importDragOver = true"
+          @dragleave="importDragOver = false"
+          @drop.prevent="onImportDrop"
+          @click="importFileInput && importFileInput.click()"
+        >
+          <input ref="importFileInput" type="file" accept=".gui" style="display:none" @change="onImportFile" />
+          <div class="import-icon">↑</div>
+          <p class="import-label">Drop a .gui file</p>
+          <p class="import-hint">or click to browse</p>
+        </div>
+        <p v-if="importError" class="import-error">{{ importError }}</p>
+        <p v-if="importStatus" class="import-status">{{ importStatus }}</p>
+      </div>
+
+      <template v-else>
       <div v-if="state !== 'gui'" class="empty">
         <p v-if="state === 'no-selection'">Select a layer to generate <code>.gui</code></p>
         <p v-else-if="state === 'multi-selection'">Select one layer at a time</p>
@@ -72,6 +90,7 @@
           </div>
         </div>
       </template>
+      </template>
     </div>
 
     <div class="toast" :class="{ visible: toastVisible }">{{ toastMessage }}</div>
@@ -81,7 +100,7 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onBeforeUnmount } from 'vue'
 import { render } from 'gui-render'
-import { optimize } from 'gui-optimizer'
+import { parse } from 'gui-parser'
 import { EditorState } from '@codemirror/state'
 import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
@@ -96,18 +115,23 @@ interface GuiAsset { id: string; format: string; src: string; bytes: Uint8Array 
 interface GuiPreview { format: string; src: string; bytes: Uint8Array }
 interface ExportFile { blob: Blob; bytes: number }
 
+const mode = ref<'inspect' | 'export' | 'import'>('inspect')
+const importDragOver = ref(false)
+const importError = ref('')
+const importStatus = ref('')
+const importFileInput = ref<HTMLInputElement | null>(null)
 const state = ref<State>('idle')
 const code = ref('')
 const displayCode = ref('')
 const assetMap = ref<Record<string, string>>({})
 const exportFile = ref<ExportFile | null>(null)
+let _previewWebP: GuiPreview | null = null
 const nodeName = ref('export')
 const nodeType = ref('')
 const tab = ref<'code' | 'preview'>('code')
 const toastVisible = ref(false)
 const loading = ref(false)
 const sizes = ref<Sizes | null>(null)
-const optimized = ref(true)
 const pendingDebugCopy = ref(false)
 const previewEl = ref<HTMLElement>()
 const codeEditorEl = ref<HTMLElement>()
@@ -118,16 +142,6 @@ let codeView: EditorView | null = null
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 16
 
-// Stored data for both modes — swapped without re-processing
-let _optimizedCode = ''
-let _optimizedDisplayCode = ''
-let _optimizedAssetMap: Record<string, string> = {}
-let _optimizedExportFile: ExportFile | null = null
-let _optimizedSizes: Sizes | null = null
-let _rawCode = ''
-let _rawDisplayCode = ''
-let _rawAssetMap: Record<string, string> = {}
-let _rawSizes: Sizes | null = null
 
 const dotguiHighlight = HighlightStyle.define([
   { tag: tags.angleBracket, color: '#7c7c86' },
@@ -346,16 +360,6 @@ function parseGuiAssets(guiCode: string, assets: Record<string, string>): GuiAss
   return out
 }
 
-function previewTag(src: string): string {
-  return `<preview format="${formatFromDataUrl(src, 'webp')}" src="base64:${src.split(',')[1] || ''}" />`
-}
-
-function addPreview(guiCode: string, src: string): string {
-  const existing = /<preview\b[^>]*\/>\n?/.exec(guiCode)
-  if (existing) return guiCode.replace(existing[0], `${previewTag(src)}\n`)
-  return guiCode.replace(/(<gui\b[^>]*>\n?)/, `$1${previewTag(src)}\n`)
-}
-
 const PACKAGE_INSTRUCTIONS = `1. Use preview image for visual truth.
 2. Use .gui data for structure, tokens, spacing, assets, components.
 3. Ignore noisy raw layers unless needed.
@@ -371,30 +375,6 @@ function addInstructions(guiCode: string): string {
   const existing = /<instructions\b[^>]*>[\s\S]*?<\/instructions>\n?/.exec(guiCode)
   if (existing) return guiCode.replace(existing[0], `${instructionsTag()}\n`)
   return guiCode.replace(/(<gui\b[^>]*>\n?)/, `$1${instructionsTag()}\n`)
-}
-
-function parsePreview(guiCode: string): GuiPreview | null {
-  const doc = new DOMParser().parseFromString(guiCode, 'text/xml')
-  if (doc.querySelector('parsererror')) return null
-  const node = doc.querySelector('gui > preview')
-  if (!node) return null
-
-  const format = node.getAttribute('format') || 'webp'
-  const src = node.getAttribute('src') || ''
-  if (!src.startsWith('base64:')) return null
-
-  const dataUrl = `data:image/${format === 'svg' ? 'svg+xml' : format};base64,${src.slice(7)}`
-  return { format, src: dataUrl, bytes: dataUrlBytes(dataUrl) }
-}
-
-function packagedIndex(guiCode: string, preview: GuiPreview): string {
-  let out = addInstructions(guiCode)
-  const b64 = preview.src.split(',')[1]
-  if (b64) {
-    out = out.replace(`src="base64:${b64}"`, 'src="preview.webp"')
-    out = out.replace(/(<preview\b[^>]*\bformat=")[^"]+("[^>]*>)/, '$1webp$2')
-  }
-  return out
 }
 
 const crcTable = (() => {
@@ -468,25 +448,6 @@ function zipStore(entries: { name: string; bytes: Uint8Array }[]): Uint8Array {
   return concatBytes([...localParts, central, end])
 }
 
-function makePackage(guiCode: string, assets: GuiAsset[], preview: GuiPreview): Blob {
-  const index = packagedIndex(guiCode, preview)
-  const encoder = new TextEncoder()
-  const entries = [
-    { name: 'index.gui', bytes: encoder.encode(index) },
-    ...assets.map(asset => ({ name: `assets/${asset.id}.${asset.format}`, bytes: asset.bytes })),
-    { name: 'preview.webp', bytes: preview.bytes },
-  ]
-  return new Blob([zipStore(entries)], { type: 'application/zip' })
-}
-
-async function prepareExport(guiCode: string, assets: Record<string, string>): Promise<ExportFile> {
-  const guiAssets = parseGuiAssets(guiCode, assets)
-  const preview = parsePreview(guiCode)
-  if (!preview) throw new Error('Cannot package .gui export without preview.webp')
-  const blob = makePackage(guiCode, guiAssets, preview)
-  return { blob, bytes: blob.size }
-}
-
 function toWebP(dataUrl: string): Promise<string> {
   return new Promise((resolve, reject) => {
     const img = new Image()
@@ -504,36 +465,35 @@ function toWebP(dataUrl: string): Promise<string> {
   })
 }
 
-async function applyWebP(
-  rawCode: string,
-  rawAssetMap: Record<string, string>
-): Promise<{ code: string; assetMap: Record<string, string> }> {
-  const paths = Object.keys(rawAssetMap)
-  if (!paths.length) return { code: rawCode, assetMap: rawAssetMap }
-
-  let patched = rawCode
-  const newMap: Record<string, string> = {}
-
-  for (const path of paths) {
-    const origUrl = rawAssetMap[path]
-    if (origUrl.startsWith('data:image/svg+xml')) {
-      newMap[path] = origUrl
-      continue
-    }
-    try {
-      const webpUrl = await toWebP(origUrl)
-      const webpPath = path.replace(/\.[^.]+$/, '.webp')
-      if (webpPath !== path) {
-        patched = patched.split(path).join(webpPath)
-      }
-      newMap[webpPath] = webpUrl
-    } catch {
-      newMap[path] = origUrl
-    }
+function makePackage(guiCode: string, assets: GuiAsset[], preview: GuiPreview): Blob {
+  const encoder = new TextEncoder()
+  // Inject preview tag into the guix markup for the packaged index.gui
+  const b64 = preview.src.split(',')[1] || ''
+  const previewTag = `<preview format="${preview.format}" src="base64:${b64}" />`
+  let index = addInstructions(guiCode)
+  const existing = /<preview\b[^>]*\/>\n?/.exec(index)
+  if (existing) {
+    index = index.replace(existing[0], previewTag + '\n')
+  } else {
+    index = index.replace(/(<gui\b[^>]*>\n?)/, `$1${previewTag}\n`)
   }
-
-  return { code: patched, assetMap: newMap }
+  // Replace inline base64 preview src with file reference
+  index = index.replace(`src="base64:${b64}"`, 'src="preview.webp"')
+  const entries = [
+    { name: 'design.guix', bytes: encoder.encode(index) },
+    ...assets.map(asset => ({ name: `assets/${asset.id}.${asset.format}`, bytes: asset.bytes })),
+    { name: 'preview.webp', bytes: preview.bytes },
+  ]
+  return new Blob([zipStore(entries)], { type: 'application/zip' })
 }
+
+async function prepareExport(guiCode: string, assets: Record<string, string>, preview: GuiPreview | null): Promise<ExportFile | null> {
+  if (!preview) return null
+  const guiAssets = parseGuiAssets(guiCode, assets)
+  const blob = makePackage(guiCode, guiAssets, preview)
+  return { blob, bytes: blob.size }
+}
+
 
 const sizeItems = computed(() => {
   if (!sizes.value) return []
@@ -552,6 +512,10 @@ const zoomLabel = computed(() => zoomFactor.value === 1 ? 'Fit' : `${Math.round(
 window.onmessage = async (event: MessageEvent) => {
   const msg = event.data.pluginMessage
   if (!msg) return
+  if (msg.type === 'command') {
+    mode.value = msg.command as 'inspect' | 'export' | 'import'
+    return
+  }
   if (msg.type === 'loading') {
     loading.value = true
     sizes.value = null
@@ -568,38 +532,36 @@ window.onmessage = async (event: MessageEvent) => {
     exportFile.value = null
     nodeName.value = 'export'
     sizes.value = null
-    _optimizedCode = ''
-    _rawCode = ''
     return
   }
 
   nodeName.value = msg.name || 'export'
   const msgSizes: Sizes = msg.sizes ?? { gui: 0, png: 0, svg: 0 }
 
-  // --- raw version: plugin output as-is ---
-  _rawAssetMap = msg.assetMap || {}
-  _rawCode = msg.code
-  _rawDisplayCode = truncateBase64(msg.code)
-  _rawSizes = { ...msgSizes }
-
-  // --- optimized version: run optimizer + WebP conversion + preview ---
-  const { output: optCode } = optimize(msg.code)
-  const { code: patched, assetMap: webpMap } = await applyWebP(optCode, _rawAssetMap)
-  let finalCode = patched
+  // Build preview once — convert PNG from Figma to WebP for spec compliance
+  _previewWebP = null
   if (msg.preview) {
     try {
-      finalCode = addPreview(patched, await toWebP(msg.preview))
+      const webpUrl = await toWebP(msg.preview)
+      _previewWebP = { format: 'webp', src: webpUrl, bytes: dataUrlBytes(webpUrl) }
     } catch {
-      finalCode = addPreview(patched, msg.preview)
+      // fallback: keep as PNG
+      _previewWebP = { format: 'png', src: msg.preview, bytes: dataUrlBytes(msg.preview) }
     }
   }
-  _optimizedCode = finalCode
-  _optimizedDisplayCode = truncateBase64(finalCode)
-  _optimizedAssetMap = webpMap
-  _optimizedExportFile = await prepareExport(finalCode, webpMap)
-  _optimizedSizes = { ...msgSizes, gui: _optimizedExportFile.bytes }
 
-  applyMode()
+  code.value = msg.code
+  displayCode.value = truncateBase64(msg.code)
+  assetMap.value = msg.assetMap || {}
+  exportFile.value = await prepareExport(msg.code, assetMap.value, _previewWebP)
+  sizes.value = { ...msgSizes, gui: exportFile.value ? exportFile.value.bytes : msgSizes.gui }
+
+  // Export mode: auto-save then close plugin (UI is hidden throughout)
+  if (mode.value === 'export') {
+    if (exportFile.value) saveFile()
+    parent.postMessage({ pluginMessage: { type: 'close' } }, '*')
+    return
+  }
 
   if (pendingDebugCopy.value) {
     pendingDebugCopy.value = false
@@ -610,29 +572,6 @@ window.onmessage = async (event: MessageEvent) => {
   if (tab.value === 'code') nextTick(mountCodeEditor)
 }
 
-function applyMode() {
-  if (optimized.value) {
-    code.value = _optimizedCode
-    displayCode.value = _optimizedDisplayCode
-    assetMap.value = _optimizedAssetMap
-    exportFile.value = _optimizedExportFile
-    sizes.value = _optimizedSizes
-  } else {
-    code.value = _rawCode
-    displayCode.value = _rawDisplayCode
-    assetMap.value = _rawAssetMap
-    exportFile.value = null
-    sizes.value = _rawSizes
-  }
-}
-
-function setOptimized(value: boolean) {
-  if (optimized.value === value) return
-  optimized.value = value
-  if (!_rawCode) return
-  applyMode()
-  if (tab.value === 'preview') triggerRender()
-}
 
 watch(tab, (t) => {
   if (t === 'preview') triggerRender()
@@ -742,6 +681,113 @@ async function writeCodeToClipboard() {
   showToast('Copied .gui')
 }
 
+// Fetch an external URL (UI iframe has network; the plugin main thread does not)
+// and return a data URI. SVGs are flagged so the importer renders them as vectors.
+async function fetchAsDataUri(url: string): Promise<{ uri: string; isSvg: boolean } | null> {
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return null
+    const ct = (res.headers.get('content-type') || '').toLowerCase()
+    const buf = new Uint8Array(await res.arrayBuffer())
+    const looksSvg = ct.indexOf('svg') !== -1 || url.toLowerCase().split('?')[0].endsWith('.svg')
+    if (looksSvg) {
+      const text = new TextDecoder().decode(buf)
+      if (text.indexOf('<svg') !== -1) {
+        return { uri: 'data:image/svg+xml;utf8,' + encodeURIComponent(text), isSvg: true }
+      }
+    }
+    let bin = ''
+    for (let i = 0; i < buf.length; i++) bin += String.fromCharCode(buf[i])
+    const mime = (ct.split(';')[0] || 'image/png') || 'image/png'
+    return { uri: `data:${mime};base64,${btoa(bin)}`, isSvg: false }
+  } catch {
+    return null
+  }
+}
+
+// Replace every external http(s) src in the parsed tree with an inlined data URI
+// before handing the tree to the plugin.
+async function resolveExternalAssets(parsed: any): Promise<void> {
+  const isExt = (s: any) => typeof s === 'string' && /^https?:\/\//i.test(s)
+  const nodes: any[] = []
+  const collect = (n: any) => {
+    if (!n || typeof n !== 'object') return
+    nodes.push(n)
+    if (Array.isArray(n.children)) n.children.forEach(collect)
+    if (Array.isArray(n.segments)) n.segments.forEach(collect)
+  }
+  collect(parsed.root)
+  if (parsed.components) {
+    for (const k of Object.keys(parsed.components)) {
+      const c = parsed.components[k]
+      if (c && c.body) collect(c.body)
+      if (c && c.variants) c.variants.forEach((v: any) => v && collect(v.body))
+    }
+  }
+
+  const urls = new Set<string>()
+  for (const n of nodes) {
+    if (isExt(n.src)) urls.add(n.src)
+    if (n.appearance && Array.isArray(n.appearance.fills)) {
+      for (const f of n.appearance.fills) if (isExt(f.src)) urls.add(f.src)
+    }
+  }
+  if (urls.size === 0) return
+
+  const cache = new Map<string, { uri: string; isSvg: boolean } | null>()
+  await Promise.all(Array.from(urls).map(async u => { cache.set(u, await fetchAsDataUri(u)) }))
+
+  for (const n of nodes) {
+    if (isExt(n.src)) {
+      const r = cache.get(n.src)
+      if (r) {
+        n.src = r.uri
+        if (r.isSvg && n.type === 'img') n.type = 'svg'
+      }
+    }
+    if (n.appearance && Array.isArray(n.appearance.fills)) {
+      for (const f of n.appearance.fills) {
+        if (isExt(f.src)) { const r = cache.get(f.src); if (r) f.src = r.uri }
+      }
+    }
+  }
+}
+
+async function handleImportFile(file: File) {
+  importError.value = ''
+  importStatus.value = 'Parsing…'
+  importDragOver.value = false
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer())
+    const parsed = parse(bytes)
+    if (!parsed || !parsed.root) {
+      importError.value = 'Could not parse .gui file'
+      importStatus.value = ''
+      return
+    }
+    importStatus.value = 'Loading images…'
+    await resolveExternalAssets(parsed)
+    importStatus.value = 'Sending to Figma…'
+    parent.postMessage({ pluginMessage: { type: 'import-gui', parsed } }, '*')
+  } catch (e: any) {
+    importError.value = e && e.message ? e.message : 'Import failed'
+    importStatus.value = ''
+  }
+}
+
+function onImportDrop(e: DragEvent) {
+  importDragOver.value = false
+  const file = e.dataTransfer && e.dataTransfer.files[0]
+  if (file) handleImportFile(file)
+}
+
+function onImportFile(e: Event) {
+  const input = e.target as HTMLInputElement
+  const file = input.files && input.files[0]
+  if (file) handleImportFile(file)
+  input.value = ''
+}
+
 function saveFile() {
   if (!exportFile.value) return
   const url = URL.createObjectURL(exportFile.value.blob)
@@ -846,11 +892,6 @@ header {
   gap: 6px;
 }
 
-.tab-sep {
-  width: 1px;
-  height: 16px;
-  background: #d8d8df;
-}
 
 .sizes {
   display: flex;
@@ -1180,6 +1221,66 @@ header {
 }
 
 .zoom-reset:hover { background: rgba(255,255,255,0.12); }
+
+
+.import-panel {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 24px;
+}
+
+.import-drop {
+  width: 100%;
+  max-width: 280px;
+  border: 1.5px dashed #d8d8df;
+  border-radius: 10px;
+  padding: 32px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s;
+  background: transparent;
+}
+
+.import-drop:hover, .import-drop.over {
+  border-color: #0a84ff;
+  background: #f0f7ff;
+}
+
+.import-icon {
+  font-size: 22px;
+  color: #aeaeb2;
+  margin-bottom: 4px;
+}
+
+.import-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: #1c1c1e;
+}
+
+.import-hint {
+  font-size: 11px;
+  color: #aeaeb2;
+}
+
+.import-error {
+  font-size: 11px;
+  color: #ff3b30;
+  text-align: center;
+}
+
+.import-status {
+  font-size: 11px;
+  color: #6e6e73;
+  text-align: center;
+}
 
 .toast {
   position: fixed;

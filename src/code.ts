@@ -1,6 +1,15 @@
 import googleFonts from './google-fonts-compact.json'
+import { importGui } from './import'
 
-figma.showUI(__html__, { width: 480, height: 600, title: 'dotgui' })
+var command = figma.command || 'inspect'
+
+if (command === 'export') {
+  figma.showUI(__html__, { visible: false })
+} else {
+  figma.showUI(__html__, { width: 480, height: 600, title: 'dotgui' })
+}
+
+figma.ui.postMessage({ type: 'command', command: command })
 
 // --- constants (must be before any function calls due to const TDZ) ---
 
@@ -241,6 +250,7 @@ async function sendSelection() {
   }
 
   figma.ui.postMessage({ type: 'loading' })
+  var exportNotify = command === 'export' ? figma.notify('Exporting…', { timeout: Infinity }) : null
 
   const expNode = node as FrameNode
   const results = await Promise.all([
@@ -286,6 +296,8 @@ async function sendSelection() {
     assetMap[assetSrc(a)] = dataUrl(a)
   }
 
+  if (exportNotify) exportNotify.cancel()
+
   figma.ui.postMessage({
     type: 'gui',
     code: guiCode,
@@ -300,8 +312,12 @@ async function sendSelection() {
 sendSelection()
 figma.on('selectionchange', sendSelection)
 
-figma.ui.onmessage = async (msg: { type: string }) => {
+figma.ui.onmessage = async (msg: any) => {
   if (msg.type === 'close') figma.closePlugin()
+  if (msg.type === 'import-gui') {
+    await importGui(msg.parsed)
+    figma.closePlugin()
+  }
   if (msg.type === 'copy-debug') {
     const sel = figma.currentPage.selection
     if (sel.length === 1) logDebugTree(sel[0] as SceneNode)

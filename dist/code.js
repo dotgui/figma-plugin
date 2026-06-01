@@ -1,8 +1,1202 @@
 // src/google-fonts-compact.json
 var google_fonts_compact_default = [{ family: "ABeeZee", category: "sans-serif", variants: ["regular", "italic"] }, { family: "ADLaM Display", category: "display", variants: ["regular"] }, { family: "AR One Sans", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Abel", category: "sans-serif", variants: ["regular"] }, { family: "Abhaya Libre", category: "serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Aboreto", category: "display", variants: ["regular"] }, { family: "Abril Fatface", category: "display", variants: ["regular"] }, { family: "Abyssinica SIL", category: "serif", variants: ["regular"] }, { family: "Aclonica", category: "sans-serif", variants: ["regular"] }, { family: "Acme", category: "sans-serif", variants: ["regular"] }, { family: "Actor", category: "sans-serif", variants: ["regular"] }, { family: "Adamina", category: "serif", variants: ["regular"] }, { family: "Advent Pro", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Afacad", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Afacad Flux", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Agbalumo", category: "display", variants: ["regular"] }, { family: "Agdasima", category: "sans-serif", variants: ["regular", "700"] }, { family: "Agu Display", category: "display", variants: ["regular"] }, { family: "Aguafina Script", category: "handwriting", variants: ["regular"] }, { family: "Akatab", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Akaya Kanadaka", category: "display", variants: ["regular"] }, { family: "Akaya Telivigala", category: "display", variants: ["regular"] }, { family: "Akronim", category: "display", variants: ["regular"] }, { family: "Akshar", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Akt", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Aladin", category: "display", variants: ["regular"] }, { family: "Alan Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Alata", category: "sans-serif", variants: ["regular"] }, { family: "Alatsi", category: "sans-serif", variants: ["regular"] }, { family: "Albert Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Aldrich", category: "sans-serif", variants: ["regular"] }, { family: "Alef", category: "sans-serif", variants: ["regular", "700"] }, { family: "Alegreya", category: "serif", variants: ["regular", "500", "600", "700", "800", "900", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Alegreya SC", category: "serif", variants: ["regular", "italic", "500", "500italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Alegreya Sans", category: "sans-serif", variants: ["100", "100italic", "300", "300italic", "regular", "italic", "500", "500italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Alegreya Sans SC", category: "sans-serif", variants: ["100", "100italic", "300", "300italic", "regular", "italic", "500", "500italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Aleo", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Alex Brush", category: "handwriting", variants: ["regular"] }, { family: "Alexandria", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Alfa Slab One", category: "display", variants: ["regular"] }, { family: "Alice", category: "serif", variants: ["regular"] }, { family: "Alike", category: "serif", variants: ["regular"] }, { family: "Alike Angular", category: "serif", variants: ["regular"] }, { family: "Alkalami", category: "serif", variants: ["regular"] }, { family: "Alkatra", category: "display", variants: ["regular", "500", "600", "700"] }, { family: "Allan", category: "display", variants: ["regular", "700"] }, { family: "Allerta", category: "sans-serif", variants: ["regular"] }, { family: "Allerta Stencil", category: "sans-serif", variants: ["regular"] }, { family: "Allison", category: "handwriting", variants: ["regular"] }, { family: "Allkin", category: "display", variants: ["regular"] }, { family: "Allura", category: "handwriting", variants: ["regular"] }, { family: "Almarai", category: "sans-serif", variants: ["300", "regular", "700", "800"] }, { family: "Almendra", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Almendra Display", category: "display", variants: ["regular"] }, { family: "Almendra SC", category: "serif", variants: ["regular"] }, { family: "Alumni Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Alumni Sans Collegiate One", category: "sans-serif", variants: ["regular", "italic"] }, { family: "Alumni Sans Inline One", category: "display", variants: ["regular", "italic"] }, { family: "Alumni Sans Pinstripe", category: "sans-serif", variants: ["regular", "italic"] }, { family: "Alumni Sans SC", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Alyamama", category: "serif", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Amarante", category: "display", variants: ["regular"] }, { family: "Amaranth", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Amarna", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Amatic SC", category: "handwriting", variants: ["regular", "700"] }, { family: "Amethysta", category: "serif", variants: ["regular"] }, { family: "Amiko", category: "sans-serif", variants: ["regular", "600", "700"] }, { family: "Amiri", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Amiri Quran", category: "serif", variants: ["regular"] }, { family: "Amita", category: "handwriting", variants: ["regular", "700"] }, { family: "Anaheim", category: "sans-serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Ancizar Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Ancizar Serif", category: "serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Andada Pro", category: "serif", variants: ["regular", "500", "600", "700", "800", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Andika", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Anek Bangla", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Anek Devanagari", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Anek Gujarati", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Anek Gurmukhi", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Anek Kannada", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Anek Latin", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Anek Malayalam", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Anek Odia", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Anek Tamil", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Anek Telugu", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Angkor", category: "display", variants: ["regular"] }, { family: "Annapurna SIL", category: "serif", variants: ["regular", "700"] }, { family: "Annie Use Your Telescope", category: "handwriting", variants: ["regular"] }, { family: "Anonymous Pro", category: "monospace", variants: ["regular", "italic", "700", "700italic"] }, { family: "Anta", category: "sans-serif", variants: ["regular"] }, { family: "Antic", category: "sans-serif", variants: ["regular"] }, { family: "Antic Didone", category: "serif", variants: ["regular"] }, { family: "Antic Slab", category: "serif", variants: ["regular"] }, { family: "Anton", category: "sans-serif", variants: ["regular"] }, { family: "Anton SC", category: "sans-serif", variants: ["regular"] }, { family: "Antonio", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Anuphan", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Anybody", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Aoboshi One", category: "serif", variants: ["regular"] }, { family: "Arapey", category: "serif", variants: ["regular", "italic"] }, { family: "Arbutus", category: "serif", variants: ["regular"] }, { family: "Arbutus Slab", category: "serif", variants: ["regular"] }, { family: "Architects Daughter", category: "handwriting", variants: ["regular"] }, { family: "Archivo", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Archivo Black", category: "sans-serif", variants: ["regular"] }, { family: "Archivo Narrow", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Are You Serious", category: "handwriting", variants: ["regular"] }, { family: "Aref Ruqaa", category: "serif", variants: ["regular", "700"] }, { family: "Aref Ruqaa Ink", category: "serif", variants: ["regular", "700"] }, { family: "Arima", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Arimo", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Arizonia", category: "handwriting", variants: ["regular"] }, { family: "Armata", category: "sans-serif", variants: ["regular"] }, { family: "Arsenal", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Arsenal SC", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Artifika", category: "serif", variants: ["regular"] }, { family: "Arvo", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Arya", category: "sans-serif", variants: ["regular", "700"] }, { family: "Asap", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Asap Condensed", category: "sans-serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Asar", category: "serif", variants: ["regular"] }, { family: "Asimovian", category: "sans-serif", variants: ["regular"] }, { family: "Asset", category: "display", variants: ["regular"] }, { family: "Assistant", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Asta Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800"] }, { family: "Astloch", category: "display", variants: ["regular", "700"] }, { family: "Asul", category: "serif", variants: ["regular", "700"] }, { family: "Athiti", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Atkinson Hyperlegible", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Atkinson Hyperlegible Mono", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Atkinson Hyperlegible Next", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Atma", category: "display", variants: ["300", "regular", "500", "600", "700"] }, { family: "Atomic Age", category: "display", variants: ["regular"] }, { family: "Aubrey", category: "display", variants: ["regular"] }, { family: "Audiowide", category: "display", variants: ["regular"] }, { family: "Autour One", category: "display", variants: ["regular"] }, { family: "Average", category: "serif", variants: ["regular"] }, { family: "Average Sans", category: "sans-serif", variants: ["regular"] }, { family: "Averia Gruesa Libre", category: "display", variants: ["regular"] }, { family: "Averia Libre", category: "display", variants: ["300", "300italic", "regular", "italic", "700", "700italic"] }, { family: "Averia Sans Libre", category: "display", variants: ["300", "300italic", "regular", "italic", "700", "700italic"] }, { family: "Averia Serif Libre", category: "display", variants: ["300", "300italic", "regular", "italic", "700", "700italic"] }, { family: "Azeret Mono", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "B612", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "B612 Mono", category: "monospace", variants: ["regular", "italic", "700", "700italic"] }, { family: "BBH Bartle", category: "sans-serif", variants: ["regular"] }, { family: "BBH Bogle", category: "sans-serif", variants: ["regular"] }, { family: "BBH Hegarty", category: "sans-serif", variants: ["regular"] }, { family: "BIZ UDGothic", category: "sans-serif", variants: ["regular", "700"] }, { family: "BIZ UDMincho", category: "serif", variants: ["regular", "700"] }, { family: "BIZ UDPGothic", category: "sans-serif", variants: ["regular", "700"] }, { family: "BIZ UDPMincho", category: "serif", variants: ["regular", "700"] }, { family: "BJCree", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Babylonica", category: "handwriting", variants: ["regular"] }, { family: "Bacasime Antique", category: "serif", variants: ["regular"] }, { family: "Bad Script", category: "handwriting", variants: ["regular"] }, { family: "Badeen Display", category: "display", variants: ["regular"] }, { family: "Bagel Fat One", category: "display", variants: ["regular"] }, { family: "Bahiana", category: "display", variants: ["regular"] }, { family: "Bahianita", category: "display", variants: ["regular"] }, { family: "Bai Jamjuree", category: "sans-serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Bakbak One", category: "display", variants: ["regular"] }, { family: "Ballet", category: "handwriting", variants: ["regular"] }, { family: "Baloo 2", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Baloo Bhai 2", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Baloo Bhaijaan 2", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Baloo Bhaina 2", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Baloo Chettan 2", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Baloo Da 2", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Baloo Paaji 2", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Baloo Tamma 2", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Baloo Tammudu 2", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Baloo Thambi 2", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Balsamiq Sans", category: "display", variants: ["regular", "italic", "700", "700italic"] }, { family: "Balthazar", category: "serif", variants: ["regular"] }, { family: "Bangers", category: "display", variants: ["regular"] }, { family: "Barlow", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Barlow Condensed", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Barlow Semi Condensed", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Barriecito", category: "display", variants: ["regular"] }, { family: "Barrio", category: "display", variants: ["regular"] }, { family: "Basic", category: "sans-serif", variants: ["regular"] }, { family: "Baskervville", category: "serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Baskervville SC", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Battambang", category: "display", variants: ["100", "300", "regular", "700", "900"] }, { family: "Baumans", category: "display", variants: ["regular"] }, { family: "Bayon", category: "sans-serif", variants: ["regular"] }, { family: "Be Vietnam Pro", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Beau Rivage", category: "handwriting", variants: ["regular"] }, { family: "Bebas Neue", category: "sans-serif", variants: ["regular"] }, { family: "Beiruti", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Belanosima", category: "sans-serif", variants: ["regular", "600", "700"] }, { family: "Belgrano", category: "serif", variants: ["regular"] }, { family: "Bellefair", category: "serif", variants: ["regular"] }, { family: "Belleza", category: "sans-serif", variants: ["regular"] }, { family: "Bellota", category: "display", variants: ["300", "300italic", "regular", "italic", "700", "700italic"] }, { family: "Bellota Text", category: "display", variants: ["300", "300italic", "regular", "italic", "700", "700italic"] }, { family: "BenchNine", category: "sans-serif", variants: ["300", "regular", "700"] }, { family: "Benne", category: "serif", variants: ["regular"] }, { family: "Bentham", category: "serif", variants: ["regular"] }, { family: "Berkshire Swash", category: "handwriting", variants: ["regular"] }, { family: "Besley", category: "serif", variants: ["regular", "500", "600", "700", "800", "900", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Betania Patmos", category: "handwriting", variants: ["regular"] }, { family: "Betania Patmos GDL", category: "handwriting", variants: ["regular"] }, { family: "Betania Patmos In", category: "handwriting", variants: ["regular"] }, { family: "Betania Patmos In GDL", category: "handwriting", variants: ["regular"] }, { family: "Beth Ellen", category: "handwriting", variants: ["regular"] }, { family: "Bevan", category: "serif", variants: ["regular", "italic"] }, { family: "BhuTuka Expanded One", category: "serif", variants: ["regular"] }, { family: "Big Shoulders", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Big Shoulders Inline", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Big Shoulders Stencil", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bigelow Rules", category: "display", variants: ["regular"] }, { family: "Bigshot One", category: "display", variants: ["regular"] }, { family: "Bilbo", category: "handwriting", variants: ["regular"] }, { family: "Bilbo Swash Caps", category: "handwriting", variants: ["regular"] }, { family: "BioRhyme", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "BioRhyme Expanded", category: "serif", variants: ["200", "300", "regular", "700", "800"] }, { family: "Birthstone", category: "handwriting", variants: ["regular"] }, { family: "Birthstone Bounce", category: "handwriting", variants: ["regular", "500"] }, { family: "Biryani", category: "sans-serif", variants: ["200", "300", "regular", "600", "700", "800", "900"] }, { family: "Bitcount", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Grid Double", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Grid Double Ink", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Grid Single", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Grid Single Ink", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Ink", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Prop Double", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Prop Double Ink", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Prop Single", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Prop Single Ink", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Single", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitcount Single Ink", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Bitter", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Black And White Picture", category: "display", variants: ["regular"] }, { family: "Black Han Sans", category: "sans-serif", variants: ["regular"] }, { family: "Black Ops One", category: "display", variants: ["regular"] }, { family: "Blaka", category: "display", variants: ["regular"] }, { family: "Blaka Hollow", category: "display", variants: ["regular"] }, { family: "Blaka Ink", category: "display", variants: ["regular"] }, { family: "Blinker", category: "sans-serif", variants: ["100", "200", "300", "regular", "600", "700", "800", "900"] }, { family: "Bodoni Moda", category: "serif", variants: ["regular", "500", "600", "700", "800", "900", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Bodoni Moda SC", category: "serif", variants: ["regular", "500", "600", "700", "800", "900", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Bokor", category: "display", variants: ["regular"] }, { family: "Boldonse", category: "display", variants: ["regular"] }, { family: "Bona Nova", category: "serif", variants: ["regular", "italic", "700"] }, { family: "Bona Nova SC", category: "serif", variants: ["regular", "italic", "700"] }, { family: "Bonbon", category: "handwriting", variants: ["regular"] }, { family: "Bonheur Royale", category: "handwriting", variants: ["regular"] }, { family: "Boogaloo", category: "display", variants: ["regular"] }, { family: "Borel", category: "handwriting", variants: ["regular"] }, { family: "Bowlby One", category: "display", variants: ["regular"] }, { family: "Bowlby One SC", category: "display", variants: ["regular"] }, { family: "Bpmf Huninn", category: "sans-serif", variants: ["regular"] }, { family: "Bpmf Iansui", category: "handwriting", variants: ["regular"] }, { family: "Bpmf Zihi Kai Std", category: "sans-serif", variants: ["regular"] }, { family: "Braah One", category: "sans-serif", variants: ["regular"] }, { family: "Brawler", category: "serif", variants: ["regular", "700"] }, { family: "Bree Serif", category: "serif", variants: ["regular"] }, { family: "Bricolage Grotesque", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Bruno Ace", category: "display", variants: ["regular"] }, { family: "Bruno Ace SC", category: "display", variants: ["regular"] }, { family: "Brygada 1918", category: "serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Bubblegum Sans", category: "display", variants: ["regular"] }, { family: "Bubbler One", category: "sans-serif", variants: ["regular"] }, { family: "Buda", category: "display", variants: ["300"] }, { family: "Buenard", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Bungee", category: "display", variants: ["regular"] }, { family: "Bungee Hairline", category: "display", variants: ["regular"] }, { family: "Bungee Inline", category: "display", variants: ["regular"] }, { family: "Bungee Outline", category: "display", variants: ["regular"] }, { family: "Bungee Shade", category: "display", variants: ["regular"] }, { family: "Bungee Spice", category: "display", variants: ["regular"] }, { family: "Bungee Tint", category: "display", variants: ["regular"] }, { family: "Butcherman", category: "display", variants: ["regular"] }, { family: "Butterfly Kids", category: "handwriting", variants: ["regular"] }, { family: "Bytesized", category: "sans-serif", variants: ["regular"] }, { family: "Cabin", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Cabin Condensed", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Cabin Sketch", category: "display", variants: ["regular", "700"] }, { family: "Cactus Classical Serif", category: "serif", variants: ["regular"] }, { family: "Caesar Dressing", category: "display", variants: ["regular"] }, { family: "Cagliostro", category: "sans-serif", variants: ["regular"] }, { family: "Cairo", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Cairo Play", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Cal Sans", category: "sans-serif", variants: ["regular"] }, { family: "Caladea", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Calistoga", category: "display", variants: ["regular"] }, { family: "Calligraffitti", category: "handwriting", variants: ["regular"] }, { family: "Cambay", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Cambo", category: "serif", variants: ["regular"] }, { family: "Candal", category: "sans-serif", variants: ["regular"] }, { family: "Cantarell", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Cantata One", category: "serif", variants: ["regular"] }, { family: "Cantora One", category: "sans-serif", variants: ["regular"] }, { family: "Caprasimo", category: "display", variants: ["regular"] }, { family: "Capriola", category: "sans-serif", variants: ["regular"] }, { family: "Caramel", category: "handwriting", variants: ["regular"] }, { family: "Carattere", category: "handwriting", variants: ["regular"] }, { family: "Cardo", category: "serif", variants: ["regular", "italic", "700"] }, { family: "Carlito", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Carme", category: "sans-serif", variants: ["regular"] }, { family: "Carrois Gothic", category: "sans-serif", variants: ["regular"] }, { family: "Carrois Gothic SC", category: "sans-serif", variants: ["regular"] }, { family: "Carter One", category: "display", variants: ["regular"] }, { family: "Cascadia Code", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "200italic", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Cascadia Mono", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "200italic", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Castoro", category: "serif", variants: ["regular", "italic"] }, { family: "Castoro Titling", category: "display", variants: ["regular"] }, { family: "Catamaran", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Caudex", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Cause", category: "handwriting", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Caveat", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Caveat Brush", category: "handwriting", variants: ["regular"] }, { family: "Cedarville Cursive", category: "handwriting", variants: ["regular"] }, { family: "Ceviche One", category: "display", variants: ["regular"] }, { family: "Chakra Petch", category: "sans-serif", variants: ["300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Changa", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Changa One", category: "display", variants: ["regular", "italic"] }, { family: "Chango", category: "display", variants: ["regular"] }, { family: "Charis SIL", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Charm", category: "handwriting", variants: ["regular", "700"] }, { family: "Charmonman", category: "handwriting", variants: ["regular", "700"] }, { family: "Chathura", category: "sans-serif", variants: ["100", "300", "regular", "700", "800"] }, { family: "Chau Philomene One", category: "sans-serif", variants: ["regular", "italic"] }, { family: "Chela One", category: "display", variants: ["regular"] }, { family: "Chelsea Market", category: "display", variants: ["regular"] }, { family: "Chenla", category: "display", variants: ["regular"] }, { family: "Cherish", category: "handwriting", variants: ["regular"] }, { family: "Cherry Bomb One", category: "display", variants: ["regular"] }, { family: "Cherry Cream Soda", category: "display", variants: ["regular"] }, { family: "Cherry Swash", category: "display", variants: ["regular", "700"] }, { family: "Chewy", category: "display", variants: ["regular"] }, { family: "Chicle", category: "display", variants: ["regular"] }, { family: "Chilanka", category: "handwriting", variants: ["regular"] }, { family: "Chiron GoRound TC", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Chiron Hei HK", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Chiron Sung HK", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Chivo", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Chivo Mono", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Chocolate Classical Sans", category: "sans-serif", variants: ["regular"] }, { family: "Chokokutai", category: "display", variants: ["regular"] }, { family: "Chonburi", category: "display", variants: ["regular"] }, { family: "Cinzel", category: "serif", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Cinzel Decorative", category: "display", variants: ["regular", "700", "900"] }, { family: "Clicker Script", category: "handwriting", variants: ["regular"] }, { family: "Climate Crisis", category: "display", variants: ["regular"] }, { family: "Coda", category: "display", variants: ["regular", "800"] }, { family: "Codystar", category: "display", variants: ["300", "regular"] }, { family: "Coiny", category: "display", variants: ["regular"] }, { family: "Combo", category: "display", variants: ["regular"] }, { family: "Comfortaa", category: "display", variants: ["300", "regular", "500", "600", "700"] }, { family: "Comforter", category: "handwriting", variants: ["regular"] }, { family: "Comforter Brush", category: "handwriting", variants: ["regular"] }, { family: "Comic Neue", category: "handwriting", variants: ["300", "300italic", "regular", "italic", "700", "700italic"] }, { family: "Comic Relief", category: "display", variants: ["regular", "700"] }, { family: "Coming Soon", category: "handwriting", variants: ["regular"] }, { family: "Comme", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Commissioner", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Concert One", category: "display", variants: ["regular"] }, { family: "Condiment", category: "handwriting", variants: ["regular"] }, { family: "Content", category: "display", variants: ["regular", "700"] }, { family: "Contrail One", category: "display", variants: ["regular"] }, { family: "Convergence", category: "sans-serif", variants: ["regular"] }, { family: "Cookie", category: "handwriting", variants: ["regular"] }, { family: "Copse", category: "serif", variants: ["regular"] }, { family: "Coral Pixels", category: "display", variants: ["regular"] }, { family: "Corben", category: "display", variants: ["regular", "700"] }, { family: "Corinthia", category: "handwriting", variants: ["regular", "700"] }, { family: "Cormorant", category: "serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Cormorant Garamond", category: "serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Cormorant Infant", category: "serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Cormorant SC", category: "serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Cormorant Unicase", category: "serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Cormorant Upright", category: "serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Cossette Texte", category: "sans-serif", variants: ["regular", "700"] }, { family: "Cossette Titre", category: "sans-serif", variants: ["regular", "700"] }, { family: "Courgette", category: "handwriting", variants: ["regular"] }, { family: "Courier Prime", category: "monospace", variants: ["regular", "italic", "700", "700italic"] }, { family: "Cousine", category: "monospace", variants: ["regular", "italic", "700", "700italic"] }, { family: "Coustard", category: "serif", variants: ["regular", "900"] }, { family: "Covered By Your Grace", category: "handwriting", variants: ["regular"] }, { family: "Crafty Girls", category: "handwriting", variants: ["regular"] }, { family: "Creepster", category: "display", variants: ["regular"] }, { family: "Crete Round", category: "serif", variants: ["regular", "italic"] }, { family: "Crimson Pro", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Crimson Text", category: "serif", variants: ["regular", "italic", "600", "600italic", "700", "700italic"] }, { family: "Croissant One", category: "display", variants: ["regular"] }, { family: "Crushed", category: "display", variants: ["regular"] }, { family: "Cuprum", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Cute Font", category: "display", variants: ["regular"] }, { family: "Cutive", category: "serif", variants: ["regular"] }, { family: "Cutive Mono", category: "monospace", variants: ["regular"] }, { family: "DM Mono", category: "monospace", variants: ["300", "300italic", "regular", "italic", "500", "500italic"] }, { family: "DM Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "DM Serif Display", category: "serif", variants: ["regular", "italic"] }, { family: "DM Serif Text", category: "serif", variants: ["regular", "italic"] }, { family: "Dai Banna SIL", category: "serif", variants: ["300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Damion", category: "handwriting", variants: ["regular"] }, { family: "Dancing Script", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Danfo", category: "serif", variants: ["regular"] }, { family: "Dangrek", category: "display", variants: ["regular"] }, { family: "Darker Grotesque", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Darumadrop One", category: "display", variants: ["regular"] }, { family: "Datatype", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "David Libre", category: "serif", variants: ["regular", "500", "700"] }, { family: "Dawning of a New Day", category: "handwriting", variants: ["regular"] }, { family: "Days One", category: "sans-serif", variants: ["regular"] }, { family: "Dekko", category: "handwriting", variants: ["regular"] }, { family: "Dela Gothic One", category: "display", variants: ["regular"] }, { family: "Delicious Handrawn", category: "handwriting", variants: ["regular"] }, { family: "Delius", category: "handwriting", variants: ["regular"] }, { family: "Delius Swash Caps", category: "handwriting", variants: ["regular"] }, { family: "Delius Unicase", category: "handwriting", variants: ["regular", "700"] }, { family: "Della Respira", category: "serif", variants: ["regular"] }, { family: "Denk One", category: "sans-serif", variants: ["regular"] }, { family: "Devonshire", category: "handwriting", variants: ["regular"] }, { family: "Dhurjati", category: "sans-serif", variants: ["regular"] }, { family: "Didact Gothic", category: "sans-serif", variants: ["regular"] }, { family: "Diphylleia", category: "serif", variants: ["regular"] }, { family: "Diplomata", category: "display", variants: ["regular"] }, { family: "Diplomata SC", category: "display", variants: ["regular"] }, { family: "Do Hyeon", category: "sans-serif", variants: ["regular"] }, { family: "Dokdo", category: "display", variants: ["regular"] }, { family: "Domine", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Donegal One", category: "serif", variants: ["regular"] }, { family: "Dongle", category: "sans-serif", variants: ["300", "regular", "700"] }, { family: "Doppio One", category: "sans-serif", variants: ["regular"] }, { family: "Dorsa", category: "sans-serif", variants: ["regular"] }, { family: "Dosis", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "DotGothic16", category: "sans-serif", variants: ["regular"] }, { family: "Doto", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Dr Sugiyama", category: "handwriting", variants: ["regular"] }, { family: "Duru Sans", category: "sans-serif", variants: ["regular"] }, { family: "DynaPuff", category: "display", variants: ["regular", "500", "600", "700"] }, { family: "Dynalight", category: "display", variants: ["regular"] }, { family: "EB Garamond", category: "serif", variants: ["regular", "500", "600", "700", "800", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Eagle Lake", category: "handwriting", variants: ["regular"] }, { family: "East Sea Dokdo", category: "handwriting", variants: ["regular"] }, { family: "Eater", category: "display", variants: ["regular"] }, { family: "Economica", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Eczar", category: "serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Edu AU VIC WA NT Arrows", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu AU VIC WA NT Dots", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu AU VIC WA NT Guides", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu AU VIC WA NT Hand", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu AU VIC WA NT Pre", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu NSW ACT Cursive", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu NSW ACT Foundation", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu NSW ACT Hand Pre", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu QLD Beginner", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu QLD Hand", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu SA Beginner", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu SA Hand", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu TAS Beginner", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu VIC WA NT Beginner", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu VIC WA NT Hand", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "Edu VIC WA NT Hand Pre", category: "handwriting", variants: ["regular", "500", "600", "700"] }, { family: "El Messiri", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Electrolize", category: "sans-serif", variants: ["regular"] }, { family: "Elms Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Elsie", category: "display", variants: ["regular", "900"] }, { family: "Elsie Swash Caps", category: "display", variants: ["regular", "900"] }, { family: "Emblema One", category: "display", variants: ["regular"] }, { family: "Emilys Candy", category: "display", variants: ["regular"] }, { family: "Encode Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Encode Sans Condensed", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Encode Sans Expanded", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Encode Sans SC", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Encode Sans Semi Condensed", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Encode Sans Semi Expanded", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Engagement", category: "handwriting", variants: ["regular"] }, { family: "Englebert", category: "sans-serif", variants: ["regular"] }, { family: "Enriqueta", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Ephesis", category: "handwriting", variants: ["regular"] }, { family: "Epilogue", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Epunda Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Epunda Slab", category: "serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Erica One", category: "display", variants: ["regular"] }, { family: "Esteban", category: "serif", variants: ["regular"] }, { family: "Estedad", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Estonia", category: "handwriting", variants: ["regular"] }, { family: "Euphoria Script", category: "handwriting", variants: ["regular"] }, { family: "Ewert", category: "display", variants: ["regular"] }, { family: "Exile", category: "display", variants: ["regular"] }, { family: "Exo", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Exo 2", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Expletus Sans", category: "display", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Explora", category: "handwriting", variants: ["regular"] }, { family: "Faculty Glyphic", category: "sans-serif", variants: ["regular"] }, { family: "Fahkwang", category: "sans-serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Familjen Grotesk", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Fanwood Text", category: "serif", variants: ["regular", "italic"] }, { family: "Farro", category: "sans-serif", variants: ["300", "regular", "500", "700"] }, { family: "Farsan", category: "display", variants: ["regular"] }, { family: "Fascinate", category: "display", variants: ["regular"] }, { family: "Fascinate Inline", category: "display", variants: ["regular"] }, { family: "Faster One", category: "display", variants: ["regular"] }, { family: "Fasthand", category: "display", variants: ["regular"] }, { family: "Fauna One", category: "serif", variants: ["regular"] }, { family: "Faustina", category: "serif", variants: ["300", "regular", "500", "600", "700", "800", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Federant", category: "display", variants: ["regular"] }, { family: "Federo", category: "sans-serif", variants: ["regular"] }, { family: "Felipa", category: "handwriting", variants: ["regular"] }, { family: "Fenix", category: "serif", variants: ["regular"] }, { family: "Festive", category: "handwriting", variants: ["regular"] }, { family: "Figtree", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Finger Paint", category: "display", variants: ["regular"] }, { family: "Finlandica", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Finlandica Headline", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Finlandica Text", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Fira Code", category: "monospace", variants: ["300", "regular", "500", "600", "700"] }, { family: "Fira Mono", category: "monospace", variants: ["regular", "500", "700"] }, { family: "Fira Sans", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Fira Sans Condensed", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Fira Sans Extra Condensed", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Fjalla One", category: "sans-serif", variants: ["regular"] }, { family: "Fjord One", category: "serif", variants: ["regular"] }, { family: "Flamenco", category: "display", variants: ["300", "regular"] }, { family: "Flavors", category: "display", variants: ["regular"] }, { family: "Fleur De Leah", category: "handwriting", variants: ["regular"] }, { family: "Flow Block", category: "display", variants: ["regular"] }, { family: "Flow Circular", category: "display", variants: ["regular"] }, { family: "Flow Rounded", category: "display", variants: ["regular"] }, { family: "Foldit", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Fondamento", category: "handwriting", variants: ["regular", "italic"] }, { family: "Fontdiner Swanky", category: "display", variants: ["regular"] }, { family: "Forum", category: "display", variants: ["regular"] }, { family: "Fragment Mono", category: "monospace", variants: ["regular", "italic"] }, { family: "Francois One", category: "sans-serif", variants: ["regular"] }, { family: "Frank Ruhl Libre", category: "serif", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Fraunces", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Freckle Face", category: "display", variants: ["regular"] }, { family: "Fredericka the Great", category: "display", variants: ["regular"] }, { family: "Fredoka", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Freehand", category: "display", variants: ["regular"] }, { family: "Freeman", category: "display", variants: ["regular"] }, { family: "Fresca", category: "sans-serif", variants: ["regular"] }, { family: "Frijole", category: "display", variants: ["regular"] }, { family: "Fruktur", category: "display", variants: ["regular", "italic"] }, { family: "Fugaz One", category: "display", variants: ["regular"] }, { family: "Fuggles", category: "handwriting", variants: ["regular"] }, { family: "Funnel Display", category: "display", variants: ["300", "regular", "500", "600", "700", "800"] }, { family: "Funnel Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Fustat", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Fuzzy Bubbles", category: "handwriting", variants: ["regular", "700"] }, { family: "GFS Didot", category: "serif", variants: ["regular"] }, { family: "GFS Neohellenic", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Ga Maamli", category: "display", variants: ["regular"] }, { family: "Gabarito", category: "display", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Gabriela", category: "serif", variants: ["regular"] }, { family: "Gaegu", category: "handwriting", variants: ["300", "regular", "700"] }, { family: "Gafata", category: "sans-serif", variants: ["regular"] }, { family: "Gajraj One", category: "display", variants: ["regular"] }, { family: "Galada", category: "display", variants: ["regular"] }, { family: "Galdeano", category: "sans-serif", variants: ["regular"] }, { family: "Galindo", category: "display", variants: ["regular"] }, { family: "Gamja Flower", category: "handwriting", variants: ["regular"] }, { family: "Gantari", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Gasoek One", category: "sans-serif", variants: ["regular"] }, { family: "Gayathri", category: "sans-serif", variants: ["100", "regular", "700"] }, { family: "Geist", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Geist Mono", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Gelasio", category: "serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Gemunu Libre", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Genos", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Gentium Book Plus", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Gentium Plus", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Geo", category: "sans-serif", variants: ["regular", "italic"] }, { family: "Geologica", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Geom", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Georama", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Geostar", category: "display", variants: ["regular"] }, { family: "Geostar Fill", category: "display", variants: ["regular"] }, { family: "Germania One", category: "display", variants: ["regular"] }, { family: "Gideon Roman", category: "display", variants: ["regular"] }, { family: "Gidole", category: "sans-serif", variants: ["regular"] }, { family: "Gidugu", category: "sans-serif", variants: ["regular"] }, { family: "Gilda Display", category: "serif", variants: ["regular"] }, { family: "Girassol", category: "display", variants: ["regular"] }, { family: "Give You Glory", category: "handwriting", variants: ["regular"] }, { family: "Glass Antiqua", category: "display", variants: ["regular"] }, { family: "Glegoo", category: "serif", variants: ["regular", "700"] }, { family: "Gloock", category: "serif", variants: ["regular"] }, { family: "Gloria Hallelujah", category: "handwriting", variants: ["regular"] }, { family: "Glory", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Gluten", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Goblin One", category: "display", variants: ["regular"] }, { family: "Gochi Hand", category: "handwriting", variants: ["regular"] }, { family: "Goldman", category: "display", variants: ["regular", "700"] }, { family: "Golos Text", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Google Sans", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Google Sans Code", category: "monospace", variants: ["300", "regular", "500", "600", "700", "800", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Google Sans Flex", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Gorditas", category: "display", variants: ["regular", "700"] }, { family: "Gothic A1", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Gotu", category: "sans-serif", variants: ["regular"] }, { family: "Goudy Bookletter 1911", category: "serif", variants: ["regular"] }, { family: "Gowun Batang", category: "serif", variants: ["regular", "700"] }, { family: "Gowun Dodum", category: "sans-serif", variants: ["regular"] }, { family: "Graduate", category: "serif", variants: ["regular"] }, { family: "Grand Hotel", category: "handwriting", variants: ["regular"] }, { family: "Grandiflora One", category: "serif", variants: ["regular"] }, { family: "Grandstander", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Grape Nuts", category: "handwriting", variants: ["regular"] }, { family: "Gravitas One", category: "display", variants: ["regular"] }, { family: "Great Vibes", category: "handwriting", variants: ["regular"] }, { family: "Grechen Fuemen", category: "handwriting", variants: ["regular"] }, { family: "Grenze", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Grenze Gotisch", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Grey Qo", category: "handwriting", variants: ["regular"] }, { family: "Griffy", category: "display", variants: ["regular"] }, { family: "Gruppo", category: "sans-serif", variants: ["regular"] }, { family: "Gudea", category: "sans-serif", variants: ["regular", "italic", "700"] }, { family: "Gugi", category: "display", variants: ["regular"] }, { family: "Gulzar", category: "serif", variants: ["regular"] }, { family: "Gupter", category: "serif", variants: ["regular", "500", "700"] }, { family: "Gurajada", category: "sans-serif", variants: ["regular"] }, { family: "Gveret Levin", category: "handwriting", variants: ["regular"] }, { family: "Gwendolyn", category: "handwriting", variants: ["regular", "700"] }, { family: "Habibi", category: "serif", variants: ["regular"] }, { family: "Hachi Maru Pop", category: "handwriting", variants: ["regular"] }, { family: "Hahmlet", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Halant", category: "serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Hammersmith One", category: "sans-serif", variants: ["regular"] }, { family: "Hanalei", category: "display", variants: ["regular"] }, { family: "Hanalei Fill", category: "display", variants: ["regular"] }, { family: "Handjet", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Handlee", category: "handwriting", variants: ["regular"] }, { family: "Hanken Grotesk", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Hanuman", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Happy Monkey", category: "display", variants: ["regular"] }, { family: "Harmattan", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Headland One", category: "serif", variants: ["regular"] }, { family: "Hedvig Letters Sans", category: "sans-serif", variants: ["regular"] }, { family: "Hedvig Letters Serif", category: "serif", variants: ["regular"] }, { family: "Heebo", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Henny Penny", category: "display", variants: ["regular"] }, { family: "Hepta Slab", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Herr Von Muellerhoff", category: "handwriting", variants: ["regular"] }, { family: "Hi Melody", category: "handwriting", variants: ["regular"] }, { family: "Hina Mincho", category: "serif", variants: ["regular"] }, { family: "Hind", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Hind Guntur", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Hind Madurai", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Hind Mysuru", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Hind Siliguri", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Hind Vadodara", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Holtwood One SC", category: "serif", variants: ["regular"] }, { family: "Homemade Apple", category: "handwriting", variants: ["regular"] }, { family: "Homenaje", category: "sans-serif", variants: ["regular"] }, { family: "Honk", category: "display", variants: ["regular"] }, { family: "Host Grotesk", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Hubballi", category: "sans-serif", variants: ["regular"] }, { family: "Hubot Sans", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Huninn", category: "sans-serif", variants: ["regular"] }, { family: "Hurricane", category: "handwriting", variants: ["regular"] }, { family: "IBM Plex Mono", category: "monospace", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "IBM Plex Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "IBM Plex Sans Arabic", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "IBM Plex Sans Condensed", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "IBM Plex Sans Devanagari", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "IBM Plex Sans Hebrew", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "IBM Plex Sans JP", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "IBM Plex Sans KR", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "IBM Plex Sans Thai", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "IBM Plex Sans Thai Looped", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "IBM Plex Serif", category: "serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "IM Fell DW Pica", category: "serif", variants: ["regular", "italic"] }, { family: "IM Fell DW Pica SC", category: "serif", variants: ["regular"] }, { family: "IM Fell Double Pica", category: "serif", variants: ["regular", "italic"] }, { family: "IM Fell Double Pica SC", category: "serif", variants: ["regular"] }, { family: "IM Fell English", category: "serif", variants: ["regular", "italic"] }, { family: "IM Fell English SC", category: "serif", variants: ["regular"] }, { family: "IM Fell French Canon", category: "serif", variants: ["regular", "italic"] }, { family: "IM Fell French Canon SC", category: "serif", variants: ["regular"] }, { family: "IM Fell Great Primer", category: "serif", variants: ["regular", "italic"] }, { family: "IM Fell Great Primer SC", category: "serif", variants: ["regular"] }, { family: "Iansui", category: "handwriting", variants: ["regular"] }, { family: "Ibarra Real Nova", category: "serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Iceberg", category: "display", variants: ["regular"] }, { family: "Iceland", category: "display", variants: ["regular"] }, { family: "Idiqlat", category: "serif", variants: ["200", "300", "regular"] }, { family: "Imbue", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Imperial Script", category: "handwriting", variants: ["regular"] }, { family: "Imprima", category: "sans-serif", variants: ["regular"] }, { family: "Inclusive Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Inconsolata", category: "monospace", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Inder", category: "sans-serif", variants: ["regular"] }, { family: "Indie Flower", category: "handwriting", variants: ["regular"] }, { family: "Ingrid Darling", category: "handwriting", variants: ["regular"] }, { family: "Inika", category: "serif", variants: ["regular", "700"] }, { family: "Inknut Antiqua", category: "serif", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Inria Sans", category: "sans-serif", variants: ["300", "300italic", "regular", "italic", "700", "700italic"] }, { family: "Inria Serif", category: "serif", variants: ["300", "300italic", "regular", "italic", "700", "700italic"] }, { family: "Inspiration", category: "handwriting", variants: ["regular"] }, { family: "Instrument Sans", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Instrument Serif", category: "serif", variants: ["regular", "italic"] }, { family: "Intel One Mono", category: "monospace", variants: ["300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Inter", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Inter Tight", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Iosevka Charon", category: "monospace", variants: ["300", "300italic", "regular", "italic", "500", "500italic", "700", "700italic"] }, { family: "Iosevka Charon Mono", category: "monospace", variants: ["300", "300italic", "regular", "italic", "500", "500italic", "700", "700italic"] }, { family: "Irish Grover", category: "display", variants: ["regular"] }, { family: "Island Moments", category: "handwriting", variants: ["regular"] }, { family: "Istok Web", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Italiana", category: "sans-serif", variants: ["regular"] }, { family: "Italianno", category: "handwriting", variants: ["regular"] }, { family: "Itim", category: "handwriting", variants: ["regular"] }, { family: "Jacquard 12", category: "display", variants: ["regular"] }, { family: "Jacquard 12 Charted", category: "display", variants: ["regular"] }, { family: "Jacquard 24", category: "display", variants: ["regular"] }, { family: "Jacquard 24 Charted", category: "display", variants: ["regular"] }, { family: "Jacquarda Bastarda 9", category: "display", variants: ["regular"] }, { family: "Jacquarda Bastarda 9 Charted", category: "display", variants: ["regular"] }, { family: "Jacques Francois", category: "serif", variants: ["regular"] }, { family: "Jacques Francois Shadow", category: "display", variants: ["regular"] }, { family: "Jaini", category: "display", variants: ["regular"] }, { family: "Jaini Purva", category: "display", variants: ["regular"] }, { family: "Jaldi", category: "sans-serif", variants: ["regular", "700"] }, { family: "Jaro", category: "sans-serif", variants: ["regular"] }, { family: "Jersey 10", category: "display", variants: ["regular"] }, { family: "Jersey 10 Charted", category: "display", variants: ["regular"] }, { family: "Jersey 15", category: "display", variants: ["regular"] }, { family: "Jersey 15 Charted", category: "display", variants: ["regular"] }, { family: "Jersey 20", category: "display", variants: ["regular"] }, { family: "Jersey 20 Charted", category: "display", variants: ["regular"] }, { family: "Jersey 25", category: "display", variants: ["regular"] }, { family: "Jersey 25 Charted", category: "display", variants: ["regular"] }, { family: "JetBrains Mono", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Jim Nightshade", category: "handwriting", variants: ["regular"] }, { family: "Joan", category: "serif", variants: ["regular"] }, { family: "Jockey One", category: "sans-serif", variants: ["regular"] }, { family: "Jolly Lodger", category: "display", variants: ["regular"] }, { family: "Jomhuria", category: "display", variants: ["regular"] }, { family: "Jomolhari", category: "serif", variants: ["regular"] }, { family: "Josefin Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Josefin Slab", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Jost", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Joti One", category: "display", variants: ["regular"] }, { family: "Jua", category: "sans-serif", variants: ["regular"] }, { family: "Judson", category: "serif", variants: ["regular", "italic", "700"] }, { family: "Julee", category: "handwriting", variants: ["regular"] }, { family: "Julius Sans One", category: "sans-serif", variants: ["regular"] }, { family: "Junge", category: "serif", variants: ["regular"] }, { family: "Jura", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Just Another Hand", category: "handwriting", variants: ["regular"] }, { family: "Just Me Again Down Here", category: "handwriting", variants: ["regular"] }, { family: "K2D", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic"] }, { family: "Kablammo", category: "display", variants: ["regular"] }, { family: "Kadwa", category: "serif", variants: ["regular", "700"] }, { family: "Kaisei Decol", category: "serif", variants: ["regular", "500", "700"] }, { family: "Kaisei HarunoUmi", category: "serif", variants: ["regular", "500", "700"] }, { family: "Kaisei Opti", category: "serif", variants: ["regular", "500", "700"] }, { family: "Kaisei Tokumin", category: "serif", variants: ["regular", "500", "700", "800"] }, { family: "Kalam", category: "handwriting", variants: ["300", "regular", "700"] }, { family: "Kalnia", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Kalnia Glaze", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Kameron", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Kanchenjunga", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Kanit", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Kantumruy Pro", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Kapakana", category: "handwriting", variants: ["300", "regular"] }, { family: "Karantina", category: "display", variants: ["300", "regular", "700"] }, { family: "Karla", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Karla Tamil Inclined", category: "sans-serif", variants: ["regular", "700"] }, { family: "Karla Tamil Upright", category: "sans-serif", variants: ["regular", "700"] }, { family: "Karma", category: "serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Katibeh", category: "display", variants: ["regular"] }, { family: "Kaushan Script", category: "handwriting", variants: ["regular"] }, { family: "Kavivanar", category: "handwriting", variants: ["regular"] }, { family: "Kavoon", category: "display", variants: ["regular"] }, { family: "Kay Pho Du", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Kdam Thmor Pro", category: "sans-serif", variants: ["regular"] }, { family: "Keania One", category: "display", variants: ["regular"] }, { family: "Kedebideri", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Kelly Slab", category: "display", variants: ["regular"] }, { family: "Kenia", category: "display", variants: ["regular"] }, { family: "Khand", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Khmer", category: "sans-serif", variants: ["regular"] }, { family: "Khula", category: "sans-serif", variants: ["300", "regular", "600", "700", "800"] }, { family: "Kings", category: "handwriting", variants: ["regular"] }, { family: "Kirang Haerang", category: "display", variants: ["regular"] }, { family: "Kite One", category: "sans-serif", variants: ["regular"] }, { family: "Kiwi Maru", category: "serif", variants: ["300", "regular", "500"] }, { family: "Klee One", category: "handwriting", variants: ["regular", "600"] }, { family: "Knewave", category: "display", variants: ["regular"] }, { family: "KoHo", category: "sans-serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Kodchasan", category: "sans-serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Kode Mono", category: "monospace", variants: ["regular", "500", "600", "700"] }, { family: "Koh Santepheap", category: "serif", variants: ["100", "300", "regular", "700", "900"] }, { family: "Kolker Brush", category: "handwriting", variants: ["regular"] }, { family: "Konkhmer Sleokchher", category: "display", variants: ["regular"] }, { family: "Kosugi", category: "sans-serif", variants: ["regular"] }, { family: "Kosugi Maru", category: "sans-serif", variants: ["regular"] }, { family: "Kotta One", category: "serif", variants: ["regular"] }, { family: "Koulen", category: "display", variants: ["regular"] }, { family: "Kranky", category: "display", variants: ["regular"] }, { family: "Kreon", category: "serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Kristi", category: "handwriting", variants: ["regular"] }, { family: "Krona One", category: "sans-serif", variants: ["regular"] }, { family: "Krub", category: "sans-serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Kufam", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Kulim Park", category: "sans-serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "600", "600italic", "700", "700italic"] }, { family: "Kumar One", category: "display", variants: ["regular"] }, { family: "Kumar One Outline", category: "display", variants: ["regular"] }, { family: "Kumbh Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Kurale", category: "serif", variants: ["regular"] }, { family: "LINE Seed JP", category: "sans-serif", variants: ["100", "regular", "700", "800"] }, { family: "LXGW Marker Gothic", category: "sans-serif", variants: ["regular"] }, { family: "LXGW WenKai Mono TC", category: "monospace", variants: ["300", "regular", "700"] }, { family: "LXGW WenKai TC", category: "handwriting", variants: ["300", "regular", "700"] }, { family: "La Belle Aurore", category: "handwriting", variants: ["regular"] }, { family: "Labrada", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Lacquer", category: "display", variants: ["regular"] }, { family: "Laila", category: "serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Lakki Reddy", category: "handwriting", variants: ["regular"] }, { family: "Lalezar", category: "sans-serif", variants: ["regular"] }, { family: "Lancelot", category: "display", variants: ["regular"] }, { family: "Langar", category: "display", variants: ["regular"] }, { family: "Lateef", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Lato", category: "sans-serif", variants: ["100", "100italic", "300", "300italic", "regular", "italic", "700", "700italic", "900", "900italic"] }, { family: "Lavishly Yours", category: "handwriting", variants: ["regular"] }, { family: "League Gothic", category: "sans-serif", variants: ["regular"] }, { family: "League Script", category: "handwriting", variants: ["regular"] }, { family: "League Spartan", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Leckerli One", category: "handwriting", variants: ["regular"] }, { family: "Ledger", category: "serif", variants: ["regular"] }, { family: "Lekton", category: "monospace", variants: ["regular", "italic", "700"] }, { family: "Lemon", category: "display", variants: ["regular"] }, { family: "Lemonada", category: "display", variants: ["300", "regular", "500", "600", "700"] }, { family: "Lexend", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Lexend Deca", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Lexend Exa", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Lexend Giga", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Lexend Mega", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Lexend Peta", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Lexend Tera", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Lexend Zetta", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Libertinus Keyboard", category: "display", variants: ["regular"] }, { family: "Libertinus Math", category: "display", variants: ["regular"] }, { family: "Libertinus Mono", category: "monospace", variants: ["regular"] }, { family: "Libertinus Sans", category: "sans-serif", variants: ["regular", "italic", "700"] }, { family: "Libertinus Serif", category: "serif", variants: ["regular", "italic", "600", "600italic", "700", "700italic"] }, { family: "Libertinus Serif Display", category: "display", variants: ["regular"] }, { family: "Libre Barcode 128", category: "display", variants: ["regular"] }, { family: "Libre Barcode 128 Text", category: "display", variants: ["regular"] }, { family: "Libre Barcode 39", category: "display", variants: ["regular"] }, { family: "Libre Barcode 39 Extended", category: "display", variants: ["regular"] }, { family: "Libre Barcode 39 Extended Text", category: "display", variants: ["regular"] }, { family: "Libre Barcode 39 Text", category: "display", variants: ["regular"] }, { family: "Libre Barcode EAN13 Text", category: "display", variants: ["regular"] }, { family: "Libre Baskerville", category: "serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Libre Bodoni", category: "serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Libre Caslon Display", category: "serif", variants: ["regular"] }, { family: "Libre Caslon Text", category: "serif", variants: ["regular", "italic", "700"] }, { family: "Libre Franklin", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Licorice", category: "handwriting", variants: ["regular"] }, { family: "Life Savers", category: "display", variants: ["regular", "700", "800"] }, { family: "Lilex", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Lilita One", category: "display", variants: ["regular"] }, { family: "Lily Script One", category: "display", variants: ["regular"] }, { family: "Limelight", category: "display", variants: ["regular"] }, { family: "Linden Hill", category: "serif", variants: ["regular", "italic"] }, { family: "Linefont", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Lisu Bosa", category: "serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Liter", category: "sans-serif", variants: ["regular"] }, { family: "Literata", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Liu Jian Mao Cao", category: "handwriting", variants: ["regular"] }, { family: "Livvic", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "900", "900italic"] }, { family: "Lobster", category: "display", variants: ["regular"] }, { family: "Lobster Two", category: "display", variants: ["regular", "italic", "700", "700italic"] }, { family: "Londrina Outline", category: "display", variants: ["regular"] }, { family: "Londrina Shadow", category: "display", variants: ["regular"] }, { family: "Londrina Sketch", category: "display", variants: ["regular"] }, { family: "Londrina Solid", category: "display", variants: ["100", "300", "regular", "900"] }, { family: "Long Cang", category: "handwriting", variants: ["regular"] }, { family: "Lora", category: "serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Love Light", category: "handwriting", variants: ["regular"] }, { family: "Love Ya Like A Sister", category: "display", variants: ["regular"] }, { family: "Loved by the King", category: "handwriting", variants: ["regular"] }, { family: "Lovers Quarrel", category: "handwriting", variants: ["regular"] }, { family: "Luckiest Guy", category: "display", variants: ["regular"] }, { family: "Lugrasimo", category: "handwriting", variants: ["regular"] }, { family: "Lumanosimo", category: "handwriting", variants: ["regular"] }, { family: "Lunasima", category: "sans-serif", variants: ["regular", "700"] }, { family: "Lusitana", category: "serif", variants: ["regular", "700"] }, { family: "Lustria", category: "serif", variants: ["regular"] }, { family: "Luxurious Roman", category: "display", variants: ["regular"] }, { family: "Luxurious Script", category: "handwriting", variants: ["regular"] }, { family: "M PLUS 1", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "M PLUS 1 Code", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "M PLUS 1p", category: "sans-serif", variants: ["100", "300", "regular", "500", "700", "800", "900"] }, { family: "M PLUS 2", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "M PLUS Code Latin", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "M PLUS Rounded 1c", category: "sans-serif", variants: ["100", "300", "regular", "500", "700", "800", "900"] }, { family: "M PLUS U", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Ma Shan Zheng", category: "handwriting", variants: ["regular"] }, { family: "Macondo", category: "display", variants: ["regular"] }, { family: "Macondo Swash Caps", category: "display", variants: ["regular"] }, { family: "Mada", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Madimi One", category: "sans-serif", variants: ["regular"] }, { family: "Magra", category: "sans-serif", variants: ["regular", "700"] }, { family: "Maiden Orange", category: "serif", variants: ["regular"] }, { family: "Maitree", category: "serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Major Mono Display", category: "monospace", variants: ["regular"] }, { family: "Mako", category: "sans-serif", variants: ["regular"] }, { family: "Mali", category: "handwriting", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Mallanna", category: "sans-serif", variants: ["regular"] }, { family: "Maname", category: "serif", variants: ["regular"] }, { family: "Mandali", category: "sans-serif", variants: ["regular"] }, { family: "Manjari", category: "sans-serif", variants: ["100", "regular", "700"] }, { family: "Manrope", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Mansalva", category: "handwriting", variants: ["regular"] }, { family: "Manuale", category: "serif", variants: ["300", "regular", "500", "600", "700", "800", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Manufacturing Consent", category: "display", variants: ["regular"] }, { family: "Marcellus", category: "serif", variants: ["regular"] }, { family: "Marcellus SC", category: "serif", variants: ["regular"] }, { family: "Marck Script", category: "handwriting", variants: ["regular"] }, { family: "Margarine", category: "display", variants: ["regular"] }, { family: "Marhey", category: "display", variants: ["300", "regular", "500", "600", "700"] }, { family: "Markazi Text", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Marko One", category: "serif", variants: ["regular"] }, { family: "Marmelad", category: "sans-serif", variants: ["regular"] }, { family: "Martel", category: "serif", variants: ["200", "300", "regular", "600", "700", "800", "900"] }, { family: "Martel Sans", category: "sans-serif", variants: ["200", "300", "regular", "600", "700", "800", "900"] }, { family: "Martian Mono", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Marvel", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Matangi", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Mate", category: "serif", variants: ["regular", "italic"] }, { family: "Mate SC", category: "serif", variants: ["regular"] }, { family: "Matemasie", category: "sans-serif", variants: ["regular"] }, { family: "Material Icons", category: "monospace", variants: ["regular"] }, { family: "Material Icons Outlined", category: "monospace", variants: ["regular"] }, { family: "Material Icons Round", category: "monospace", variants: ["regular"] }, { family: "Material Icons Sharp", category: "monospace", variants: ["regular"] }, { family: "Material Icons Two Tone", category: "monospace", variants: ["regular"] }, { family: "Material Symbols", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Material Symbols Outlined", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Material Symbols Rounded", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Material Symbols Sharp", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Maven Pro", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "McLaren", category: "display", variants: ["regular"] }, { family: "Mea Culpa", category: "handwriting", variants: ["regular"] }, { family: "Meddon", category: "handwriting", variants: ["regular"] }, { family: "MedievalSharp", category: "display", variants: ["regular"] }, { family: "Medula One", category: "display", variants: ["regular"] }, { family: "Meera Inimai", category: "sans-serif", variants: ["regular"] }, { family: "Megrim", category: "display", variants: ["regular"] }, { family: "Meie Script", category: "handwriting", variants: ["regular"] }, { family: "Menbere", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Meow Script", category: "handwriting", variants: ["regular"] }, { family: "Merienda", category: "handwriting", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Merriweather", category: "serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Merriweather Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Metal", category: "display", variants: ["regular"] }, { family: "Metal Mania", category: "display", variants: ["regular"] }, { family: "Metamorphous", category: "display", variants: ["regular"] }, { family: "Metrophobic", category: "sans-serif", variants: ["regular"] }, { family: "Michroma", category: "sans-serif", variants: ["regular"] }, { family: "Micro 5", category: "display", variants: ["regular"] }, { family: "Micro 5 Charted", category: "display", variants: ["regular"] }, { family: "Milonga", category: "display", variants: ["regular"] }, { family: "Miltonian", category: "display", variants: ["regular"] }, { family: "Miltonian Tattoo", category: "display", variants: ["regular"] }, { family: "Mina", category: "sans-serif", variants: ["regular", "700"] }, { family: "Mingzat", category: "sans-serif", variants: ["regular"] }, { family: "Miniver", category: "display", variants: ["regular"] }, { family: "Miranda Sans", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Miriam Libre", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Mirza", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Miss Fajardose", category: "handwriting", variants: ["regular"] }, { family: "Mitr", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Mochiy Pop One", category: "sans-serif", variants: ["regular"] }, { family: "Mochiy Pop P One", category: "sans-serif", variants: ["regular"] }, { family: "Modak", category: "display", variants: ["regular"] }, { family: "Modern Antiqua", category: "display", variants: ["regular"] }, { family: "Moderustic", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800"] }, { family: "Mogra", category: "display", variants: ["regular"] }, { family: "Mohave", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Moirai One", category: "display", variants: ["regular"] }, { family: "Molengo", category: "sans-serif", variants: ["regular"] }, { family: "Molle", category: "handwriting", variants: ["italic"] }, { family: "Momo Signature", category: "sans-serif", variants: ["regular"] }, { family: "Momo Trust Display", category: "sans-serif", variants: ["regular"] }, { family: "Momo Trust Sans", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Mona Sans", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Monda", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Monofett", category: "monospace", variants: ["regular"] }, { family: "Monomakh", category: "display", variants: ["regular"] }, { family: "Monomaniac One", category: "sans-serif", variants: ["regular"] }, { family: "Monoton", category: "display", variants: ["regular"] }, { family: "Monsieur La Doulaise", category: "handwriting", variants: ["regular"] }, { family: "Montaga", category: "serif", variants: ["regular"] }, { family: "Montagu Slab", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "MonteCarlo", category: "handwriting", variants: ["regular"] }, { family: "Montez", category: "handwriting", variants: ["regular"] }, { family: "Montserrat", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Montserrat Alternates", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Montserrat Underline", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Moo Lah Lah", category: "display", variants: ["regular"] }, { family: "Mooli", category: "sans-serif", variants: ["regular"] }, { family: "Moon Dance", category: "handwriting", variants: ["regular"] }, { family: "Moul", category: "display", variants: ["regular"] }, { family: "Moulpali", category: "sans-serif", variants: ["regular"] }, { family: "Mountains of Christmas", category: "display", variants: ["regular", "700"] }, { family: "Mouse Memoirs", category: "sans-serif", variants: ["regular"] }, { family: "Mozilla Headline", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Mozilla Text", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Mr Bedfort", category: "handwriting", variants: ["regular"] }, { family: "Mr Dafoe", category: "handwriting", variants: ["regular"] }, { family: "Mr De Haviland", category: "handwriting", variants: ["regular"] }, { family: "Mrs Saint Delafield", category: "handwriting", variants: ["regular"] }, { family: "Mrs Sheppards", category: "handwriting", variants: ["regular"] }, { family: "Ms Madi", category: "handwriting", variants: ["regular"] }, { family: "Mukta", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Mukta Mahee", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Mukta Malar", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Mukta Vaani", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Mulish", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Murecho", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "MuseoModerno", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "My Soul", category: "handwriting", variants: ["regular"] }, { family: "Mynerve", category: "handwriting", variants: ["regular"] }, { family: "Mystery Quest", category: "display", variants: ["regular"] }, { family: "NTR", category: "sans-serif", variants: ["regular"] }, { family: "Nabla", category: "display", variants: ["regular"] }, { family: "Namdhinggo", category: "serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Nanum Brush Script", category: "handwriting", variants: ["regular"] }, { family: "Nanum Gothic", category: "sans-serif", variants: ["regular", "700", "800"] }, { family: "Nanum Gothic Coding", category: "handwriting", variants: ["regular", "700"] }, { family: "Nanum Myeongjo", category: "serif", variants: ["regular", "700", "800"] }, { family: "Nanum Pen Script", category: "handwriting", variants: ["regular"] }, { family: "Narnoor", category: "sans-serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Nata Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "National Park", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Neonderthaw", category: "handwriting", variants: ["regular"] }, { family: "Nerko One", category: "handwriting", variants: ["regular"] }, { family: "Neucha", category: "handwriting", variants: ["regular"] }, { family: "Neuton", category: "serif", variants: ["200", "300", "regular", "italic", "700", "800"] }, { family: "New Amsterdam", category: "sans-serif", variants: ["regular"] }, { family: "New Rocker", category: "display", variants: ["regular"] }, { family: "New Tegomin", category: "serif", variants: ["regular"] }, { family: "News Cycle", category: "sans-serif", variants: ["regular", "700"] }, { family: "Newsreader", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Niconne", category: "handwriting", variants: ["regular"] }, { family: "Niramit", category: "sans-serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Nixie One", category: "display", variants: ["regular"] }, { family: "Nobile", category: "sans-serif", variants: ["regular", "italic", "500", "500italic", "700", "700italic"] }, { family: "Nokora", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Norican", category: "handwriting", variants: ["regular"] }, { family: "Nosifer", category: "display", variants: ["regular"] }, { family: "Notable", category: "sans-serif", variants: ["regular"] }, { family: "Nothing You Could Do", category: "handwriting", variants: ["regular"] }, { family: "Noticia Text", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Noto Color Emoji", category: "sans-serif", variants: ["regular"] }, { family: "Noto Emoji", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Noto Kufi Arabic", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Music", category: "sans-serif", variants: ["regular"] }, { family: "Noto Naskh Arabic", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Nastaliq Urdu", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Rashi Hebrew", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Noto Sans Adlam", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Adlam Unjoined", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Anatolian Hieroglyphs", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Arabic", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Armenian", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Avestan", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Balinese", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Bamum", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Bassa Vah", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Batak", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Bengali", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Bhaiksuki", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Brahmi", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Buginese", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Buhid", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Canadian Aboriginal", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Carian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Caucasian Albanian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Chakma", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Cham", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Cherokee", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Chorasmian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Coptic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Cuneiform", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Cypriot", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Cypro Minoan", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Deseret", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Devanagari", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Display", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Noto Sans Duployan", category: "sans-serif", variants: ["regular", "700"] }, { family: "Noto Sans Egyptian Hieroglyphs", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Elbasan", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Elymaic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Ethiopic", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Georgian", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Glagolitic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Gothic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Grantha", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Gujarati", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Gunjala Gondi", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Gurmukhi", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans HK", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Hanifi Rohingya", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Hanunoo", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Hatran", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Hebrew", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Imperial Aramaic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Indic Siyaq Numbers", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Inscriptional Pahlavi", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Inscriptional Parthian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans JP", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Javanese", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans KR", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Kaithi", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Kannada", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Kawi", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Kayah Li", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Kharoshthi", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Khmer", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Khojki", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Khudawadi", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Lao", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Lao Looped", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Lepcha", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Limbu", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Linear A", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Linear B", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Lisu", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Lycian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Lydian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Mahajani", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Malayalam", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Mandaic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Manichaean", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Marchen", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Masaram Gondi", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Math", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Mayan Numerals", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Medefaidrin", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Meetei Mayek", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Mende Kikakui", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Meroitic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Miao", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Modi", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Mongolian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Mono", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Mro", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Multani", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Myanmar", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans NKo", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans NKo Unjoined", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Nabataean", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Nag Mundari", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Nandinagari", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans New Tai Lue", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Newa", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Nushu", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Ogham", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Ol Chiki", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Old Hungarian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Old Italic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Old North Arabian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Old Permic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Old Persian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Old Sogdian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Old South Arabian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Old Turkic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Oriya", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Osage", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Osmanya", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Pahawh Hmong", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Palmyrene", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Pau Cin Hau", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans PhagsPa", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Phoenician", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Psalter Pahlavi", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Rejang", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Runic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans SC", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Samaritan", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Saurashtra", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Sharada", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Shavian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Siddham", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans SignWriting", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Sinhala", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Sogdian", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Sora Sompeng", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Soyombo", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Sundanese", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Sunuwar", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Syloti Nagri", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Symbols", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Symbols 2", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Syriac", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Syriac Eastern", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Syriac Western", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans TC", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Tagalog", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Tagbanwa", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Tai Le", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Tai Tham", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Tai Viet", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Takri", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Tamil", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Tamil Supplement", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Tangsa", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Telugu", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Thaana", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Thai", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Thai Looped", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Sans Tifinagh", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Tirhuta", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Ugaritic", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Vai", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Vithkuqi", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Sans Wancho", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Warang Citi", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Yi", category: "sans-serif", variants: ["regular"] }, { family: "Noto Sans Zanabazar Square", category: "sans-serif", variants: ["regular"] }, { family: "Noto Serif", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Noto Serif Ahom", category: "serif", variants: ["regular"] }, { family: "Noto Serif Armenian", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Balinese", category: "serif", variants: ["regular"] }, { family: "Noto Serif Bengali", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Devanagari", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Display", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Noto Serif Dives Akuru", category: "serif", variants: ["regular"] }, { family: "Noto Serif Dogra", category: "serif", variants: ["regular"] }, { family: "Noto Serif Ethiopic", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Georgian", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Grantha", category: "serif", variants: ["regular"] }, { family: "Noto Serif Gujarati", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Gurmukhi", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif HK", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Hebrew", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Hentaigana", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif JP", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif KR", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Kannada", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Khitan Small Script", category: "serif", variants: ["regular"] }, { family: "Noto Serif Khmer", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Khojki", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Serif Lao", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Makasar", category: "serif", variants: ["regular"] }, { family: "Noto Serif Malayalam", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Myanmar", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif NP Hmong", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Serif Old Uyghur", category: "serif", variants: ["regular"] }, { family: "Noto Serif Oriya", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Serif Ottoman Siyaq", category: "serif", variants: ["regular"] }, { family: "Noto Serif SC", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Sinhala", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif TC", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Tamil", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Noto Serif Tangut", category: "serif", variants: ["regular"] }, { family: "Noto Serif Telugu", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Thai", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Tibetan", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Noto Serif Todhri", category: "serif", variants: ["regular"] }, { family: "Noto Serif Toto", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Serif Vithkuqi", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Serif Yezidi", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Noto Traditional Nushu", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Noto Znamenny Musical Notation", category: "sans-serif", variants: ["regular"] }, { family: "Nova Cut", category: "display", variants: ["regular"] }, { family: "Nova Flat", category: "display", variants: ["regular"] }, { family: "Nova Mono", category: "monospace", variants: ["regular"] }, { family: "Nova Oval", category: "display", variants: ["regular"] }, { family: "Nova Round", category: "display", variants: ["regular"] }, { family: "Nova Script", category: "display", variants: ["regular"] }, { family: "Nova Slim", category: "display", variants: ["regular"] }, { family: "Nova Square", category: "display", variants: ["regular"] }, { family: "Numans", category: "sans-serif", variants: ["regular"] }, { family: "Nunito", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Nunito Sans", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Nuosu SIL", category: "sans-serif", variants: ["regular"] }, { family: "Odibee Sans", category: "display", variants: ["regular"] }, { family: "Odor Mean Chey", category: "serif", variants: ["regular"] }, { family: "Offside", category: "display", variants: ["regular"] }, { family: "Oi", category: "display", variants: ["regular"] }, { family: "Ojuju", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Old Standard TT", category: "serif", variants: ["regular", "italic", "700"] }, { family: "Oldenburg", category: "display", variants: ["regular"] }, { family: "Ole", category: "handwriting", variants: ["regular"] }, { family: "Oleo Script", category: "display", variants: ["regular", "700"] }, { family: "Oleo Script Swash Caps", category: "display", variants: ["regular", "700"] }, { family: "Onest", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Oooh Baby", category: "handwriting", variants: ["regular"] }, { family: "Open Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Oranienbaum", category: "serif", variants: ["regular"] }, { family: "Orbit", category: "sans-serif", variants: ["regular"] }, { family: "Orbitron", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Oregano", category: "display", variants: ["regular", "italic"] }, { family: "Orelega One", category: "display", variants: ["regular"] }, { family: "Orienta", category: "sans-serif", variants: ["regular"] }, { family: "Original Surfer", category: "display", variants: ["regular"] }, { family: "Oswald", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Outfit", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Over the Rainbow", category: "handwriting", variants: ["regular"] }, { family: "Overlock", category: "display", variants: ["regular", "italic", "700", "700italic", "900", "900italic"] }, { family: "Overlock SC", category: "display", variants: ["regular"] }, { family: "Overpass", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Overpass Mono", category: "monospace", variants: ["300", "regular", "500", "600", "700"] }, { family: "Ovo", category: "serif", variants: ["regular"] }, { family: "Oxanium", category: "display", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Oxygen", category: "sans-serif", variants: ["300", "regular", "700"] }, { family: "Oxygen Mono", category: "monospace", variants: ["regular"] }, { family: "PT Mono", category: "monospace", variants: ["regular"] }, { family: "PT Sans", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "PT Sans Caption", category: "sans-serif", variants: ["regular", "700"] }, { family: "PT Sans Narrow", category: "sans-serif", variants: ["regular", "700"] }, { family: "PT Serif", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "PT Serif Caption", category: "serif", variants: ["regular", "italic"] }, { family: "Pacifico", category: "handwriting", variants: ["regular"] }, { family: "Padauk", category: "sans-serif", variants: ["regular", "700"] }, { family: "Padyakke Expanded One", category: "serif", variants: ["regular"] }, { family: "Palanquin", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700"] }, { family: "Palanquin Dark", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Palette Mosaic", category: "display", variants: ["regular"] }, { family: "Pangolin", category: "handwriting", variants: ["regular"] }, { family: "Paprika", category: "display", variants: ["regular"] }, { family: "Parastoo", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Parisienne", category: "handwriting", variants: ["regular"] }, { family: "Parkinsans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800"] }, { family: "Passero One", category: "display", variants: ["regular"] }, { family: "Passion One", category: "display", variants: ["regular", "700", "900"] }, { family: "Passions Conflict", category: "handwriting", variants: ["regular"] }, { family: "Pathway Extreme", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Pathway Gothic One", category: "sans-serif", variants: ["regular"] }, { family: "Patrick Hand", category: "handwriting", variants: ["regular"] }, { family: "Patrick Hand SC", category: "handwriting", variants: ["regular"] }, { family: "Pattaya", category: "sans-serif", variants: ["regular"] }, { family: "Patua One", category: "display", variants: ["regular"] }, { family: "Pavanam", category: "sans-serif", variants: ["regular"] }, { family: "Paytone One", category: "sans-serif", variants: ["regular"] }, { family: "Peddana", category: "serif", variants: ["regular"] }, { family: "Peralta", category: "serif", variants: ["regular"] }, { family: "Permanent Marker", category: "handwriting", variants: ["regular"] }, { family: "Petemoss", category: "handwriting", variants: ["regular"] }, { family: "Petit Formal Script", category: "handwriting", variants: ["regular"] }, { family: "Petrona", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Phetsarath", category: "sans-serif", variants: ["regular", "700"] }, { family: "Philosopher", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Phudu", category: "display", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Piazzolla", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Piedra", category: "display", variants: ["regular"] }, { family: "Pinyon Script", category: "handwriting", variants: ["regular"] }, { family: "Pirata One", category: "display", variants: ["regular"] }, { family: "Pixelify Sans", category: "display", variants: ["regular", "500", "600", "700"] }, { family: "Plaster", category: "display", variants: ["regular"] }, { family: "Platypi", category: "serif", variants: ["300", "regular", "500", "600", "700", "800", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Play", category: "sans-serif", variants: ["regular", "700"] }, { family: "Playball", category: "display", variants: ["regular"] }, { family: "Playfair", category: "serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Playfair Display", category: "serif", variants: ["regular", "500", "600", "700", "800", "900", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Playfair Display SC", category: "serif", variants: ["regular", "italic", "700", "700italic", "900", "900italic"] }, { family: "Playpen Sans", category: "handwriting", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Playpen Sans Arabic", category: "handwriting", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Playpen Sans Deva", category: "handwriting", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Playpen Sans Hebrew", category: "handwriting", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Playpen Sans Thai", category: "handwriting", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Playwrite AR", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite AR Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite AT", category: "handwriting", variants: ["100", "200", "300", "regular", "100italic", "200italic", "300italic", "italic"] }, { family: "Playwrite AT Guides", category: "handwriting", variants: ["regular", "italic"] }, { family: "Playwrite AU NSW", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite AU NSW Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite AU QLD", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite AU QLD Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite AU SA", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite AU SA Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite AU TAS", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite AU TAS Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite AU VIC", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite AU VIC Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite BE VLG", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite BE VLG Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite BE WAL", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite BE WAL Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite BR", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite BR Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite CA", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite CA Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite CL", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite CL Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite CO", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite CO Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite CU", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite CU Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite CZ", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite CZ Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite DE Grund", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite DE Grund Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite DE LA", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite DE LA Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite DE SAS", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite DE SAS Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite DE VA", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite DE VA Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite DK Loopet", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite DK Loopet Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite DK Uloopet", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite DK Uloopet Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite ES", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite ES Deco", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite ES Deco Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite ES Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite FR Moderne", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite FR Moderne Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite FR Trad", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite FR Trad Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite GB J", category: "handwriting", variants: ["100", "200", "300", "regular", "100italic", "200italic", "300italic", "italic"] }, { family: "Playwrite GB J Guides", category: "handwriting", variants: ["regular", "italic"] }, { family: "Playwrite GB S", category: "handwriting", variants: ["100", "200", "300", "regular", "100italic", "200italic", "300italic", "italic"] }, { family: "Playwrite GB S Guides", category: "handwriting", variants: ["regular", "italic"] }, { family: "Playwrite HR", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite HR Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite HR Lijeva", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite HR Lijeva Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite HU", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite HU Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite ID", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite ID Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite IE", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite IE Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite IN", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite IN Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite IS", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite IS Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite IT Moderna", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite IT Moderna Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite IT Trad", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite IT Trad Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite MX", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite MX Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite NG Modern", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite NG Modern Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite NL", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite NL Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite NO", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite NO Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite NZ", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite NZ Basic", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite NZ Basic Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite NZ Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite PE", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite PE Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite PL", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite PL Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite PT", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite PT Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite RO", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite RO Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite SK", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite SK Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite TZ", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite TZ Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite US Modern", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite US Modern Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite US Trad", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite US Trad Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite VN", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite VN Guides", category: "handwriting", variants: ["regular"] }, { family: "Playwrite ZA", category: "handwriting", variants: ["100", "200", "300", "regular"] }, { family: "Playwrite ZA Guides", category: "handwriting", variants: ["regular"] }, { family: "Plus Jakarta Sans", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Pochaevsk", category: "display", variants: ["regular"] }, { family: "Podkova", category: "serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Poetsen One", category: "display", variants: ["regular"] }, { family: "Poiret One", category: "display", variants: ["regular"] }, { family: "Poller One", category: "display", variants: ["regular"] }, { family: "Poltawski Nowy", category: "serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Poly", category: "serif", variants: ["regular", "italic"] }, { family: "Pompiere", category: "display", variants: ["regular"] }, { family: "Ponnala", category: "display", variants: ["regular"] }, { family: "Ponomar", category: "display", variants: ["regular"] }, { family: "Pontano Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Poor Story", category: "display", variants: ["regular"] }, { family: "Poppins", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Port Lligat Sans", category: "sans-serif", variants: ["regular"] }, { family: "Port Lligat Slab", category: "serif", variants: ["regular"] }, { family: "Potta One", category: "display", variants: ["regular"] }, { family: "Pragati Narrow", category: "sans-serif", variants: ["regular", "700"] }, { family: "Praise", category: "handwriting", variants: ["regular"] }, { family: "Prata", category: "serif", variants: ["regular"] }, { family: "Preahvihear", category: "sans-serif", variants: ["regular"] }, { family: "Press Start 2P", category: "display", variants: ["regular"] }, { family: "Pridi", category: "serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Princess Sofia", category: "handwriting", variants: ["regular"] }, { family: "Prociono", category: "serif", variants: ["regular"] }, { family: "Prompt", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Prosto One", category: "display", variants: ["regular"] }, { family: "Protest Guerrilla", category: "display", variants: ["regular"] }, { family: "Protest Revolution", category: "display", variants: ["regular"] }, { family: "Protest Riot", category: "display", variants: ["regular"] }, { family: "Protest Strike", category: "display", variants: ["regular"] }, { family: "Proza Libre", category: "sans-serif", variants: ["regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic"] }, { family: "Public Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Puppies Play", category: "handwriting", variants: ["regular"] }, { family: "Puritan", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Purple Purse", category: "display", variants: ["regular"] }, { family: "Qahiri", category: "sans-serif", variants: ["regular"] }, { family: "Quando", category: "serif", variants: ["regular"] }, { family: "Quantico", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Quattrocento", category: "serif", variants: ["regular", "700"] }, { family: "Quattrocento Sans", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Questrial", category: "sans-serif", variants: ["regular"] }, { family: "Quicksand", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Quintessential", category: "handwriting", variants: ["regular"] }, { family: "Qwigley", category: "handwriting", variants: ["regular"] }, { family: "Qwitcher Grypen", category: "handwriting", variants: ["regular", "700"] }, { family: "REM", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Racing Sans One", category: "display", variants: ["regular"] }, { family: "Radio Canada", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Radio Canada Big", category: "sans-serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Radley", category: "serif", variants: ["regular", "italic"] }, { family: "Rajdhani", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Rakkas", category: "display", variants: ["regular"] }, { family: "Raleway", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Raleway Dots", category: "display", variants: ["regular"] }, { family: "Ramabhadra", category: "sans-serif", variants: ["regular"] }, { family: "Ramaraja", category: "serif", variants: ["regular"] }, { family: "Rambla", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Rammetto One", category: "display", variants: ["regular"] }, { family: "Rampart One", category: "display", variants: ["regular"] }, { family: "Ramsina", category: "serif", variants: ["regular"] }, { family: "Ranchers", category: "display", variants: ["regular"] }, { family: "Rancho", category: "handwriting", variants: ["regular"] }, { family: "Ranga", category: "display", variants: ["regular", "700"] }, { family: "Rasa", category: "serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Rationale", category: "sans-serif", variants: ["regular"] }, { family: "Ravi Prakash", category: "display", variants: ["regular"] }, { family: "Readex Pro", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Recursive", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Red Hat Display", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Red Hat Mono", category: "monospace", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Red Hat Text", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Red Rose", category: "display", variants: ["300", "regular", "500", "600", "700"] }, { family: "Redacted", category: "display", variants: ["regular"] }, { family: "Redacted Script", category: "display", variants: ["300", "regular", "700"] }, { family: "Reddit Mono", category: "monospace", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Reddit Sans", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Reddit Sans Condensed", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Redressed", category: "handwriting", variants: ["regular"] }, { family: "Reem Kufi", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Reem Kufi Fun", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Reem Kufi Ink", category: "sans-serif", variants: ["regular"] }, { family: "Reenie Beanie", category: "handwriting", variants: ["regular"] }, { family: "Reggae One", category: "display", variants: ["regular"] }, { family: "Rethink Sans", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Revalia", category: "display", variants: ["regular"] }, { family: "Rhodium Libre", category: "serif", variants: ["regular"] }, { family: "Ribeye", category: "display", variants: ["regular"] }, { family: "Ribeye Marrow", category: "display", variants: ["regular"] }, { family: "Righteous", category: "display", variants: ["regular"] }, { family: "Risque", category: "display", variants: ["regular"] }, { family: "Road Rage", category: "display", variants: ["regular"] }, { family: "Roboto", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Roboto Condensed", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Roboto Flex", category: "sans-serif", variants: ["regular"] }, { family: "Roboto Mono", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Roboto Serif", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Roboto Slab", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Rochester", category: "handwriting", variants: ["regular"] }, { family: "Rock 3D", category: "display", variants: ["regular"] }, { family: "Rock Salt", category: "handwriting", variants: ["regular"] }, { family: "RocknRoll One", category: "sans-serif", variants: ["regular"] }, { family: "Rokkitt", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Romanesco", category: "handwriting", variants: ["regular"] }, { family: "Ropa Sans", category: "sans-serif", variants: ["regular", "italic"] }, { family: "Rosario", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Rosarivo", category: "serif", variants: ["regular", "italic"] }, { family: "Rouge Script", category: "handwriting", variants: ["regular"] }, { family: "Rowdies", category: "display", variants: ["300", "regular", "700"] }, { family: "Rozha One", category: "serif", variants: ["regular"] }, { family: "Rubik", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Rubik 80s Fade", category: "display", variants: ["regular"] }, { family: "Rubik Beastly", category: "display", variants: ["regular"] }, { family: "Rubik Broken Fax", category: "display", variants: ["regular"] }, { family: "Rubik Bubbles", category: "display", variants: ["regular"] }, { family: "Rubik Burned", category: "display", variants: ["regular"] }, { family: "Rubik Dirt", category: "display", variants: ["regular"] }, { family: "Rubik Distressed", category: "display", variants: ["regular"] }, { family: "Rubik Doodle Shadow", category: "display", variants: ["regular"] }, { family: "Rubik Doodle Triangles", category: "display", variants: ["regular"] }, { family: "Rubik Gemstones", category: "display", variants: ["regular"] }, { family: "Rubik Glitch", category: "display", variants: ["regular"] }, { family: "Rubik Glitch Pop", category: "display", variants: ["regular"] }, { family: "Rubik Iso", category: "display", variants: ["regular"] }, { family: "Rubik Lines", category: "display", variants: ["regular"] }, { family: "Rubik Maps", category: "display", variants: ["regular"] }, { family: "Rubik Marker Hatch", category: "display", variants: ["regular"] }, { family: "Rubik Maze", category: "display", variants: ["regular"] }, { family: "Rubik Microbe", category: "display", variants: ["regular"] }, { family: "Rubik Mono One", category: "sans-serif", variants: ["regular"] }, { family: "Rubik Moonrocks", category: "display", variants: ["regular"] }, { family: "Rubik Pixels", category: "display", variants: ["regular"] }, { family: "Rubik Puddles", category: "display", variants: ["regular"] }, { family: "Rubik Scribble", category: "display", variants: ["regular"] }, { family: "Rubik Spray Paint", category: "display", variants: ["regular"] }, { family: "Rubik Storm", category: "display", variants: ["regular"] }, { family: "Rubik Vinyl", category: "display", variants: ["regular"] }, { family: "Rubik Wet Paint", category: "display", variants: ["regular"] }, { family: "Ruda", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Rufina", category: "serif", variants: ["regular", "700"] }, { family: "Ruge Boogie", category: "handwriting", variants: ["regular"] }, { family: "Ruluko", category: "sans-serif", variants: ["regular"] }, { family: "Rum Raisin", category: "sans-serif", variants: ["regular"] }, { family: "Ruslan Display", category: "display", variants: ["regular"] }, { family: "Russo One", category: "sans-serif", variants: ["regular"] }, { family: "Ruthie", category: "handwriting", variants: ["regular"] }, { family: "Ruwudu", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Rye", category: "display", variants: ["regular"] }, { family: "SN Pro", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "STIX Two Math", category: "serif", variants: ["regular"] }, { family: "STIX Two Text", category: "serif", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "SUSE", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "SUSE Mono", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Sacramento", category: "handwriting", variants: ["regular"] }, { family: "Sahitya", category: "serif", variants: ["regular", "700"] }, { family: "Sail", category: "display", variants: ["regular"] }, { family: "Saira", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Saira Condensed", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Saira Extra Condensed", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Saira Semi Condensed", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Saira Stencil", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Saira Stencil One", category: "display", variants: ["regular"] }, { family: "Salsa", category: "display", variants: ["regular"] }, { family: "Sanchez", category: "serif", variants: ["regular", "italic"] }, { family: "Sancreek", category: "display", variants: ["regular"] }, { family: "Sankofa Display", category: "sans-serif", variants: ["regular"] }, { family: "Sansation", category: "sans-serif", variants: ["300", "300italic", "regular", "italic", "700", "700italic"] }, { family: "Sansita", category: "sans-serif", variants: ["regular", "italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Sansita Swashed", category: "display", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Sarabun", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic"] }, { family: "Sarala", category: "sans-serif", variants: ["regular", "700"] }, { family: "Sarina", category: "display", variants: ["regular"] }, { family: "Sarpanch", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Sassy Frass", category: "handwriting", variants: ["regular"] }, { family: "Satisfy", category: "handwriting", variants: ["regular"] }, { family: "Savate", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Sawarabi Gothic", category: "sans-serif", variants: ["regular"] }, { family: "Sawarabi Mincho", category: "serif", variants: ["regular"] }, { family: "Scada", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Scheherazade New", category: "serif", variants: ["regular", "500", "600", "700"] }, { family: "Schibsted Grotesk", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Schoolbell", category: "handwriting", variants: ["regular"] }, { family: "Science Gothic", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Scope One", category: "serif", variants: ["regular"] }, { family: "Seaweed Script", category: "display", variants: ["regular"] }, { family: "Secular One", category: "sans-serif", variants: ["regular"] }, { family: "Sedan", category: "serif", variants: ["regular", "italic"] }, { family: "Sedan SC", category: "serif", variants: ["regular"] }, { family: "Sedgwick Ave", category: "handwriting", variants: ["regular"] }, { family: "Sedgwick Ave Display", category: "handwriting", variants: ["regular"] }, { family: "Sekuya", category: "display", variants: ["regular"] }, { family: "Sen", category: "sans-serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Send Flowers", category: "handwriting", variants: ["regular"] }, { family: "Sevillana", category: "display", variants: ["regular"] }, { family: "Seymour One", category: "sans-serif", variants: ["regular"] }, { family: "Shadows Into Light", category: "handwriting", variants: ["regular"] }, { family: "Shadows Into Light Two", category: "handwriting", variants: ["regular"] }, { family: "Shafarik", category: "display", variants: ["regular"] }, { family: "Shalimar", category: "handwriting", variants: ["regular"] }, { family: "Shantell Sans", category: "display", variants: ["300", "regular", "500", "600", "700", "800", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Shanti", category: "sans-serif", variants: ["regular"] }, { family: "Share", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Share Tech", category: "sans-serif", variants: ["regular"] }, { family: "Share Tech Mono", category: "monospace", variants: ["regular"] }, { family: "Shippori Antique", category: "sans-serif", variants: ["regular"] }, { family: "Shippori Antique B1", category: "sans-serif", variants: ["regular"] }, { family: "Shippori Mincho", category: "serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Shippori Mincho B1", category: "serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Shizuru", category: "display", variants: ["regular"] }, { family: "Shojumaru", category: "display", variants: ["regular"] }, { family: "Short Stack", category: "handwriting", variants: ["regular"] }, { family: "Shrikhand", category: "display", variants: ["regular"] }, { family: "Siemreap", category: "sans-serif", variants: ["regular"] }, { family: "Sigmar", category: "display", variants: ["regular"] }, { family: "Sigmar One", category: "display", variants: ["regular"] }, { family: "Signika", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Signika Negative", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Silkscreen", category: "display", variants: ["regular", "700"] }, { family: "Simonetta", category: "display", variants: ["regular", "italic", "900", "900italic"] }, { family: "Single Day", category: "display", variants: ["regular"] }, { family: "Sintony", category: "sans-serif", variants: ["regular", "700"] }, { family: "Sirin Stencil", category: "display", variants: ["regular"] }, { family: "Sirivennela", category: "sans-serif", variants: ["regular"] }, { family: "Six Caps", category: "sans-serif", variants: ["regular"] }, { family: "Sixtyfour", category: "monospace", variants: ["regular"] }, { family: "Sixtyfour Convergence", category: "monospace", variants: ["regular"] }, { family: "Skranji", category: "display", variants: ["regular", "700"] }, { family: "Slabo 13px", category: "serif", variants: ["regular"] }, { family: "Slabo 27px", category: "serif", variants: ["regular"] }, { family: "Slackey", category: "display", variants: ["regular"] }, { family: "Slackside One", category: "handwriting", variants: ["regular"] }, { family: "Smokum", category: "display", variants: ["regular"] }, { family: "Smooch", category: "handwriting", variants: ["regular"] }, { family: "Smooch Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Smythe", category: "display", variants: ["regular"] }, { family: "Sniglet", category: "display", variants: ["regular", "800"] }, { family: "Snippet", category: "sans-serif", variants: ["regular"] }, { family: "Snowburst One", category: "display", variants: ["regular"] }, { family: "Sofadi One", category: "display", variants: ["regular"] }, { family: "Sofia", category: "handwriting", variants: ["regular"] }, { family: "Sofia Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Sofia Sans Condensed", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Sofia Sans Extra Condensed", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Sofia Sans Semi Condensed", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Solitreo", category: "handwriting", variants: ["regular"] }, { family: "Solway", category: "serif", variants: ["300", "regular", "500", "700", "800"] }, { family: "Sometype Mono", category: "monospace", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Song Myung", category: "serif", variants: ["regular"] }, { family: "Sono", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Sonsie One", category: "display", variants: ["regular"] }, { family: "Sora", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Sorts Mill Goudy", category: "serif", variants: ["regular", "italic"] }, { family: "Sour Gummy", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Source Code Pro", category: "monospace", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Source Sans 3", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Source Serif 4", category: "serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Space Grotesk", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Space Mono", category: "monospace", variants: ["regular", "italic", "700", "700italic"] }, { family: "Special Elite", category: "display", variants: ["regular"] }, { family: "Special Gothic", category: "sans-serif", variants: ["regular", "500", "600", "700"] }, { family: "Special Gothic Condensed One", category: "sans-serif", variants: ["regular"] }, { family: "Special Gothic Expanded One", category: "sans-serif", variants: ["regular"] }, { family: "Spectral", category: "serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic"] }, { family: "Spectral SC", category: "serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic"] }, { family: "Spicy Rice", category: "display", variants: ["regular"] }, { family: "Spinnaker", category: "sans-serif", variants: ["regular"] }, { family: "Spirax", category: "display", variants: ["regular"] }, { family: "Splash", category: "handwriting", variants: ["regular"] }, { family: "Spline Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Spline Sans Mono", category: "monospace", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Squada One", category: "display", variants: ["regular"] }, { family: "Square Peg", category: "handwriting", variants: ["regular"] }, { family: "Sree Krushnadevaraya", category: "serif", variants: ["regular"] }, { family: "Sriracha", category: "handwriting", variants: ["regular"] }, { family: "Srisakdi", category: "display", variants: ["regular", "700"] }, { family: "Staatliches", category: "display", variants: ["regular"] }, { family: "Stack Sans Headline", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Stack Sans Notch", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Stack Sans Text", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Stalemate", category: "handwriting", variants: ["regular"] }, { family: "Stalinist One", category: "display", variants: ["regular"] }, { family: "Stardos Stencil", category: "display", variants: ["regular", "700"] }, { family: "Stick", category: "sans-serif", variants: ["regular"] }, { family: "Stick No Bills", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800"] }, { family: "Stint Ultra Condensed", category: "serif", variants: ["regular"] }, { family: "Stint Ultra Expanded", category: "serif", variants: ["regular"] }, { family: "Stoke", category: "serif", variants: ["300", "regular"] }, { family: "Story Script", category: "sans-serif", variants: ["regular"] }, { family: "Strait", category: "sans-serif", variants: ["regular"] }, { family: "Strichpunkt Sans", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Style Script", category: "handwriting", variants: ["regular"] }, { family: "Stylish", category: "sans-serif", variants: ["regular"] }, { family: "Sue Ellen Francisco", category: "handwriting", variants: ["regular"] }, { family: "Suez One", category: "serif", variants: ["regular"] }, { family: "Sulphur Point", category: "sans-serif", variants: ["300", "regular", "700"] }, { family: "Sumana", category: "serif", variants: ["regular", "700"] }, { family: "Sunflower", category: "sans-serif", variants: ["300", "500", "700"] }, { family: "Sunshiney", category: "handwriting", variants: ["regular"] }, { family: "Supermercado One", category: "display", variants: ["regular"] }, { family: "Sura", category: "serif", variants: ["regular", "700"] }, { family: "Suranna", category: "serif", variants: ["regular"] }, { family: "Suravaram", category: "serif", variants: ["regular"] }, { family: "Suwannaphum", category: "serif", variants: ["100", "300", "regular", "700", "900"] }, { family: "Swanky and Moo Moo", category: "handwriting", variants: ["regular"] }, { family: "Syncopate", category: "sans-serif", variants: ["regular", "700"] }, { family: "Syne", category: "sans-serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Syne Mono", category: "monospace", variants: ["regular"] }, { family: "Syne Tactile", category: "display", variants: ["regular"] }, { family: "TASA Explorer", category: "sans-serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "TASA Orbiter", category: "sans-serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Tac One", category: "sans-serif", variants: ["regular"] }, { family: "Tagesschrift", category: "display", variants: ["regular"] }, { family: "Tai Heritage Pro", category: "serif", variants: ["regular", "700"] }, { family: "Tajawal", category: "sans-serif", variants: ["200", "300", "regular", "500", "700", "800", "900"] }, { family: "Tangerine", category: "handwriting", variants: ["regular", "700"] }, { family: "Tapestry", category: "handwriting", variants: ["regular"] }, { family: "Taprom", category: "display", variants: ["regular"] }, { family: "Tauri", category: "sans-serif", variants: ["regular"] }, { family: "Taviraj", category: "serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Teachers", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Teko", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Tektur", category: "display", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Telex", category: "sans-serif", variants: ["regular"] }, { family: "Tenali Ramakrishna", category: "sans-serif", variants: ["regular"] }, { family: "Tenor Sans", category: "sans-serif", variants: ["regular"] }, { family: "Text Me One", category: "sans-serif", variants: ["regular"] }, { family: "Texturina", category: "serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Thasadith", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "The Girl Next Door", category: "handwriting", variants: ["regular"] }, { family: "The Nautigal", category: "handwriting", variants: ["regular", "700"] }, { family: "Tienne", category: "serif", variants: ["regular", "700", "900"] }, { family: "TikTok Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900"] }, { family: "Tillana", category: "display", variants: ["regular", "500", "600", "700", "800"] }, { family: "Tilt Neon", category: "display", variants: ["regular"] }, { family: "Tilt Prism", category: "display", variants: ["regular"] }, { family: "Tilt Warp", category: "display", variants: ["regular"] }, { family: "Timmana", category: "sans-serif", variants: ["regular"] }, { family: "Tinos", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Tiny5", category: "sans-serif", variants: ["regular"] }, { family: "Tiro Bangla", category: "serif", variants: ["regular", "italic"] }, { family: "Tiro Devanagari Hindi", category: "serif", variants: ["regular", "italic"] }, { family: "Tiro Devanagari Marathi", category: "serif", variants: ["regular", "italic"] }, { family: "Tiro Devanagari Sanskrit", category: "serif", variants: ["regular", "italic"] }, { family: "Tiro Gurmukhi", category: "serif", variants: ["regular", "italic"] }, { family: "Tiro Kannada", category: "serif", variants: ["regular", "italic"] }, { family: "Tiro Tamil", category: "serif", variants: ["regular", "italic"] }, { family: "Tiro Telugu", category: "serif", variants: ["regular", "italic"] }, { family: "Tirra", category: "sans-serif", variants: ["regular", "500", "600", "700", "800", "900"] }, { family: "Titan One", category: "display", variants: ["regular"] }, { family: "Titillium Web", category: "sans-serif", variants: ["200", "200italic", "300", "300italic", "regular", "italic", "600", "600italic", "700", "700italic", "900"] }, { family: "Tomorrow", category: "sans-serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Tourney", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Trade Winds", category: "display", variants: ["regular"] }, { family: "Train One", category: "display", variants: ["regular"] }, { family: "Triodion", category: "display", variants: ["regular"] }, { family: "Trirong", category: "serif", variants: ["100", "100italic", "200", "200italic", "300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic", "900", "900italic"] }, { family: "Trispace", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800"] }, { family: "Trocchi", category: "serif", variants: ["regular"] }, { family: "Trochut", category: "display", variants: ["regular", "italic", "700"] }, { family: "Truculenta", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Trykker", category: "serif", variants: ["regular"] }, { family: "Tsukimi Rounded", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Tuffy", category: "sans-serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Tulpen One", category: "display", variants: ["regular"] }, { family: "Turret Road", category: "display", variants: ["200", "300", "regular", "500", "700", "800"] }, { family: "Twinkle Star", category: "handwriting", variants: ["regular"] }, { family: "Ubuntu", category: "sans-serif", variants: ["300", "300italic", "regular", "italic", "500", "500italic", "700", "700italic"] }, { family: "Ubuntu Condensed", category: "sans-serif", variants: ["regular"] }, { family: "Ubuntu Mono", category: "monospace", variants: ["regular", "italic", "700", "700italic"] }, { family: "Ubuntu Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic"] }, { family: "Ubuntu Sans Mono", category: "monospace", variants: ["regular", "500", "600", "700", "italic", "500italic", "600italic", "700italic"] }, { family: "Uchen", category: "serif", variants: ["regular"] }, { family: "Ultra", category: "serif", variants: ["regular"] }, { family: "Unbounded", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Uncial Antiqua", category: "display", variants: ["regular"] }, { family: "Underdog", category: "display", variants: ["regular"] }, { family: "Unica One", category: "display", variants: ["regular"] }, { family: "UnifrakturCook", category: "display", variants: ["700"] }, { family: "UnifrakturMaguntia", category: "display", variants: ["regular"] }, { family: "Unkempt", category: "display", variants: ["regular", "700"] }, { family: "Unlock", category: "display", variants: ["regular"] }, { family: "Unna", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "UoqMunThenKhung", category: "serif", variants: ["regular"] }, { family: "Updock", category: "handwriting", variants: ["regular"] }, { family: "Urbanist", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "VT323", category: "monospace", variants: ["regular"] }, { family: "Vampiro One", category: "display", variants: ["regular"] }, { family: "Varela", category: "sans-serif", variants: ["regular"] }, { family: "Varela Round", category: "sans-serif", variants: ["regular"] }, { family: "Varta", category: "sans-serif", variants: ["300", "regular", "500", "600", "700"] }, { family: "Vast Shadow", category: "serif", variants: ["regular"] }, { family: "Vazirmatn", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Vend Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Vesper Libre", category: "serif", variants: ["regular", "500", "700", "900"] }, { family: "Viaoda Libre", category: "display", variants: ["regular"] }, { family: "Vibes", category: "display", variants: ["regular"] }, { family: "Vibur", category: "handwriting", variants: ["regular"] }, { family: "Victor Mono", category: "monospace", variants: ["100", "200", "300", "regular", "500", "600", "700", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Vidaloka", category: "serif", variants: ["regular"] }, { family: "Viga", category: "sans-serif", variants: ["regular"] }, { family: "Vina Sans", category: "display", variants: ["regular"] }, { family: "Voces", category: "sans-serif", variants: ["regular"] }, { family: "Volkhov", category: "serif", variants: ["regular", "italic", "700", "700italic"] }, { family: "Vollkorn", category: "serif", variants: ["regular", "500", "600", "700", "800", "900", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Vollkorn SC", category: "serif", variants: ["regular", "600", "700", "900"] }, { family: "Voltaire", category: "sans-serif", variants: ["regular"] }, { family: "Vujahday Script", category: "handwriting", variants: ["regular"] }, { family: "WDXL Lubrifont JP N", category: "sans-serif", variants: ["regular"] }, { family: "WDXL Lubrifont SC", category: "sans-serif", variants: ["regular"] }, { family: "WDXL Lubrifont TC", category: "sans-serif", variants: ["regular"] }, { family: "Waiting for the Sunrise", category: "handwriting", variants: ["regular"] }, { family: "Wallpoet", category: "display", variants: ["regular"] }, { family: "Walter Turncoat", category: "handwriting", variants: ["regular"] }, { family: "Warnes", category: "display", variants: ["regular"] }, { family: "Water Brush", category: "handwriting", variants: ["regular"] }, { family: "Waterfall", category: "handwriting", variants: ["regular"] }, { family: "Wavefont", category: "display", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Wellfleet", category: "serif", variants: ["regular"] }, { family: "Wendy One", category: "sans-serif", variants: ["regular"] }, { family: "Whisper", category: "handwriting", variants: ["regular"] }, { family: "WindSong", category: "handwriting", variants: ["regular", "500"] }, { family: "Winky Rough", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Winky Sans", category: "sans-serif", variants: ["300", "regular", "500", "600", "700", "800", "900", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Wire One", category: "sans-serif", variants: ["regular"] }, { family: "Wittgenstein", category: "serif", variants: ["regular", "500", "600", "700", "800", "900", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Wix Madefor Display", category: "sans-serif", variants: ["regular", "500", "600", "700", "800"] }, { family: "Wix Madefor Text", category: "sans-serif", variants: ["regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic", "800", "800italic"] }, { family: "Work Sans", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Workbench", category: "monospace", variants: ["regular"] }, { family: "Xanh Mono", category: "monospace", variants: ["regular", "italic"] }, { family: "Yaldevi", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Yanone Kaffeesatz", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700"] }, { family: "Yantramanav", category: "sans-serif", variants: ["100", "300", "regular", "500", "700", "900"] }, { family: "Yarndings 12", category: "display", variants: ["regular"] }, { family: "Yarndings 12 Charted", category: "display", variants: ["regular"] }, { family: "Yarndings 20", category: "display", variants: ["regular"] }, { family: "Yarndings 20 Charted", category: "display", variants: ["regular"] }, { family: "Yatra One", category: "display", variants: ["regular"] }, { family: "Yellowtail", category: "handwriting", variants: ["regular"] }, { family: "Yeon Sung", category: "display", variants: ["regular"] }, { family: "Yeseva One", category: "display", variants: ["regular"] }, { family: "Yesteryear", category: "handwriting", variants: ["regular"] }, { family: "Yomogi", category: "handwriting", variants: ["regular"] }, { family: "Young Serif", category: "serif", variants: ["regular"] }, { family: "Yrsa", category: "serif", variants: ["300", "regular", "500", "600", "700", "300italic", "italic", "500italic", "600italic", "700italic"] }, { family: "Ysabeau", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Ysabeau Infant", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Ysabeau Office", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900", "100italic", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Ysabeau SC", category: "sans-serif", variants: ["100", "200", "300", "regular", "500", "600", "700", "800", "900"] }, { family: "Yuji Boku", category: "serif", variants: ["regular"] }, { family: "Yuji Hentaigana Akari", category: "handwriting", variants: ["regular"] }, { family: "Yuji Hentaigana Akebono", category: "handwriting", variants: ["regular"] }, { family: "Yuji Mai", category: "serif", variants: ["regular"] }, { family: "Yuji Syuku", category: "serif", variants: ["regular"] }, { family: "Yusei Magic", category: "sans-serif", variants: ["regular"] }, { family: "ZCOOL KuaiLe", category: "sans-serif", variants: ["regular"] }, { family: "ZCOOL QingKe HuangYou", category: "sans-serif", variants: ["regular"] }, { family: "ZCOOL XiaoWei", category: "sans-serif", variants: ["regular"] }, { family: "Zain", category: "sans-serif", variants: ["200", "300", "300italic", "regular", "italic", "700", "800", "900"] }, { family: "Zalando Sans", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Zalando Sans Expanded", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Zalando Sans SemiExpanded", category: "sans-serif", variants: ["200", "300", "regular", "500", "600", "700", "800", "900", "200italic", "300italic", "italic", "500italic", "600italic", "700italic", "800italic", "900italic"] }, { family: "Zen Antique", category: "serif", variants: ["regular"] }, { family: "Zen Antique Soft", category: "serif", variants: ["regular"] }, { family: "Zen Dots", category: "display", variants: ["regular"] }, { family: "Zen Kaku Gothic Antique", category: "sans-serif", variants: ["300", "regular", "500", "700", "900"] }, { family: "Zen Kaku Gothic New", category: "sans-serif", variants: ["300", "regular", "500", "700", "900"] }, { family: "Zen Kurenaido", category: "sans-serif", variants: ["regular"] }, { family: "Zen Loop", category: "display", variants: ["regular", "italic"] }, { family: "Zen Maru Gothic", category: "sans-serif", variants: ["300", "regular", "500", "700", "900"] }, { family: "Zen Old Mincho", category: "serif", variants: ["regular", "500", "600", "700", "900"] }, { family: "Zen Tokyo Zoo", category: "display", variants: ["regular"] }, { family: "Zeyada", category: "handwriting", variants: ["regular"] }, { family: "Zhi Mang Xing", category: "handwriting", variants: ["regular"] }, { family: "Zilla Slab", category: "serif", variants: ["300", "300italic", "regular", "italic", "500", "500italic", "600", "600italic", "700", "700italic"] }, { family: "Zilla Slab Highlight", category: "serif", variants: ["regular", "700"] }];
 
+// src/import.ts
+var _compRegistry = {};
+function numAttr(node, key, fallback) {
+  var v = node[key];
+  if (typeof v === "number")
+    return v;
+  if (typeof v === "string") {
+    var p = parseFloat(v);
+    if (!isNaN(p))
+      return p;
+  }
+  return fallback;
+}
+function strAttr(node, key, fallback) {
+  var v = node[key];
+  return typeof v === "string" ? v : fallback;
+}
+function boolAttr(node, key) {
+  return node[key] === true || node[key] === "true";
+}
+function zIndexOf(node) {
+  var v = node["z-index"];
+  if (typeof v === "number")
+    return v;
+  if (typeof v === "string") {
+    var p = parseFloat(v);
+    if (!isNaN(p))
+      return p;
+  }
+  return 0;
+}
+function resolveSize(node, key, parentSize) {
+  var v = node[key];
+  if (v === "fill")
+    return parentSize;
+  if (v === "hug" || v === undefined || v === null)
+    return 0;
+  if (typeof v === "number")
+    return v;
+  if (typeof v === "string") {
+    var p = parseFloat(v);
+    if (!isNaN(p))
+      return p;
+  }
+  return 0;
+}
+function isKeyword(node, key) {
+  var v = node[key];
+  return v === "fill" || v === "hug" || v === undefined || v === null;
+}
+function parsePadding(node) {
+  var pt = node["pt"], pr = node["pr"], pb = node["pb"], pl = node["pl"];
+  if (pt !== undefined || pr !== undefined || pb !== undefined || pl !== undefined) {
+    return {
+      top: typeof pt === "number" ? pt : 0,
+      right: typeof pr === "number" ? pr : 0,
+      bottom: typeof pb === "number" ? pb : 0,
+      left: typeof pl === "number" ? pl : 0
+    };
+  }
+  var p = node["p"];
+  if (typeof p === "string" && p.trim()) {
+    var parts = p.trim().split(/\s+/).map(Number).filter(function(x) {
+      return !isNaN(x);
+    });
+    if (parts.length === 1)
+      return { top: parts[0], right: parts[0], bottom: parts[0], left: parts[0] };
+    if (parts.length === 2)
+      return { top: parts[0], right: parts[1], bottom: parts[0], left: parts[1] };
+    if (parts.length === 3)
+      return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[1] };
+    if (parts.length >= 4)
+      return { top: parts[0], right: parts[1], bottom: parts[2], left: parts[3] };
+  }
+  if (typeof p === "number")
+    return { top: p, right: p, bottom: p, left: p };
+  return { top: 0, right: 0, bottom: 0, left: 0 };
+}
+function decodeAlign(alignStr, layoutMode, gapIsAuto) {
+  if (alignStr === "baseline")
+    return { primary: "MIN", counter: "BASELINE" };
+  var parts = alignStr.split("-");
+  var vert = parts[0] || "top";
+  var horiz = parts[1] || "left";
+  var vertMap = { top: "MIN", middle: "CENTER", bottom: "MAX" };
+  var horizMap = { left: "MIN", center: "CENTER", right: "MAX" };
+  var vf = vertMap[vert] || "MIN";
+  var hf = horizMap[horiz] || "MIN";
+  if (layoutMode === "HORIZONTAL") {
+    return { primary: gapIsAuto ? "SPACE_BETWEEN" : hf, counter: vf };
+  } else {
+    return { primary: gapIsAuto ? "SPACE_BETWEEN" : vf, counter: hf };
+  }
+}
+function hexToRGB(hex) {
+  var clean = hex.replace("#", "");
+  if (clean.length === 3)
+    clean = clean[0] + clean[0] + clean[1] + clean[1] + clean[2] + clean[2];
+  var r = parseInt(clean.slice(0, 2), 16) / 255, g = parseInt(clean.slice(2, 4), 16) / 255;
+  var b = parseInt(clean.slice(4, 6), 16) / 255, a = clean.length >= 8 ? parseInt(clean.slice(6, 8), 16) / 255 : 1;
+  if (isNaN(r))
+    r = 0;
+  if (isNaN(g))
+    g = 0;
+  if (isNaN(b))
+    b = 0;
+  if (isNaN(a))
+    a = 1;
+  return { r, g, b, a };
+}
+function parseColor(str) {
+  if (!str)
+    return { r: 0, g: 0, b: 0, a: 1 };
+  var s = str.trim();
+  if (s.charAt(0) === "#")
+    return hexToRGB(s);
+  if (s.indexOf("rgb") === 0) {
+    var m = s.match(/rgba?\(([^)]+)\)/);
+    if (m) {
+      var p = m[1].split(/[,\/\s]+/).filter(function(x) {
+        return x !== "";
+      }).map(function(x) {
+        return parseFloat(x);
+      });
+      var r = (isNaN(p[0]) ? 0 : p[0]) / 255;
+      var g = (isNaN(p[1]) ? 0 : p[1]) / 255;
+      var b = (isNaN(p[2]) ? 0 : p[2]) / 255;
+      var a = p.length >= 4 && !isNaN(p[3]) ? p[3] : 1;
+      return { r, g, b, a };
+    }
+  }
+  return { r: 0, g: 0, b: 0, a: 1 };
+}
+function isColorStr(s) {
+  if (!s)
+    return false;
+  return s.charAt(0) === "#" || s.indexOf("rgb") === 0;
+}
+function solidPaint(hex, alpha) {
+  var c = parseColor(hex);
+  return { type: "SOLID", color: { r: c.r, g: c.g, b: c.b }, opacity: alpha !== undefined ? alpha : c.a };
+}
+function base64ToBytes(b64) {
+  var bin = atob(b64), out = new Uint8Array(bin.length);
+  for (var i = 0;i < bin.length; i++)
+    out[i] = bin.charCodeAt(i);
+  return out;
+}
+function imageScaleMode(fit) {
+  if (fit === "contain")
+    return "FIT";
+  if (fit === "tile" || fit === "repeat")
+    return "TILE";
+  if (fit === "crop")
+    return "CROP";
+  return "FILL";
+}
+function clampUnit(n) {
+  return n < -1 ? -1 : n > 1 ? 1 : n;
+}
+function imageFiltersFrom(src) {
+  var out = {};
+  var has = false;
+  function setF(k, v) {
+    if (typeof v === "number") {
+      out[k] = v;
+      has = true;
+    }
+  }
+  setF("exposure", src["filter-exposure"]);
+  setF("contrast", src["filter-contrast"]);
+  setF("saturation", src["filter-saturation"]);
+  setF("temperature", src["filter-temperature"]);
+  setF("tint", src["filter-tint"]);
+  setF("highlights", src["filter-highlights"]);
+  setF("shadows", src["filter-shadows"]);
+  var fstr = typeof src["filter"] === "string" ? src["filter"] : "";
+  if (fstr) {
+    var bM = fstr.match(/brightness\(\s*([\d.]+)\s*\)/);
+    if (bM) {
+      out.exposure = clampUnit(parseFloat(bM[1]) - 1);
+      has = true;
+    }
+    var cM = fstr.match(/contrast\(\s*([\d.]+)\s*\)/);
+    if (cM) {
+      out.contrast = clampUnit(parseFloat(cM[1]) - 1);
+      has = true;
+    }
+    var sM = fstr.match(/saturate\(\s*([\d.]+)\s*\)/);
+    if (sM) {
+      out.saturation = clampUnit(parseFloat(sM[1]) - 1);
+      has = true;
+    }
+  }
+  return has ? out : null;
+}
+function dataUriToImage(uri) {
+  var comma = uri.indexOf(",");
+  if (comma === -1)
+    return null;
+  try {
+    return figma.createImage(base64ToBytes(uri.slice(comma + 1)));
+  } catch (e) {
+    return null;
+  }
+}
+function svgDataUriToString(uri) {
+  if (uri.indexOf("image/svg") === -1)
+    return "";
+  var comma = uri.indexOf(",");
+  if (comma === -1)
+    return "";
+  try {
+    return uri.indexOf("base64") !== -1 ? atob(uri.slice(comma + 1)) : decodeURIComponent(uri.slice(comma + 1));
+  } catch (e) {
+    return "";
+  }
+}
+function weightToStyle(w, italic) {
+  var name = w <= 100 ? "Thin" : w <= 200 ? "ExtraLight" : w <= 300 ? "Light" : w <= 400 ? "Regular" : w <= 500 ? "Medium" : w <= 600 ? "SemiBold" : w <= 700 ? "Bold" : w <= 800 ? "ExtraBold" : "Black";
+  if (italic && name === "Regular")
+    return "Italic";
+  if (italic)
+    return name + " Italic";
+  return name;
+}
+async function tryLoad(family, style) {
+  try {
+    await figma.loadFontAsync({ family, style });
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+async function preloadFonts(fonts) {
+  await tryLoad("Inter", "Regular");
+  var fams = Object.keys(fonts);
+  for (var i = 0;i < fams.length; i++) {
+    var fam = fams[i], info = fonts[fam];
+    var ws = (info && info.weights || "400").trim().split(/[\s,]+/);
+    var ss = (info && info.styles || "normal").trim().split(/[\s,]+/);
+    for (var j = 0;j < ws.length; j++) {
+      var w = parseInt(ws[j], 10) || 400;
+      for (var k = 0;k < ss.length; k++) {
+        var style = weightToStyle(w, ss[k] === "italic");
+        await tryLoad(fam, style);
+        if (style === "SemiBold")
+          await tryLoad(fam, "Semi Bold");
+        if (style === "ExtraLight")
+          await tryLoad(fam, "Extra Light");
+        if (style === "ExtraBold")
+          await tryLoad(fam, "Extra Bold");
+      }
+    }
+  }
+}
+async function resolveFont(family, weight, italic) {
+  var style = weightToStyle(weight, italic);
+  var alts = [style];
+  if (style === "SemiBold")
+    alts.push("Semi Bold");
+  if (style === "ExtraLight")
+    alts.push("Extra Light");
+  if (style === "ExtraBold")
+    alts.push("Extra Bold");
+  for (var i = 0;i < alts.length; i++) {
+    if (await tryLoad(family, alts[i]))
+      return { family, style: alts[i] };
+  }
+  return { family: "Inter", style: "Regular" };
+}
+function parseGradientPaint(css, nodeW, nodeH) {
+  var lower = css.toLowerCase();
+  var isRadial = lower.indexOf("radial-gradient") !== -1;
+  var isConic = lower.indexOf("conic-gradient") !== -1 || lower.indexOf("angular") !== -1;
+  var stops = [];
+  var inner = css.replace(/^[^(]+\(/, "").replace(/\)\s*$/, "");
+  var parts = inner.split(",");
+  var first = parts[0] ? parts[0].trim() : "";
+  var angleMatch = first.match(/(-?[\d.]+)deg/);
+  var hasDirective = angleMatch || first.indexOf("to ") === 0 || first.indexOf("at ") === 0 || first.indexOf("circle") !== -1 || first.indexOf("ellipse") !== -1 || first.indexOf("from ") === 0;
+  var angleDeg = angleMatch ? parseFloat(angleMatch[1]) : 180;
+  var stopParts = hasDirective ? parts.slice(1) : parts;
+  for (var i = 0;i < stopParts.length; i++) {
+    var sp = stopParts[i].trim();
+    var colorMatch = sp.match(/(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))\s+([\d.]+)%/);
+    if (!colorMatch) {
+      var colorOnly = sp.match(/^(#[0-9a-fA-F]{3,8}|rgba?\([^)]+\))$/);
+      if (!colorOnly)
+        continue;
+      var co = parseColor(colorOnly[1]);
+      stops.push({ color: { r: co.r, g: co.g, b: co.b, a: co.a }, position: -1 });
+      continue;
+    }
+    var c = parseColor(colorMatch[1]);
+    stops.push({ color: { r: c.r, g: c.g, b: c.b, a: c.a }, position: parseFloat(colorMatch[2]) / 100 });
+  }
+  if (stops.length < 2)
+    return null;
+  for (var k = 0;k < stops.length; k++) {
+    if (stops[k].position < 0)
+      stops[k] = { color: stops[k].color, position: k / (stops.length - 1) };
+  }
+  if (isRadial) {
+    return {
+      type: "GRADIENT_RADIAL",
+      gradientStops: stops,
+      gradientTransform: [[0.5, 0, 0.25], [0, 0.5, 0.25]]
+    };
+  }
+  if (isConic) {
+    var crad = (angleDeg - 90) * Math.PI / 180;
+    var ccos = Math.cos(crad), csin = Math.sin(crad);
+    return {
+      type: "GRADIENT_ANGULAR",
+      gradientStops: stops,
+      gradientTransform: [
+        [ccos, -csin, 0.5 - ccos * 0.5 + csin * 0.5],
+        [csin, ccos, 0.5 - csin * 0.5 - ccos * 0.5]
+      ]
+    };
+  }
+  var rad = angleDeg * Math.PI / 180;
+  var cos = Math.cos(rad), sin = Math.sin(rad);
+  var hw = nodeW > 0 ? 1 / nodeW : 1, hh = nodeH > 0 ? 1 / nodeH : 1;
+  return {
+    type: "GRADIENT_LINEAR",
+    gradientStops: stops,
+    gradientTransform: [
+      [cos * hw, -sin * hh, 0.5 - cos * hw * 0.5 + sin * hh * 0.5],
+      [sin * hw, cos * hh, 0.5 - sin * hw * 0.5 - cos * hh * 0.5]
+    ]
+  };
+}
+function applyFills(target, node, nodeW, nodeH) {
+  var w = nodeW || 0, h = nodeH || 0;
+  var app = node.appearance;
+  if (app && app.fills && app.fills.length > 0) {
+    var paints = [];
+    for (var i = 0;i < app.fills.length; i++) {
+      var f = app.fills[i];
+      if (f.visible === false)
+        continue;
+      if (f.type === "color" && f.value && isColorStr(f.value)) {
+        paints.push(solidPaint(f.value, f.opacity));
+      } else if ((f.type === "linear-gradient" || f.type === "radial-gradient" || f.type === "angular-gradient") && f.value) {
+        var gp = parseGradientPaint(f.value, w, h);
+        if (gp)
+          paints.push(gp);
+      } else if (f.type === "image" && f.src && f.src.startsWith("data:")) {
+        var img = dataUriToImage(f.src);
+        if (img) {
+          var imgPaint = { type: "IMAGE", imageHash: img.hash, scaleMode: imageScaleMode(f.fit || "cover") };
+          var ff = imageFiltersFrom(f);
+          if (ff)
+            imgPaint.filters = ff;
+          paints.push(imgPaint);
+        }
+      }
+    }
+    if (paints.length) {
+      target.fills = paints;
+      return;
+    }
+  }
+  var fill = strAttr(node, "fill", "");
+  if (!fill || fill === "none") {
+    target.fills = [];
+    return;
+  }
+  if (isColorStr(fill)) {
+    target.fills = [solidPaint(fill)];
+    return;
+  }
+  if (fill.indexOf("gradient") !== -1) {
+    var gp2 = parseGradientPaint(fill, w, h);
+    if (gp2) {
+      target.fills = [gp2];
+      return;
+    }
+  }
+  if (fill.startsWith("data:")) {
+    var img2 = dataUriToImage(fill);
+    if (img2) {
+      target.fills = [{ type: "IMAGE", imageHash: img2.hash, scaleMode: "FILL" }];
+      return;
+    }
+  }
+  target.fills = [];
+}
+function applyEffects(target, node) {
+  var effects = [];
+  var shadowStr = strAttr(node, "shadow", "");
+  if (shadowStr) {
+    var sp = shadowStr.trim().split(/\s+/);
+    if (sp.length >= 5) {
+      var sx = parseFloat(sp[0]) || 0;
+      var sy = parseFloat(sp[1]) || 0;
+      var sRad = parseFloat(sp[2]) || 0;
+      var sSpread = parseFloat(sp[3]) || 0;
+      var sc = parseColor(sp[4]);
+      effects.push({
+        type: "DROP_SHADOW",
+        color: { r: sc.r, g: sc.g, b: sc.b, a: sc.a },
+        offset: { x: sx, y: sy },
+        radius: sRad,
+        spread: sSpread,
+        visible: true,
+        blendMode: "NORMAL"
+      });
+    }
+  }
+  var app = node.appearance;
+  if (app && app.effects && app.effects.length) {
+    for (var i = 0;i < app.effects.length; i++) {
+      var ef = app.effects[i];
+      if (ef.visible === false)
+        continue;
+      var c = parseColor(ef.color || "#000000");
+      if (ef.type === "drop-shadow" || ef.type === "inner-shadow") {
+        effects.push({
+          type: ef.type === "drop-shadow" ? "DROP_SHADOW" : "INNER_SHADOW",
+          color: { r: c.r, g: c.g, b: c.b, a: ef.opacity !== undefined ? ef.opacity : c.a },
+          offset: { x: ef.x || 0, y: ef.y || 0 },
+          radius: ef.radius || 0,
+          spread: ef.spread || 0,
+          visible: true,
+          blendMode: "NORMAL"
+        });
+      } else if (ef.type === "layer-blur") {
+        effects.push({ type: "LAYER_BLUR", radius: ef.radius || 0, visible: true });
+      } else if (ef.type === "background-blur") {
+        effects.push({ type: "BACKGROUND_BLUR", radius: ef.radius || 0, visible: true });
+      }
+    }
+  }
+  var filterStr = strAttr(node, "filter", "");
+  if (filterStr) {
+    var blurM = filterStr.match(/blur\(\s*([\d.]+)px\s*\)/);
+    if (blurM)
+      effects.push({ type: "LAYER_BLUR", radius: parseFloat(blurM[1]), visible: true });
+    var dsM = filterStr.match(/drop-shadow\(([^)]+)\)/);
+    if (dsM) {
+      var dsp = dsM[1].trim().split(/\s+/);
+      var ddx = parseFloat(dsp[0]) || 0, ddy = parseFloat(dsp[1]) || 0;
+      var dblur = 0, dcol = "#000000";
+      if (dsp.length >= 4) {
+        dblur = parseFloat(dsp[2]) || 0;
+        dcol = dsp[3];
+      } else if (dsp.length === 3) {
+        if (isColorStr(dsp[2]))
+          dcol = dsp[2];
+        else
+          dblur = parseFloat(dsp[2]) || 0;
+      }
+      var dc = parseColor(dcol);
+      effects.push({
+        type: "DROP_SHADOW",
+        color: { r: dc.r, g: dc.g, b: dc.b, a: dc.a },
+        offset: { x: ddx, y: ddy },
+        radius: dblur,
+        spread: 0,
+        visible: true,
+        blendMode: "NORMAL"
+      });
+    }
+  }
+  if (effects.length)
+    target.effects = effects;
+}
+function dashPatternFor(style, weight) {
+  var wt = weight > 0 ? weight : 1;
+  if (style === "dashed")
+    return [wt * 3, wt * 2];
+  if (style === "dotted")
+    return [wt, wt];
+  return [];
+}
+function applyStrokes(target, node) {
+  var app = node.appearance;
+  if (app && app.borders && app.borders.length > 0) {
+    var paints = [];
+    for (var i = 0;i < app.borders.length; i++) {
+      var b = app.borders[i];
+      if (b.visible === false || !b.color)
+        continue;
+      paints.push(solidPaint(b.color));
+      if (i === 0) {
+        target.strokeWeight = b.w || 1;
+        target.strokeAlign = b.align === "outside" ? "OUTSIDE" : b.align === "center" ? "CENTER" : "INSIDE";
+        if (b.style && "dashPattern" in target)
+          target.dashPattern = dashPatternFor(b.style, b.w || 1);
+      }
+    }
+    if (paints.length) {
+      target.strokes = paints;
+      return;
+    }
+  }
+  var borderAttr = strAttr(node, "border", "");
+  if (borderAttr) {
+    var bParts = borderAttr.trim().split(/\s+/);
+    var bColor = "", bWidth = 1, bAlign = "CENTER", bStyle = "";
+    for (var bi = 0;bi < bParts.length; bi++) {
+      var bp = bParts[bi];
+      if (isColorStr(bp)) {
+        bColor = bp;
+      } else if (bp === "inside") {
+        bAlign = "INSIDE";
+      } else if (bp === "outside") {
+        bAlign = "OUTSIDE";
+      } else if (bp === "center") {
+        bAlign = "CENTER";
+      } else if (bp === "solid" || bp === "dashed" || bp === "dotted") {
+        bStyle = bp;
+      } else {
+        var bw = parseFloat(bp);
+        if (!isNaN(bw))
+          bWidth = bw;
+      }
+    }
+    if (!bStyle)
+      bStyle = strAttr(node, "border-style", "");
+    if (bColor) {
+      target.strokes = [solidPaint(bColor)];
+      target.strokeWeight = bWidth;
+      target.strokeAlign = bAlign;
+      if (bStyle && "dashPattern" in target)
+        target.dashPattern = dashPatternFor(bStyle, bWidth);
+      return;
+    }
+  }
+  var bcAttr = strAttr(node, "border-color", "");
+  if (bcAttr && isColorStr(bcAttr)) {
+    var bcWidth = numAttr(node, "border-width", 1);
+    target.strokes = [solidPaint(bcAttr)];
+    target.strokeWeight = bcWidth;
+    var bcAlign = strAttr(node, "border-align", "");
+    target.strokeAlign = bcAlign === "outside" ? "OUTSIDE" : bcAlign === "center" ? "CENTER" : "INSIDE";
+    var bcStyle = strAttr(node, "border-style", "");
+    if (bcStyle && "dashPattern" in target)
+      target.dashPattern = dashPatternFor(bcStyle, bcWidth);
+    return;
+  }
+  var sc = strAttr(node, "stroke", "");
+  if (sc && isColorStr(sc)) {
+    target.strokes = [solidPaint(sc)];
+    target.strokeWeight = numAttr(node, "stroke-width", 1);
+    target.strokeAlign = strAttr(node, "stroke-position", "") === "outside" ? "OUTSIDE" : "INSIDE";
+  }
+}
+function applyChildSizing(child, childNode, parentMode) {
+  if (!("layoutSizingHorizontal" in child))
+    return;
+  var n = child;
+  var canHug = n.type === "TEXT" || n.type === "FRAME" && !!n.layoutMode && n.layoutMode !== "NONE";
+  var wv = childNode["w"], hv = childNode["h"];
+  var wHug = wv === undefined || wv === null || wv === "hug";
+  var hHug = hv === undefined || hv === null || hv === "hug";
+  n.layoutSizingHorizontal = wv === "fill" ? "FILL" : wHug && canHug ? "HUG" : "FIXED";
+  n.layoutSizingVertical = hv === "fill" ? "FILL" : hHug && canHug ? "HUG" : "FIXED";
+}
+function applyRadius(target, parsed) {
+  var t = target;
+  var rv = parsed["radius"];
+  if (typeof rv === "number") {
+    if (rv >= 0 && "cornerRadius" in target)
+      t.cornerRadius = rv;
+  } else if (typeof rv === "string" && rv.trim()) {
+    var nums = rv.trim().split(/\s+/).map(Number).filter(function(x) {
+      return !isNaN(x);
+    });
+    if (nums.length === 1) {
+      if ("cornerRadius" in target)
+        t.cornerRadius = nums[0];
+    } else if ("topLeftRadius" in target) {
+      if (nums.length === 2) {
+        t.topLeftRadius = nums[0];
+        t.topRightRadius = nums[1];
+        t.bottomRightRadius = nums[0];
+        t.bottomLeftRadius = nums[1];
+      } else if (nums.length >= 4) {
+        t.topLeftRadius = nums[0];
+        t.topRightRadius = nums[1];
+        t.bottomRightRadius = nums[2];
+        t.bottomLeftRadius = nums[3];
+      }
+    }
+  }
+  var cs = parsed["corner-smoothing"];
+  if (typeof cs === "number" && cs >= 0 && "cornerSmoothing" in target)
+    t.cornerSmoothing = cs;
+}
+var BLEND_MAP = {
+  normal: "NORMAL",
+  multiply: "MULTIPLY",
+  screen: "SCREEN",
+  overlay: "OVERLAY",
+  darken: "DARKEN",
+  lighten: "LIGHTEN",
+  "color-dodge": "COLOR_DODGE",
+  "color-burn": "COLOR_BURN",
+  "hard-light": "HARD_LIGHT",
+  "soft-light": "SOFT_LIGHT",
+  difference: "DIFFERENCE",
+  exclusion: "EXCLUSION",
+  hue: "HUE",
+  saturation: "SATURATION",
+  color: "COLOR",
+  luminosity: "LUMINOSITY",
+  "linear-burn": "LINEAR_BURN",
+  "linear-dodge": "LINEAR_DODGE"
+};
+var CONSTRAINT_MAP = {
+  left: "MIN",
+  right: "MAX",
+  top: "MIN",
+  bottom: "MAX",
+  center: "CENTER",
+  stretch: "STRETCH",
+  scale: "SCALE"
+};
+function applyTransform2D(node, parsed, rotDeg) {
+  var flip = strAttr(parsed, "flip", "");
+  var sx = numAttr(parsed, "scale-x", 1), sy = numAttr(parsed, "scale-y", 1);
+  var skx = numAttr(parsed, "skew-x", 0), sky = numAttr(parsed, "skew-y", 0);
+  if (flip === "" && sx === 1 && sy === 1 && skx === 0 && sky === 0)
+    return false;
+  if (!("relativeTransform" in node))
+    return false;
+  if (flip === "h" || flip === "both")
+    sx = -sx;
+  if (flip === "v" || flip === "both")
+    sy = -sy;
+  var th = rotDeg * Math.PI / 180;
+  var cos = Math.cos(th), sin = Math.sin(th);
+  var tkx = Math.tan(skx * Math.PI / 180), tky = Math.tan(sky * Math.PI / 180);
+  var ksa = sx, ksc = tkx * sy, ksb = tky * sx, ksd = sy;
+  var a = cos * ksa - sin * ksb;
+  var c = cos * ksc - sin * ksd;
+  var b = sin * ksa + cos * ksb;
+  var d = sin * ksc + cos * ksd;
+  var tt = node;
+  var e = typeof tt.x === "number" ? tt.x : 0;
+  var f = typeof tt.y === "number" ? tt.y : 0;
+  try {
+    tt.relativeTransform = [[a, c, e], [b, d, f]];
+    return true;
+  } catch (err) {
+    return false;
+  }
+}
+function applyVisualMisc(node, parsed) {
+  var t = node;
+  if (parsed["visible"] === false || parsed["visible"] === "false")
+    node.visible = false;
+  var bl = strAttr(parsed, "blend", "");
+  if (bl && bl !== "normal" && bl !== "pass-through" && "blendMode" in node) {
+    var bm = BLEND_MAP[bl];
+    if (bm) {
+      try {
+        t.blendMode = bm;
+      } catch (e) {}
+    }
+  }
+  if ((parsed["mask"] === true || parsed["mask"] === "true") && "isMask" in node) {
+    try {
+      t.isMask = true;
+    } catch (e) {}
+  }
+  var ch = strAttr(parsed, "constraint-h", ""), cv = strAttr(parsed, "constraint-v", "");
+  if ((ch || cv) && "constraints" in node) {
+    try {
+      var cur = t.constraints || { horizontal: "MIN", vertical: "MIN" };
+      t.constraints = {
+        horizontal: ch && CONSTRAINT_MAP[ch] ? CONSTRAINT_MAP[ch] : cur.horizontal,
+        vertical: cv && CONSTRAINT_MAP[cv] ? CONSTRAINT_MAP[cv] : cur.vertical
+      };
+    } catch (e) {}
+  }
+  var rot = numAttr(parsed, "rotation", 0);
+  var transformed = applyTransform2D(node, parsed, rot);
+  if (!transformed && rot !== 0 && "rotation" in node) {
+    try {
+      t.rotation = rot;
+    } catch (e) {}
+  }
+  var minW = parsed["min-width"], maxW = parsed["max-width"];
+  var minH = parsed["min-height"], maxH = parsed["max-height"];
+  try {
+    if (typeof minW === "number" && "minWidth" in node)
+      t.minWidth = minW;
+  } catch (e) {}
+  try {
+    if (typeof maxW === "number" && "maxWidth" in node)
+      t.maxWidth = maxW;
+  } catch (e) {}
+  try {
+    if (typeof minH === "number" && "minHeight" in node)
+      t.minHeight = minH;
+  } catch (e) {}
+  try {
+    if (typeof maxH === "number" && "maxHeight" in node)
+      t.maxHeight = maxH;
+  } catch (e) {}
+}
+async function createNode(parsed, parentMode, parentW, parentH) {
+  var node = await createNodeImpl(parsed, parentMode, parentW, parentH);
+  if (node)
+    applyVisualMisc(node, parsed);
+  return node;
+}
+async function createNodeImpl(parsed, parentMode, parentW, parentH) {
+  var type = strAttr(parsed, "type", "");
+  var w = resolveSize(parsed, "w", parentW);
+  var h = resolveSize(parsed, "h", parentH);
+  if (w <= 0 && !isKeyword(parsed, "w"))
+    w = 10;
+  if (h <= 0 && !isKeyword(parsed, "h"))
+    h = 10;
+  var x = numAttr(parsed, "x", 0);
+  var y = numAttr(parsed, "y", 0);
+  var opacity = numAttr(parsed, "opacity", -1);
+  var isAbs = boolAttr(parsed, "abs");
+  var placeAbsolute = parentMode === "NONE" || isAbs;
+  if (type === "text") {
+    var tn = figma.createText();
+    var fam = strAttr(parsed, "font-family", "Inter");
+    var wt = numAttr(parsed, "font-weight", 400);
+    var itl = strAttr(parsed, "font-style", "normal") === "italic";
+    tn.fontName = await resolveFont(fam, wt, itl);
+    tn.fontSize = numAttr(parsed, "font-size", 14);
+    var segsArr = Array.isArray(parsed["segments"]) ? parsed["segments"] : [];
+    if (segsArr.length > 0) {
+      var segFonts = [];
+      for (var sfi = 0;sfi < segsArr.length; sfi++) {
+        var sFam = strAttr(segsArr[sfi], "font-family", fam);
+        var sWt = numAttr(segsArr[sfi], "font-weight", wt);
+        var sIt = strAttr(segsArr[sfi], "font-style", itl ? "italic" : "normal") === "italic";
+        segFonts.push(await resolveFont(sFam, sWt, sIt));
+      }
+      if (segFonts.length)
+        tn.fontName = segFonts[0];
+      var full = "";
+      var ranges = [];
+      for (var sri = 0;sri < segsArr.length; sri++) {
+        var sval = strAttr(segsArr[sri], "value", "");
+        ranges.push({ start: full.length, end: full.length + sval.length });
+        full += sval;
+      }
+      tn.characters = full;
+      for (var sgi = 0;sgi < segsArr.length; sgi++) {
+        var seg = segsArr[sgi], rg = ranges[sgi];
+        if (rg.end <= rg.start)
+          continue;
+        tn.setRangeFontName(rg.start, rg.end, segFonts[sgi]);
+        var segFs = numAttr(seg, "font-size", 0);
+        if (segFs > 0)
+          tn.setRangeFontSize(rg.start, rg.end, segFs);
+        var segFill = strAttr(seg, "fill", "") || strAttr(seg, "color", "");
+        if (segFill && isColorStr(segFill)) {
+          var sgc = parseColor(segFill);
+          tn.setRangeFills(rg.start, rg.end, [{ type: "SOLID", color: { r: sgc.r, g: sgc.g, b: sgc.b }, opacity: sgc.a }]);
+        }
+        var segDec = strAttr(seg, "decoration", "");
+        if (segDec)
+          tn.setRangeTextDecoration(rg.start, rg.end, segDec === "underline" ? "UNDERLINE" : segDec === "strikethrough" ? "STRIKETHROUGH" : "NONE");
+        var segCase = strAttr(seg, "text-case", "");
+        if (segCase)
+          tn.setRangeTextCase(rg.start, rg.end, segCase === "uppercase" ? "UPPER" : segCase === "lowercase" ? "LOWER" : segCase === "capitalize" ? "TITLE" : segCase === "small-caps-forced" ? "SMALL_CAPS_FORCED" : segCase === "small-caps" ? "SMALL_CAPS" : "ORIGINAL");
+        var segLs = numAttr(seg, "letter-spacing", 0);
+        if (segLs !== 0)
+          tn.setRangeLetterSpacing(rg.start, rg.end, { unit: "PIXELS", value: segLs });
+        var segLhRaw = seg["line-height"];
+        if (typeof segLhRaw === "number" && segLhRaw > 0)
+          tn.setRangeLineHeight(rg.start, rg.end, segLhRaw <= 4 ? { unit: "PERCENT", value: segLhRaw * 100 } : { unit: "PIXELS", value: segLhRaw });
+        var segHref = strAttr(seg, "href", "");
+        if (segHref)
+          tn.setRangeHyperlink(rg.start, rg.end, { type: "URL", value: segHref });
+      }
+    } else {
+      tn.characters = strAttr(parsed, "value", "");
+      var clr = strAttr(parsed, "color", "") || strAttr(parsed, "fill", "");
+      if (clr && isColorStr(clr)) {
+        var cc = parseColor(clr);
+        tn.fills = [{ type: "SOLID", color: { r: cc.r, g: cc.g, b: cc.b }, opacity: cc.a }];
+      } else {
+        applyFills(tn, parsed);
+      }
+      var lhRaw = parsed["line-height"];
+      if (lhRaw !== undefined && lhRaw !== null) {
+        var lh = typeof lhRaw === "number" ? lhRaw : parseFloat(String(lhRaw));
+        if (!isNaN(lh) && lh > 0)
+          tn.lineHeight = lh <= 4 ? { unit: "PERCENT", value: lh * 100 } : { unit: "PIXELS", value: lh };
+      }
+      var ls = numAttr(parsed, "letter-spacing", 0);
+      if (ls !== 0)
+        tn.letterSpacing = { unit: "PIXELS", value: ls };
+      var tcase = strAttr(parsed, "text-case", "");
+      if (tcase)
+        tn.textCase = tcase === "uppercase" ? "UPPER" : tcase === "lowercase" ? "LOWER" : tcase === "capitalize" ? "TITLE" : tcase === "small-caps-forced" ? "SMALL_CAPS_FORCED" : tcase === "small-caps" ? "SMALL_CAPS" : "ORIGINAL";
+      var deco = strAttr(parsed, "decoration", "");
+      if (deco)
+        tn.textDecoration = deco === "underline" ? "UNDERLINE" : deco === "strikethrough" ? "STRIKETHROUGH" : "NONE";
+      var hrefAttr = strAttr(parsed, "href", "");
+      if (hrefAttr && tn.characters.length > 0)
+        tn.setRangeHyperlink(0, tn.characters.length, { type: "URL", value: hrefAttr });
+    }
+    var alignH = strAttr(parsed, "align", "");
+    if (alignH)
+      tn.textAlignHorizontal = alignH === "center" ? "CENTER" : alignH === "right" ? "RIGHT" : alignH === "justified" || alignH === "justify" ? "JUSTIFIED" : "LEFT";
+    var alignV = strAttr(parsed, "vertical-align", "");
+    if (alignV)
+      tn.textAlignVertical = alignV === "center" ? "CENTER" : alignV === "bottom" ? "BOTTOM" : "TOP";
+    var paraSp = parsed["paragraph-spacing"];
+    if (typeof paraSp === "number")
+      tn.paragraphSpacing = paraSp;
+    var paraInd = parsed["paragraph-indent"];
+    if (typeof paraInd === "number")
+      tn.paragraphIndent = paraInd;
+    if (w > 0 && h > 0) {
+      tn.textAutoResize = "NONE";
+      tn.resize(w, h);
+    } else if (w > 0) {
+      tn.textAutoResize = "HEIGHT";
+      tn.resize(w, tn.height);
+    } else {
+      tn.textAutoResize = "WIDTH_AND_HEIGHT";
+    }
+    var wantsTruncate = boolAttr(parsed, "truncate");
+    var maxLinesRaw = parsed["max-lines"];
+    var maxLinesN = typeof maxLinesRaw === "number" ? maxLinesRaw : 0;
+    if (wantsTruncate || maxLinesN > 0) {
+      if (tn.textAutoResize === "WIDTH_AND_HEIGHT")
+        tn.textAutoResize = "HEIGHT";
+      if ("textTruncation" in tn)
+        tn.textTruncation = "ENDING";
+      if (maxLinesN > 0 && "maxLines" in tn)
+        tn.maxLines = maxLinesN;
+    }
+    var tnName = strAttr(parsed, "name", "");
+    if (tnName)
+      tn.name = tnName;
+    if (opacity >= 0)
+      tn.opacity = opacity;
+    if (placeAbsolute) {
+      tn.x = x;
+      tn.y = y;
+    }
+    return tn;
+  }
+  if (type === "svg") {
+    var srcUri = strAttr(parsed, "src", "");
+    var svgStr = "";
+    if (srcUri.startsWith("data:"))
+      svgStr = svgDataUriToString(srcUri);
+    if (!svgStr && parsed["svgContent"]) {
+      svgStr = '<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="' + h + '">' + strAttr(parsed, "svgContent", "") + "</svg>";
+    }
+    if (svgStr) {
+      try {
+        var svgN = figma.createNodeFromSvg(svgStr);
+        if (w > 0 && h > 0)
+          svgN.resize(w, h);
+        if (opacity >= 0)
+          svgN.opacity = opacity;
+        if (placeAbsolute) {
+          svgN.x = x;
+          svgN.y = y;
+        }
+        return svgN;
+      } catch (e) {}
+    }
+    var svgRect = figma.createRectangle();
+    svgRect.resize(w || 24, h || 24);
+    svgRect.fills = [{ type: "SOLID", color: { r: 0.8, g: 0.8, b: 0.8 } }];
+    if (placeAbsolute) {
+      svgRect.x = x;
+      svgRect.y = y;
+    }
+    return svgRect;
+  }
+  if (type === "img") {
+    var imgSrc = strAttr(parsed, "src", "");
+    if (imgSrc.indexOf("image/svg") !== -1) {
+      var svgFromImg = svgDataUriToString(imgSrc);
+      if (svgFromImg) {
+        try {
+          var imgSvgN = figma.createNodeFromSvg(svgFromImg);
+          if (w > 0 && h > 0)
+            imgSvgN.resize(w, h);
+          if (opacity >= 0)
+            imgSvgN.opacity = opacity;
+          if (placeAbsolute) {
+            imgSvgN.x = x;
+            imgSvgN.y = y;
+          }
+          return imgSvgN;
+        } catch (e) {}
+      }
+    }
+    var imgR = figma.createRectangle();
+    imgR.resize(w || 100, h || 100);
+    if (imgSrc && imgSrc.startsWith("data:")) {
+      var imgObj = dataUriToImage(imgSrc);
+      if (imgObj) {
+        var fitMode = strAttr(parsed, "fit", "cover");
+        var imgFill = { type: "IMAGE", imageHash: imgObj.hash, scaleMode: imageScaleMode(fitMode) };
+        var imgF = imageFiltersFrom(parsed);
+        if (imgF)
+          imgFill.filters = imgF;
+        imgR.fills = [imgFill];
+      } else {
+        imgR.fills = [{ type: "SOLID", color: { r: 0.9, g: 0.9, b: 0.9 } }];
+      }
+    } else {
+      imgR.fills = [{ type: "SOLID", color: { r: 0.9, g: 0.9, b: 0.9 } }];
+    }
+    applyRadius(imgR, parsed);
+    applyEffects(imgR, parsed);
+    applyStrokes(imgR, parsed);
+    if (opacity >= 0)
+      imgR.opacity = opacity;
+    if (placeAbsolute) {
+      imgR.x = x;
+      imgR.y = y;
+    }
+    return imgR;
+  }
+  if (type === "shape" || type === "rect") {
+    var rectN = figma.createRectangle();
+    rectN.resize(w || 10, h || 10);
+    applyFills(rectN, parsed, w || 10, h || 10);
+    applyStrokes(rectN, parsed);
+    applyEffects(rectN, parsed);
+    applyRadius(rectN, parsed);
+    if (opacity >= 0)
+      rectN.opacity = opacity;
+    if (placeAbsolute) {
+      rectN.x = x;
+      rectN.y = y;
+    }
+    return rectN;
+  }
+  if (type === "ellipse") {
+    var ellN = figma.createEllipse();
+    ellN.resize(w || 10, h || 10);
+    applyFills(ellN, parsed, w || 10, h || 10);
+    applyStrokes(ellN, parsed);
+    applyEffects(ellN, parsed);
+    if (opacity >= 0)
+      ellN.opacity = opacity;
+    if (placeAbsolute) {
+      ellN.x = x;
+      ellN.y = y;
+    }
+    return ellN;
+  }
+  if (type === "line") {
+    var lineRect = figma.createRectangle();
+    var thick = numAttr(parsed, "thickness", 0) || numAttr(parsed, "stroke-width", 0) || 1;
+    var vertLine = strAttr(parsed, "direction", "") === "vertical" || strAttr(parsed, "direction", "") === "" && parentMode === "HORIZONTAL";
+    var lineFill = strAttr(parsed, "fill", "") || strAttr(parsed, "stroke", "");
+    if (lineFill && isColorStr(lineFill))
+      lineRect.fills = [solidPaint(lineFill)];
+    else
+      applyFills(lineRect, parsed, 0, 0);
+    if (vertLine) {
+      var lh0 = h > 0 ? h : parentH > 0 ? parentH : 1;
+      lineRect.resize(thick, lh0 < 0.01 ? 1 : lh0);
+      if (parsed["h"] === undefined || parsed["h"] === null)
+        parsed["h"] = "fill";
+    } else {
+      var lw0 = w > 0 ? w : parentW > 0 ? parentW : 1;
+      lineRect.resize(lw0 < 0.01 ? 1 : lw0, thick);
+      if (parsed["w"] === undefined || parsed["w"] === null)
+        parsed["w"] = "fill";
+    }
+    if (opacity >= 0)
+      lineRect.opacity = opacity;
+    if (placeAbsolute) {
+      lineRect.x = x;
+      lineRect.y = y;
+    }
+    return lineRect;
+  }
+  if (type === "instance") {
+    var compId = strAttr(parsed, "component", "");
+    var compEntry = compId ? _compRegistry[compId] : null;
+    if (compEntry && compEntry.body) {
+      var instBody = compEntry.body;
+      var bodyClone = {};
+      var bodyKeys = Object.keys(instBody);
+      for (var bk = 0;bk < bodyKeys.length; bk++)
+        bodyClone[bodyKeys[bk]] = instBody[bodyKeys[bk]];
+      if (parsed["w"] !== undefined)
+        bodyClone["w"] = parsed["w"];
+      if (parsed["h"] !== undefined)
+        bodyClone["h"] = parsed["h"];
+      if (parsed["x"] !== undefined)
+        bodyClone["x"] = parsed["x"];
+      if (parsed["y"] !== undefined)
+        bodyClone["y"] = parsed["y"];
+      if (parsed["opacity"] !== undefined)
+        bodyClone["opacity"] = parsed["opacity"];
+      if (parsed["visible"] !== undefined)
+        bodyClone["visible"] = parsed["visible"];
+      var instNode = await createNode(bodyClone, parentMode, parentW, parentH);
+      return instNode;
+    }
+  }
+  var frame = figma.createFrame();
+  frame.name = strAttr(parsed, "id", type) || strAttr(parsed, "name", type);
+  var dirAttr = strAttr(parsed, "direction", "");
+  var isGrid = type === "grid" || type === "stack" && dirAttr === "grid";
+  var isRow = type === "row";
+  var isCol = type === "col";
+  var isStack = type === "stack" && !isGrid;
+  var isAuto = isRow || isCol || isStack || isGrid;
+  var layoutMode = "NONE";
+  if (isAuto) {
+    var pad = parsePadding(parsed);
+    if (isGrid) {
+      layoutMode = "HORIZONTAL";
+      frame.layoutMode = "HORIZONTAL";
+      frame.layoutWrap = "WRAP";
+      var colGapRaw = parsed["grid-col-gap"];
+      if (colGapRaw === undefined)
+        colGapRaw = parsed["col-gap"];
+      var rowGapRaw = parsed["grid-row-gap"];
+      if (rowGapRaw === undefined)
+        rowGapRaw = parsed["row-gap"];
+      var cg = typeof colGapRaw === "number" ? colGapRaw : typeof colGapRaw === "string" ? parseFloat(colGapRaw) : 0;
+      var rg = typeof rowGapRaw === "number" ? rowGapRaw : typeof rowGapRaw === "string" ? parseFloat(rowGapRaw) : 0;
+      frame.itemSpacing = isNaN(cg) ? 0 : cg;
+      if ("counterAxisSpacing" in frame)
+        frame.counterAxisSpacing = isNaN(rg) ? 0 : rg;
+      frame.paddingTop = pad.top;
+      frame.paddingRight = pad.right;
+      frame.paddingBottom = pad.bottom;
+      frame.paddingLeft = pad.left;
+      frame.clipsContent = boolAttr(parsed, "clip");
+    } else {
+      var dir = strAttr(parsed, "direction", type === "row" ? "horizontal" : "vertical");
+      layoutMode = dir === "horizontal" ? "HORIZONTAL" : "VERTICAL";
+      frame.layoutMode = layoutMode;
+      var gapRaw = parsed["gap"];
+      var gapIsAuto = gapRaw === "auto" || gapRaw === true;
+      if (!gapIsAuto) {
+        var gapN = typeof gapRaw === "number" ? gapRaw : typeof gapRaw === "string" ? parseFloat(gapRaw) : 0;
+        frame.itemSpacing = isNaN(gapN) ? 0 : gapN;
+      }
+      frame.paddingTop = pad.top;
+      frame.paddingRight = pad.right;
+      frame.paddingBottom = pad.bottom;
+      frame.paddingLeft = pad.left;
+      var alignStr = strAttr(parsed, "align", "top-left");
+      var al = decodeAlign(alignStr, layoutMode, gapIsAuto);
+      frame.primaryAxisAlignItems = al.primary;
+      frame.counterAxisAlignItems = al.counter;
+      if (boolAttr(parsed, "wrap"))
+        frame.layoutWrap = "WRAP";
+      frame.clipsContent = boolAttr(parsed, "clip");
+    }
+    var wMode = parsed["w"] === undefined || parsed["w"] === null || parsed["w"] === "hug" ? "AUTO" : "FIXED";
+    var hMode = parsed["h"] === undefined || parsed["h"] === null || parsed["h"] === "hug" ? "AUTO" : "FIXED";
+    if (layoutMode === "HORIZONTAL") {
+      frame.primaryAxisSizingMode = wMode;
+      frame.counterAxisSizingMode = hMode;
+    } else {
+      frame.primaryAxisSizingMode = hMode;
+      frame.counterAxisSizingMode = wMode;
+    }
+    if (parsed["w"] !== "fill" && parsed["w"] !== "hug" && w > 0)
+      frame.resize(w, frame.height);
+    if (parsed["h"] !== "fill" && parsed["h"] !== "hug" && h > 0)
+      frame.resize(frame.width, h);
+  } else {
+    frame.resize(w > 0 ? w : frame.width, h > 0 ? h : frame.height);
+    frame.clipsContent = type !== "group";
+    layoutMode = "NONE";
+  }
+  applyFills(frame, parsed, w, h);
+  applyRadius(frame, parsed);
+  if (opacity >= 0)
+    frame.opacity = opacity;
+  applyEffects(frame, parsed);
+  applyStrokes(frame, parsed);
+  if (placeAbsolute) {
+    frame.x = x;
+    frame.y = y;
+  }
+  var children = Array.isArray(parsed["children"]) ? parsed["children"] : [];
+  if (layoutMode === "NONE") {
+    var hasZ = false;
+    for (var zi = 0;zi < children.length; zi++) {
+      if (children[zi]["z-index"] !== undefined) {
+        hasZ = true;
+        break;
+      }
+    }
+    if (hasZ) {
+      var decorated = children.map(function(c, i) {
+        return { c, i, z: zIndexOf(c) };
+      });
+      decorated.sort(function(a, b) {
+        return a.z === b.z ? a.i - b.i : a.z - b.z;
+      });
+      children = decorated.map(function(o) {
+        return o.c;
+      });
+    }
+    if (boolAttr(parsed, "reverse-z"))
+      children = children.slice().reverse();
+  }
+  for (var ci = 0;ci < children.length; ci++) {
+    var ch = children[ci];
+    var chW = resolveSize(ch, "w", w);
+    var chH = resolveSize(ch, "h", h);
+    var child = await createNode(ch, layoutMode, chW > 0 ? chW : w, chH > 0 ? chH : h);
+    if (!child)
+      continue;
+    frame.appendChild(child);
+    if (layoutMode !== "NONE" && boolAttr(ch, "abs")) {
+      if ("layoutPositioning" in child) {
+        child.layoutPositioning = "ABSOLUTE";
+        child.x = numAttr(ch, "x", 0);
+        child.y = numAttr(ch, "y", 0);
+      }
+    } else if (layoutMode !== "NONE") {
+      applyChildSizing(child, ch, layoutMode);
+    }
+  }
+  if (layoutMode === "NONE" && w > 0 && h > 0)
+    frame.resize(w, h);
+  return frame;
+}
+async function importGui(parsed) {
+  if (!parsed || !parsed.root) {
+    figma.notify("No root node in .gui file", { error: true });
+    return;
+  }
+  var notif = figma.notify("Importing…", { timeout: Infinity });
+  try {
+    await preloadFonts(parsed.fonts || {});
+    _compRegistry = {};
+    var comps = parsed.components || {};
+    var compKeys = Object.keys(comps);
+    for (var ci = 0;ci < compKeys.length; ci++) {
+      var cid = compKeys[ci];
+      var cdef = comps[cid];
+      if (cdef && cdef.body) {
+        _compRegistry[cid] = { body: cdef.body };
+      }
+      if (cdef && cdef.variants) {
+        for (var vi = 0;vi < cdef.variants.length; vi++) {
+          var vr = cdef.variants[vi];
+          var vrId = vr.attrs && vr.attrs["id"];
+          if (vrId && vr.body)
+            _compRegistry[vrId] = { body: vr.body };
+        }
+      }
+    }
+    var root = parsed.root;
+    var rootW = typeof root["w"] === "number" ? root["w"] : 0;
+    var rootH = typeof root["h"] === "number" ? root["h"] : 0;
+    var node = await createNode(root, "NONE", rootW, rootH);
+    if (!node) {
+      notif.cancel();
+      figma.notify("Import failed", { error: true });
+      return;
+    }
+    if (parsed.name) {
+      try {
+        node.name = parsed.name;
+      } catch (e) {}
+    }
+    figma.currentPage.appendChild(node);
+    figma.currentPage.selection = [node];
+    figma.viewport.scrollAndZoomIntoView([node]);
+    notif.cancel();
+    figma.notify("Imported ✓");
+  } catch (err) {
+    notif.cancel();
+    figma.notify("Import error: " + (err && err.message ? err.message : String(err)), { error: true });
+  }
+}
+
 // src/code.ts
-figma.showUI(__html__, { width: 480, height: 600, title: "dotgui" });
+var command = figma.command || "inspect";
+if (command === "export") {
+  figma.showUI(__html__, { visible: false });
+} else {
+  figma.showUI(__html__, { width: 480, height: 600, title: "dotgui" });
+}
+figma.ui.postMessage({ type: "command", command });
 var ind = function(depth) {
   return "  ".repeat(depth);
 };
@@ -191,6 +1385,7 @@ async function sendSelection() {
     return;
   }
   figma.ui.postMessage({ type: "loading" });
+  var exportNotify = command === "export" ? figma.notify("Exporting…", { timeout: Infinity }) : null;
   const expNode = node;
   const results = await Promise.all([
     collectAndFetchImages(node),
@@ -227,6 +1422,8 @@ async function sendSelection() {
     seenSvgIds[a.id] = true;
     assetMap[assetSrc(a)] = dataUrl(a);
   }
+  if (exportNotify)
+    exportNotify.cancel();
   figma.ui.postMessage({
     type: "gui",
     code: guiCode,
@@ -242,6 +1439,10 @@ figma.on("selectionchange", sendSelection);
 figma.ui.onmessage = async (msg) => {
   if (msg.type === "close")
     figma.closePlugin();
+  if (msg.type === "import-gui") {
+    await importGui(msg.parsed);
+    figma.closePlugin();
+  }
   if (msg.type === "copy-debug") {
     const sel = figma.currentPage.selection;
     if (sel.length === 1)

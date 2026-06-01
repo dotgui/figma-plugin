@@ -4,5 +4,14 @@
   "api": "1.0.0",
   "main": "dist/code.js",
   "ui": "dist/ui.html",
-  "editorType": ["figma"]
+  "editorType": ["figma"],
+  "networkAccess": {
+    "allowedDomains": ["*"],
+    "reasoning": "Imported .gui files reference images and icons by arbitrary external URL (e.g. Unsplash photos, Iconify icons); these are fetched and inlined during import."
+  },
+  "menu": [
+    { "name": "Export", "command": "export" },
+    { "name": "Import", "command": "import" },
+    { "name": "Inspect", "command": "inspect" }
+  ]
 }
