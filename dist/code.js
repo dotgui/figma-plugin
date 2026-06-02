@@ -3,10 +3,21 @@ var google_fonts_compact_default = [{ family: "ABeeZee", category: "sans-serif",
 
 // src/import.ts
 var _compRegistry = {};
+var _textStyles = {};
 function numAttr(node, key, fallback) {
   var v = node[key];
   if (typeof v === "number")
     return v;
+  if (typeof v === "string") {
+    var p = parseFloat(v);
+    if (!isNaN(p))
+      return p;
+  }
+  return fallback;
+}
+function toNum(v, fallback) {
+  if (typeof v === "number")
+    return isFinite(v) ? v : fallback;
   if (typeof v === "string") {
     var p = parseFloat(v);
     if (!isNaN(p))
@@ -427,17 +438,17 @@ function applyEffects(target, node) {
       if (ef.type === "drop-shadow" || ef.type === "inner-shadow") {
         effects.push({
           type: ef.type === "drop-shadow" ? "DROP_SHADOW" : "INNER_SHADOW",
-          color: { r: c.r, g: c.g, b: c.b, a: ef.opacity !== undefined ? ef.opacity : c.a },
-          offset: { x: ef.x || 0, y: ef.y || 0 },
-          radius: ef.radius || 0,
-          spread: ef.spread || 0,
+          color: { r: c.r, g: c.g, b: c.b, a: ef.opacity !== undefined ? toNum(ef.opacity, c.a) : c.a },
+          offset: { x: toNum(ef.x, 0), y: toNum(ef.y, 0) },
+          radius: toNum(ef.radius, 0),
+          spread: toNum(ef.spread, 0),
           visible: true,
           blendMode: "NORMAL"
         });
       } else if (ef.type === "layer-blur") {
-        effects.push({ type: "LAYER_BLUR", radius: ef.radius || 0, visible: true });
+        effects.push({ type: "LAYER_BLUR", radius: toNum(ef.radius, 0), visible: true });
       } else if (ef.type === "background-blur") {
-        effects.push({ type: "BACKGROUND_BLUR", radius: ef.radius || 0, visible: true });
+        effects.push({ type: "BACKGROUND_BLUR", radius: toNum(ef.radius, 0), visible: true });
       }
     }
   }
@@ -556,6 +567,16 @@ function applyStrokes(target, node) {
     target.strokeAlign = strAttr(node, "stroke-position", "") === "outside" ? "OUTSIDE" : "INSIDE";
   }
 }
+function parentHugsAxis(parent, horizontal) {
+  if (!parent)
+    return false;
+  var p = parent;
+  if (!p.layoutMode || p.layoutMode === "NONE")
+    return false;
+  var axisIsPrimary = p.layoutMode === "HORIZONTAL" === horizontal;
+  var mode = axisIsPrimary ? p.primaryAxisSizingMode : p.counterAxisSizingMode;
+  return mode === "AUTO";
+}
 function applyChildSizing(child, childNode, parentMode) {
   if (!("layoutSizingHorizontal" in child))
     return;
@@ -564,8 +585,14 @@ function applyChildSizing(child, childNode, parentMode) {
   var wv = childNode["w"], hv = childNode["h"];
   var wHug = wv === undefined || wv === null || wv === "hug";
   var hHug = hv === undefined || hv === null || hv === "hug";
-  n.layoutSizingHorizontal = wv === "fill" ? "FILL" : wHug && canHug ? "HUG" : "FIXED";
-  n.layoutSizingVertical = hv === "fill" ? "FILL" : hHug && canHug ? "HUG" : "FIXED";
+  var fillW = wv === "fill" && !parentHugsAxis(n.parent, true);
+  var fillH = hv === "fill" && !parentHugsAxis(n.parent, false);
+  try {
+    n.layoutSizingHorizontal = fillW ? "FILL" : wHug && canHug ? "HUG" : "FIXED";
+  } catch (e) {}
+  try {
+    n.layoutSizingVertical = fillH ? "FILL" : hHug && canHug ? "HUG" : "FIXED";
+  } catch (e) {}
 }
 function applyRadius(target, parsed) {
   var t = target;
@@ -710,6 +737,88 @@ function applyVisualMisc(node, parsed) {
     if (typeof maxH === "number" && "maxHeight" in node)
       t.maxHeight = maxH;
   } catch (e) {}
+}
+var RESERVED_INSTANCE_KEYS = {
+  component: true,
+  name: true,
+  type: true,
+  children: true,
+  segments: true,
+  appearance: true,
+  x: true,
+  y: true,
+  w: true,
+  h: true,
+  opacity: true,
+  visible: true
+};
+function deepCloneNode(n) {
+  var out = {};
+  var keys = Object.keys(n);
+  for (var i = 0;i < keys.length; i++) {
+    var k = keys[i];
+    var v = n[k];
+    if ((k === "children" || k === "segments") && Array.isArray(v)) {
+      var arr = [];
+      for (var j = 0;j < v.length; j++)
+        arr.push(deepCloneNode(v[j]));
+      out[k] = arr;
+    } else {
+      out[k] = v;
+    }
+  }
+  return out;
+}
+function findNodeById(node, id) {
+  if (node["id"] === id)
+    return node;
+  var kids = Array.isArray(node["children"]) ? node["children"] : [];
+  for (var i = 0;i < kids.length; i++) {
+    var found = findNodeById(kids[i], id);
+    if (found)
+      return found;
+  }
+  return null;
+}
+function applyTextStyleOverride(target, styleName) {
+  var style = _textStyles[styleName];
+  if (!style)
+    return;
+  var attrs = Object.keys(style);
+  for (var i = 0;i < attrs.length; i++) {
+    var a = attrs[i];
+    if (a === "name")
+      continue;
+    target[a] = style[a];
+  }
+}
+function applyInstanceOverrides(body, inst) {
+  var keys = Object.keys(inst);
+  for (var i = 0;i < keys.length; i++) {
+    var k = keys[i];
+    if (RESERVED_INSTANCE_KEYS[k] === true)
+      continue;
+    var v = inst[k];
+    if (k.length > 5 && k.substring(k.length - 5) === "-text") {
+      var baseId = k.substring(0, k.length - 5);
+      var styleTarget = findNodeById(body, baseId);
+      if (styleTarget && typeof v === "string") {
+        applyTextStyleOverride(styleTarget, v);
+        continue;
+      }
+    }
+    var target = findNodeById(body, k);
+    if (target) {
+      if (v === "false" || v === false)
+        target["visible"] = "false";
+      else if (v === "true" || v === true)
+        target["visible"] = "true";
+      else
+        target["value"] = v;
+      continue;
+    }
+    body[k] = v;
+  }
 }
 async function createNode(parsed, parentMode, parentW, parentH) {
   var node = await createNodeImpl(parsed, parentMode, parentW, parentH);
@@ -995,11 +1104,8 @@ async function createNodeImpl(parsed, parentMode, parentW, parentH) {
     var compId = strAttr(parsed, "component", "");
     var compEntry = compId ? _compRegistry[compId] : null;
     if (compEntry && compEntry.body) {
-      var instBody = compEntry.body;
-      var bodyClone = {};
-      var bodyKeys = Object.keys(instBody);
-      for (var bk = 0;bk < bodyKeys.length; bk++)
-        bodyClone[bodyKeys[bk]] = instBody[bodyKeys[bk]];
+      var bodyClone = deepCloneNode(compEntry.body);
+      applyInstanceOverrides(bodyClone, parsed);
       if (parsed["w"] !== undefined)
         bodyClone["w"] = parsed["w"];
       if (parsed["h"] !== undefined)
@@ -1138,6 +1244,15 @@ async function createNodeImpl(parsed, parentMode, parentW, parentH) {
       applyChildSizing(child, ch, layoutMode);
     }
   }
+  if (isAuto && children.length > 0) {
+    if (layoutMode === "HORIZONTAL") {
+      frame.primaryAxisSizingMode = wMode;
+      frame.counterAxisSizingMode = hMode;
+    } else if (layoutMode === "VERTICAL") {
+      frame.primaryAxisSizingMode = hMode;
+      frame.counterAxisSizingMode = wMode;
+    }
+  }
   if (isAuto && children.length === 0) {
     var emptyW = isHugSize(parsed, "w");
     var emptyH = isHugSize(parsed, "h");
@@ -1168,6 +1283,7 @@ async function importGui(parsed) {
   var notif = figma.notify("Importing…", { timeout: Infinity });
   try {
     await preloadFonts(parsed.fonts || {});
+    _textStyles = parsed.styles || {};
     _compRegistry = {};
     var comps = parsed.components || {};
     var compKeys = Object.keys(comps);

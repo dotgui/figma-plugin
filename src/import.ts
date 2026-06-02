@@ -17,10 +17,12 @@ interface ImportParsedGUI {
   fonts: Record<string, { source?: string; weights?: string; styles?: string }>
   name?: string | null
   components?: Record<string, { id: string; props: unknown[]; body: ImportNode | null; variants?: Array<{ attrs: Record<string, string>; body: ImportNode | null }> }>
+  styles?: Record<string, Record<string, string>>
 }
 
-// Module-level component registry populated before the node walk
+// Module-level registries populated before the node walk
 var _compRegistry: Record<string, { body: ImportNode | null }> = {}
+var _textStyles: Record<string, Record<string, string>> = {}
 
 // ---------------------------------------------------------------------------
 // Attribute helpers
@@ -29,6 +31,12 @@ var _compRegistry: Record<string, { body: ImportNode | null }> = {}
 function numAttr(node: ImportNode, key: string, fallback: number): number {
   var v = node[key]
   if (typeof v === 'number') return v
+  if (typeof v === 'string') { var p = parseFloat(v); if (!isNaN(p)) return p }
+  return fallback
+}
+
+function toNum(v: any, fallback: number): number {
+  if (typeof v === 'number') return isFinite(v) ? v : fallback
   if (typeof v === 'string') { var p = parseFloat(v); if (!isNaN(p)) return p }
   return fallback
 }
@@ -418,13 +426,13 @@ function applyEffects(target: BlendMixin, node: ImportNode): void {
       var c = parseColor(ef.color || '#000000')
       if (ef.type === 'drop-shadow' || ef.type === 'inner-shadow') {
         effects.push({ type: ef.type==='drop-shadow'?'DROP_SHADOW':'INNER_SHADOW',
-          color: { r:c.r, g:c.g, b:c.b, a: ef.opacity!==undefined ? ef.opacity : c.a },
-          offset: { x: ef.x||0, y: ef.y||0 }, radius: ef.radius||0, spread: ef.spread||0,
+          color: { r:c.r, g:c.g, b:c.b, a: ef.opacity!==undefined ? toNum(ef.opacity, c.a) : c.a },
+          offset: { x: toNum(ef.x, 0), y: toNum(ef.y, 0) }, radius: toNum(ef.radius, 0), spread: toNum(ef.spread, 0),
           visible: true, blendMode: 'NORMAL' } as DropShadowEffect)
       } else if (ef.type === 'layer-blur') {
-        effects.push({ type: 'LAYER_BLUR', radius: ef.radius||0, visible: true } as BlurEffect)
+        effects.push({ type: 'LAYER_BLUR', radius: toNum(ef.radius, 0), visible: true } as BlurEffect)
       } else if (ef.type === 'background-blur') {
-        effects.push({ type: 'BACKGROUND_BLUR', radius: ef.radius||0, visible: true } as BlurEffect)
+        effects.push({ type: 'BACKGROUND_BLUR', radius: toNum(ef.radius, 0), visible: true } as BlurEffect)
       }
     }
   }
@@ -534,6 +542,17 @@ function applyStrokes(target: GeometryMixin, node: ImportNode): void {
 // Sizing helpers for auto-layout children
 // ---------------------------------------------------------------------------
 
+// A child may only be set to FILL on an axis if its parent does NOT hug that
+// axis — Figma throws otherwise, which (uncaught) aborts the whole import.
+function parentHugsAxis(parent: BaseNode | null, horizontal: boolean): boolean {
+  if (!parent) return false
+  var p = parent as any
+  if (!p.layoutMode || p.layoutMode === 'NONE') return false
+  var axisIsPrimary = (p.layoutMode === 'HORIZONTAL') === horizontal
+  var mode = axisIsPrimary ? p.primaryAxisSizingMode : p.counterAxisSizingMode
+  return mode === 'AUTO'
+}
+
 function applyChildSizing(child: SceneNode, childNode: ImportNode, parentMode: 'HORIZONTAL' | 'VERTICAL'): void {
   if (!('layoutSizingHorizontal' in child)) return
   var n = child as FrameNode
@@ -543,8 +562,13 @@ function applyChildSizing(child: SceneNode, childNode: ImportNode, parentMode: '
   var wv = childNode['w'], hv = childNode['h']
   var wHug = (wv === undefined || wv === null || wv === 'hug')
   var hHug = (hv === undefined || hv === null || hv === 'hug')
-  n.layoutSizingHorizontal = wv==='fill' ? 'FILL' : (wHug && canHug) ? 'HUG' : 'FIXED'
-  n.layoutSizingVertical   = hv==='fill' ? 'FILL' : (hHug && canHug) ? 'HUG' : 'FIXED'
+  // A FILL child inside a parent that hugs the same axis is illegal in Figma
+  // (the design exported this way because Figma's editor silently tolerates it).
+  // Downgrade to HUG when possible, else FIXED, so the import never throws.
+  var fillW = wv === 'fill' && !parentHugsAxis(n.parent, true)
+  var fillH = hv === 'fill' && !parentHugsAxis(n.parent, false)
+  try { n.layoutSizingHorizontal = fillW ? 'FILL' : (wHug && canHug) ? 'HUG' : 'FIXED' } catch (e) {}
+  try { n.layoutSizingVertical   = fillH ? 'FILL' : (hHug && canHug) ? 'HUG' : 'FIXED' } catch (e) {}
 }
 
 // ---------------------------------------------------------------------------
@@ -651,6 +675,91 @@ function applyVisualMisc(node: SceneNode, parsed: ImportNode): void {
   try { if (typeof maxW === 'number' && 'maxWidth' in node)  t.maxWidth = maxW } catch (e) {}
   try { if (typeof minH === 'number' && 'minHeight' in node) t.minHeight = minH } catch (e) {}
   try { if (typeof maxH === 'number' && 'maxHeight' in node) t.maxHeight = maxH } catch (e) {}
+}
+
+// ---------------------------------------------------------------------------
+// Instance overrides — apply per-node property overrides to a component body
+// ---------------------------------------------------------------------------
+
+// Keys handled elsewhere (instance geometry) or structural — never treated as overrides.
+var RESERVED_INSTANCE_KEYS: Record<string, boolean> = {
+  component: true, name: true, type: true, children: true, segments: true,
+  appearance: true, x: true, y: true, w: true, h: true, opacity: true, visible: true,
+}
+
+// Deep-clone the node tree so instance overrides mutate a private copy, never the
+// shared registry body. Appearance/fill/effect objects are never mutated by
+// overrides, so they're shared by reference.
+function deepCloneNode(n: ImportNode): ImportNode {
+  var out: ImportNode = {} as ImportNode
+  var keys = Object.keys(n)
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i]
+    var v = n[k]
+    if ((k === 'children' || k === 'segments') && Array.isArray(v)) {
+      var arr: ImportNode[] = []
+      for (var j = 0; j < v.length; j++) arr.push(deepCloneNode(v[j] as ImportNode))
+      out[k] = arr
+    } else {
+      out[k] = v
+    }
+  }
+  return out
+}
+
+function findNodeById(node: ImportNode, id: string): ImportNode | null {
+  if (node['id'] === id) return node
+  var kids = Array.isArray(node['children']) ? node['children'] as ImportNode[] : []
+  for (var i = 0; i < kids.length; i++) {
+    var found = findNodeById(kids[i], id)
+    if (found) return found
+  }
+  return null
+}
+
+// Re-apply a named text style's typography attrs onto a target text node.
+function applyTextStyleOverride(target: ImportNode, styleName: string): void {
+  var style = _textStyles[styleName]
+  if (!style) return
+  var attrs = Object.keys(style)
+  for (var i = 0; i < attrs.length; i++) {
+    var a = attrs[i]
+    if (a === 'name') continue
+    target[a] = style[a]
+  }
+}
+
+// Apply instance property overrides to its (already deep-cloned) component body.
+// Override key = node id in the body; value drives that node:
+//   "true"/"false"          → visibility
+//   "{id}-text" = styleName → re-apply a named text style to node {id}
+//   otherwise               → text value
+// Keys that match no node id fall back to the body root (e.g. radius, blend).
+function applyInstanceOverrides(body: ImportNode, inst: ImportNode): void {
+  var keys = Object.keys(inst)
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i]
+    if (RESERVED_INSTANCE_KEYS[k] === true) continue
+    var v = inst[k]
+
+    // Text-style override: "{nodeId}-text" → re-apply named style to that node.
+    if (k.length > 5 && k.substring(k.length - 5) === '-text') {
+      var baseId = k.substring(0, k.length - 5)
+      var styleTarget = findNodeById(body, baseId)
+      if (styleTarget && typeof v === 'string') { applyTextStyleOverride(styleTarget, v); continue }
+    }
+
+    var target = findNodeById(body, k)
+    if (target) {
+      if (v === 'false' || v === false) target['visible'] = 'false'
+      else if (v === 'true' || v === true) target['visible'] = 'true'
+      else target['value'] = v
+      continue
+    }
+
+    // Not a node id → apply to body root (radius, blend, etc.).
+    body[k] = v
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -905,12 +1014,11 @@ async function createNodeImpl(
     var compId = strAttr(parsed, 'component', '')
     var compEntry = compId ? _compRegistry[compId] : null
     if (compEntry && compEntry.body) {
-      // Render the component body inline at the instance's position/size
-      var instBody = compEntry.body
-      // Merge instance-level overrides: copy instance's x/y/w/h onto a shallow copy of the body
-      var bodyClone: ImportNode = {}
-      var bodyKeys = Object.keys(instBody)
-      for (var bk = 0; bk < bodyKeys.length; bk++) bodyClone[bodyKeys[bk]] = instBody[bodyKeys[bk]]
+      // Render the component body inline at the instance's position/size.
+      // Deep-clone so per-node overrides mutate a private copy, not the shared body.
+      var bodyClone: ImportNode = deepCloneNode(compEntry.body)
+      // Apply per-node property overrides (text, visibility, text-style, root styles).
+      applyInstanceOverrides(bodyClone, parsed)
       // Instance w/h/x/y override the component body defaults
       if (parsed['w'] !== undefined) bodyClone['w'] = parsed['w']
       if (parsed['h'] !== undefined) bodyClone['h'] = parsed['h']
@@ -1045,6 +1153,18 @@ async function createNodeImpl(
     }
   }
 
+  // Re-assert hug sizing now that children exist. Setting AUTO on an empty frame
+  // at creation and then appending children does not always re-hug in Figma —
+  // top-level sections under the absolute (NONE-layout) root can stay collapsed
+  // at the default 100x100. Re-applying with children in place forces a recompute.
+  if (isAuto && children.length > 0) {
+    if (layoutMode === 'HORIZONTAL') {
+      frame.primaryAxisSizingMode = wMode; frame.counterAxisSizingMode = hMode
+    } else if (layoutMode === 'VERTICAL') {
+      frame.primaryAxisSizingMode = hMode; frame.counterAxisSizingMode = wMode
+    }
+  }
+
   if (isAuto && children.length === 0) {
     var emptyW = isHugSize(parsed, 'w')
     var emptyH = isHugSize(parsed, 'h')
@@ -1079,6 +1199,9 @@ export async function importGui(parsed: ImportParsedGUI): Promise<void> {
   try {
     await preloadFonts(parsed.fonts || {})
 
+    // Text-style registry so instance "{id}-text" overrides can re-resolve typography
+    _textStyles = parsed.styles || {}
+
     // Build component registry so instances can look up their body
     _compRegistry = {}
     var comps = parsed.components || {}
@@ -1109,6 +1232,7 @@ export async function importGui(parsed: ImportParsedGUI): Promise<void> {
     if (parsed.name) { try { (node as FrameNode).name = parsed.name } catch(e){} }
 
     figma.currentPage.appendChild(node as SceneNode)
+
     figma.currentPage.selection = [node as SceneNode]
     figma.viewport.scrollAndZoomIntoView([node as SceneNode])
     notif.cancel()
