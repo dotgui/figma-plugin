@@ -51,6 +51,10 @@ function isKeyword(node, key) {
   var v = node[key];
   return v === "fill" || v === "hug" || v === undefined || v === null;
 }
+function isHugSize(node, key) {
+  var v = node[key];
+  return v === "hug" || v === undefined || v === null;
+}
 function parsePadding(node) {
   var pt = node["pt"], pr = node["pr"], pb = node["pb"], pl = node["pl"];
   if (pt !== undefined || pr !== undefined || pb !== undefined || pl !== undefined) {
@@ -1132,6 +1136,24 @@ async function createNodeImpl(parsed, parentMode, parentW, parentH) {
       }
     } else if (layoutMode !== "NONE") {
       applyChildSizing(child, ch, layoutMode);
+    }
+  }
+  if (isAuto && children.length === 0) {
+    var emptyW = isHugSize(parsed, "w");
+    var emptyH = isHugSize(parsed, "h");
+    if (emptyW || emptyH) {
+      if (layoutMode === "HORIZONTAL") {
+        if (emptyW)
+          frame.primaryAxisSizingMode = "FIXED";
+        if (emptyH)
+          frame.counterAxisSizingMode = "FIXED";
+      } else if (layoutMode === "VERTICAL") {
+        if (emptyW)
+          frame.counterAxisSizingMode = "FIXED";
+        if (emptyH)
+          frame.primaryAxisSizingMode = "FIXED";
+      }
+      frame.resize(emptyW ? 1 : frame.width, emptyH ? 1 : frame.height);
     }
   }
   if (layoutMode === "NONE" && w > 0 && h > 0)
