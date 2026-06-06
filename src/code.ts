@@ -5,6 +5,8 @@ var command = figma.command || 'inspect'
 
 if (command === 'export') {
   figma.showUI(__html__, { visible: false })
+} else if (command === 'import') {
+  figma.showUI(__html__, { width: 360, height: 340, title: 'dotgui — Import' })
 } else {
   figma.showUI(__html__, { width: 480, height: 600, title: 'dotgui' })
 }
@@ -315,7 +317,11 @@ figma.on('selectionchange', sendSelection)
 figma.ui.onmessage = async (msg: any) => {
   if (msg.type === 'close') figma.closePlugin()
   if (msg.type === 'import-gui') {
-    await importGui(msg.parsed)
+    try {
+      await importGui(msg.parsed, msg.options)
+    } catch (e) {
+      figma.notify('Import failed')
+    }
     figma.closePlugin()
   }
   if (msg.type === 'copy-debug') {

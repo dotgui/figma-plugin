@@ -16,13 +16,35 @@ interface ImportParsedGUI {
   assets: Record<string, string>
   fonts: Record<string, { source?: string; weights?: string; styles?: string }>
   name?: string | null
-  components?: Record<string, { id: string; props: unknown[]; body: ImportNode | null; variants?: Array<{ attrs: Record<string, string>; body: ImportNode | null }> }>
+  components?: Record<string, ImportComponentDef>
   styles?: Record<string, Record<string, string>>
+}
+interface ImportComponentVariant { id: string; attrs: Record<string, string>; body: ImportNode | null }
+interface ImportComponentDef { id: string; name?: string; props: ImportProp[]; body: ImportNode | null; variants?: ImportComponentVariant[] }
+interface ImportProp { name: string; type: string; target: string; bind?: string }
+
+// A real Figma component built from a <component> body, with its property bindings.
+interface ComponentBuild {
+  component: ComponentNode
+  // prop name → Figma component property id ("name#nnn") + kind, for setProperties()
+  bound: Record<string, { propId: string; kind: 'TEXT' | 'BOOLEAN' }>
+  // prop name → body node id, for overrides Figma props can't express (e.g. image src)
+  direct: Record<string, { targetId: string }>
+  // body root sizing keywords, so the caller's applyChildSizing fills/hugs correctly
+  bodyW: unknown
+  bodyH: unknown
+  // body node id → node type, so instances using node-id overrides (no <props>)
+  // can locate sublayers by name and override text/visibility/image directly.
+  nodeKinds: Record<string, string>
 }
 
 // Module-level registries populated before the node walk
 var _compRegistry: Record<string, { body: ImportNode | null }> = {}
+var _componentDefs: Record<string, ComponentBuild> = {}
 var _textStyles: Record<string, Record<string, string>> = {}
+// When set, createNode records id → SceneNode for every node it builds (used to
+// locate prop-target nodes while building a component body).
+var _captureIds: Record<string, SceneNode> | null = null
 
 // ---------------------------------------------------------------------------
 // Attribute helpers
@@ -165,9 +187,47 @@ function isColorStr(s: string): boolean {
   return s.charAt(0) === '#' || s.indexOf('rgb') === 0
 }
 
+// Import options (set by importGui). When _useComponents is off the importer
+// inlines component bodies as plain frames; when _useVariables is off colors are
+// applied as raw hex instead of being bound to Figma color variables.
+var _useComponents = true
+var _useVariables = false
+var _colorCollection: VariableCollection | null = null
+var _colorModeId = ''
+var _colorVars: Record<string, Variable> = {}
+
+function hexChan(n: number): string {
+  var h = Math.round(n * 255).toString(16)
+  return h.length === 1 ? '0' + h : h
+}
+
+// Reuse or create a COLOR variable for a given resolved color. Returns null if
+// the variables API is unavailable so callers fall back to a plain paint.
+function colorVariableFor(c: { r: number; g: number; b: number }): Variable | null {
+  try {
+    var name = hexChan(c.r) + hexChan(c.g) + hexChan(c.b)
+    if (_colorVars[name]) return _colorVars[name]
+    if (!_colorCollection) {
+      _colorCollection = figma.variables.createVariableCollection('dotgui colors')
+      _colorModeId = _colorCollection.modes[0].modeId
+    }
+    var v = figma.variables.createVariable('#' + name, _colorCollection, 'COLOR')
+    v.setValueForMode(_colorModeId, { r: c.r, g: c.g, b: c.b, a: 1 })
+    _colorVars[name] = v
+    return v
+  } catch (e) { return null }
+}
+
 function solidPaint(hex: string, alpha?: number): SolidPaint {
   var c = parseColor(hex)
-  return { type: 'SOLID', color: { r: c.r, g: c.g, b: c.b }, opacity: alpha !== undefined ? alpha : c.a }
+  var paint: SolidPaint = { type: 'SOLID', color: { r: c.r, g: c.g, b: c.b }, opacity: alpha !== undefined ? alpha : c.a }
+  if (_useVariables) {
+    var v = colorVariableFor(c)
+    if (v) {
+      try { return figma.variables.setBoundVariableForPaint(paint, 'color', v) as SolidPaint } catch (e) {}
+    }
+  }
+  return paint
 }
 
 // ---------------------------------------------------------------------------
@@ -558,7 +618,7 @@ function applyChildSizing(child: SceneNode, childNode: ImportNode, parentMode: '
   var n = child as FrameNode
   // Only auto-layout frames and text can HUG. Figma throws if HUG is set on a
   // rectangle/ellipse/line/image/svg, so those fall back to FIXED.
-  var canHug = n.type === 'TEXT' || (n.type === 'FRAME' && !!n.layoutMode && n.layoutMode !== 'NONE')
+  var canHug = n.type === 'TEXT' || n.type === 'INSTANCE' || (n.type === 'FRAME' && !!n.layoutMode && n.layoutMode !== 'NONE')
   var wv = childNode['w'], hv = childNode['h']
   var wHug = (wv === undefined || wv === null || wv === 'hug')
   var hHug = (hv === undefined || hv === null || hv === 'hug')
@@ -567,6 +627,16 @@ function applyChildSizing(child: SceneNode, childNode: ImportNode, parentMode: '
   // Downgrade to HUG when possible, else FIXED, so the import never throws.
   var fillW = wv === 'fill' && !parentHugsAxis(n.parent, true)
   var fillH = hv === 'fill' && !parentHugsAxis(n.parent, false)
+  // A width-less <text> in a column with a definite width should fill that width
+  // and wrap (matching gui-render's display:block block-level text). Without this
+  // it hugs to a single overflowing line. Only when width is truly absent — an
+  // explicit w="hug" still hugs, and text on a row's primary axis still hugs.
+  if (n.type === 'TEXT' && (wv === undefined || wv === null) &&
+      parentMode === 'VERTICAL' && !parentHugsAxis(n.parent, true)) {
+    try { (n as any).textAutoResize = 'HEIGHT' } catch (e) {}
+    fillW = true
+    wHug = false
+  }
   try { n.layoutSizingHorizontal = fillW ? 'FILL' : (wHug && canHug) ? 'HUG' : 'FIXED' } catch (e) {}
   try { n.layoutSizingVertical   = fillH ? 'FILL' : (hHug && canHug) ? 'HUG' : 'FIXED' } catch (e) {}
 }
@@ -762,6 +832,288 @@ function applyInstanceOverrides(body: ImportNode, inst: ImportNode): void {
   }
 }
 
+// Merge a single componentPropertyReferences binding without dropping existing ones.
+function bindPropRef(node: SceneNode, field: string, propId: string): void {
+  var any = node as any
+  var refs = any.componentPropertyReferences
+  var next: Record<string, string> = {}
+  if (refs) { var rk = Object.keys(refs); for (var i = 0; i < rk.length; i++) next[rk[i]] = refs[rk[i]] }
+  next[field] = propId
+  any.componentPropertyReferences = next
+}
+
+// Build a real Figma ComponentNode for every plain <component> with a body, wiring
+// up its text/visibility props as Figma component properties. Component-sets and
+// variant entries are left unbuilt so instances of them fall back to inline render.
+// Build a single Figma ComponentNode from a component/variant body, wiring its
+// declared <props> as Figma component properties and naming every identified
+// node by id (so node-id overrides can find sublayers). Returns the build, or
+// null if the body couldn't become a frame. Does NOT position the component.
+async function buildOneComponent(displayName: string, props: ImportProp[], body: ImportNode): Promise<ComponentBuild | null> {
+  var idMap: Record<string, SceneNode> = {}
+  var prevCapture = _captureIds
+  _captureIds = idMap
+  try {
+    var bodyClone = deepCloneNode(body)
+    var bw = typeof bodyClone['w'] === 'number' ? bodyClone['w'] as number : 0
+    var bh = typeof bodyClone['h'] === 'number' ? bodyClone['h'] as number : 0
+    var bodyNode = await createNode(bodyClone, 'NONE', bw, bh)
+    _captureIds = prevCapture
+    if (!bodyNode || bodyNode.type !== 'FRAME') { if (bodyNode) bodyNode.remove(); return null }
+
+    // Name every identified node by its .gui id and record its type, so that
+    // instances can find sublayers by name to apply node-id overrides. Must
+    // happen before createComponentFromNode so the names persist.
+    var nodeKinds: Record<string, string> = {}
+    var capIds = Object.keys(idMap)
+    for (var ki = 0; ki < capIds.length; ki++) {
+      var capId = capIds[ki]
+      try { idMap[capId].name = capId } catch (e) {}
+      nodeKinds[capId] = idMap[capId].type
+    }
+
+    var comp = figma.createComponentFromNode(bodyNode as FrameNode)
+    comp.name = displayName
+
+    var bound: Record<string, { propId: string; kind: 'TEXT' | 'BOOLEAN' }> = {}
+    var direct: Record<string, { targetId: string }> = {}
+    var plist = Array.isArray(props) ? props : []
+    for (var pi = 0; pi < plist.length; pi++) {
+      var pr = plist[pi]
+      if (!pr || !pr.name || !pr.target) continue
+      var tnode = idMap[pr.target]
+      if (!tnode) continue
+      try {
+        if (pr.type === 'visible') {
+          var defVis = (tnode as any).visible !== false
+          var vid = comp.addComponentProperty(pr.name, 'BOOLEAN', defVis)
+          bindPropRef(tnode, 'visible', vid)
+          bound[pr.name] = { propId: vid, kind: 'BOOLEAN' }
+        } else if (tnode.type === 'TEXT') {
+          var defTxt = (tnode as TextNode).characters || ''
+          var tid = comp.addComponentProperty(pr.name, 'TEXT', defTxt)
+          bindPropRef(tnode, 'characters', tid)
+          bound[pr.name] = { propId: tid, kind: 'TEXT' }
+        } else {
+          tnode.name = pr.target
+          direct[pr.name] = { targetId: pr.target }
+        }
+      } catch (e) {}
+    }
+
+    return { component: comp, bound: bound, direct: direct, bodyW: body['w'], bodyH: body['h'], nodeKinds: nodeKinds }
+  } catch (e) {
+    _captureIds = prevCapture
+    return null
+  }
+}
+
+// Build a Figma variant name ("Prop=Value, Prop2=Value2") from variant attrs.
+function variantName(attrs: Record<string, string>): string {
+  if (!attrs) return ''
+  var keys = Object.keys(attrs)
+  var parts: string[] = []
+  for (var i = 0; i < keys.length; i++) parts.push(keys[i] + '=' + String(attrs[keys[i]]))
+  return parts.join(', ')
+}
+
+// Build real Figma components for every <component>, and reassemble each
+// <component-set> into a Figma ComponentSet via combineAsVariants so variants
+// stay grouped. Instances look up their built def by (variant) id.
+async function buildComponents(comps: Record<string, ImportComponentDef>): Promise<void> {
+  _componentDefs = {}
+  var keys = Object.keys(comps)
+  var offsetY = 0
+
+  // Variant ids that belong to a set — the parser also registers them as
+  // standalone entries, which we must not build a second time.
+  var setMembers: Record<string, boolean> = {}
+  for (var si = 0; si < keys.length; si++) {
+    var sdef = comps[keys[si]]
+    if (sdef && sdef.variants) {
+      for (var sv = 0; sv < sdef.variants.length; sv++) {
+        var vid0 = sdef.variants[sv] && sdef.variants[sv].id
+        if (vid0) setMembers[vid0] = true
+      }
+    }
+  }
+
+  for (var ci = 0; ci < keys.length; ci++) {
+    var cid = keys[ci]
+    var cdef = comps[cid]
+    if (!cdef) continue
+
+    // ── Component-set → combineAsVariants ───────────────────────────────────
+    if (cdef.variants && cdef.variants.length > 0) {
+      try {
+        var variantComps: ComponentNode[] = []
+        for (var vi = 0; vi < cdef.variants.length; vi++) {
+          var vr = cdef.variants[vi]
+          if (!vr || !vr.body || !vr.id) continue
+          var vprops = comps[vr.id] ? comps[vr.id].props : []
+          var vb = await buildOneComponent(variantName(vr.attrs) || vr.id, vprops, vr.body)
+          if (!vb) continue
+          _componentDefs[vr.id] = vb
+          variantComps.push(vb.component)
+        }
+        if (variantComps.length > 1) {
+          // Stage variants apart before combining (combineAsVariants keeps each
+          // variant's position, and they were all created at the origin).
+          var perRow = variantComps.length > 4 ? 3 : 2
+          var colW = 0
+          var rowH = 0
+          for (var mw = 0; mw < variantComps.length; mw++) {
+            if (variantComps[mw].width > colW) colW = variantComps[mw].width
+            if (variantComps[mw].height > rowH) rowH = variantComps[mw].height
+          }
+          // Dynamic spacing/padding: scale with the set's total footprint so a big
+          // set gets roomy padding and a tiny one stays compact.
+          var numRows = Math.ceil(variantComps.length / perRow)
+          var contentW = perRow * colW
+          var contentH = numRows * rowH
+          var setSpan = Math.max(contentW, contentH)
+          var pad = Math.round(Math.max(24, Math.min(120, setSpan * 0.12)))
+          var vGap = Math.round(Math.max(16, Math.min(80, setSpan * 0.08)))
+          for (var vp = 0; vp < variantComps.length; vp++) {
+            variantComps[vp].x = (vp % perRow) * (colW + vGap)
+            variantComps[vp].y = 0
+          }
+          var setNode = figma.combineAsVariants(variantComps, figma.currentPage)
+          setNode.name = cdef.name || cid
+          // Auto-layout (wrap) gives the set even padding on all sides and lays the
+          // variants out in a tidy grid instead of piling them at one point.
+          try {
+            setNode.layoutMode = 'HORIZONTAL'
+            setNode.layoutWrap = 'WRAP'
+            setNode.primaryAxisSizingMode = 'FIXED'
+            setNode.counterAxisSizingMode = 'AUTO'
+            setNode.itemSpacing = vGap
+            ;(setNode as any).counterAxisSpacing = vGap
+            setNode.paddingTop = pad; setNode.paddingBottom = pad
+            setNode.paddingLeft = pad; setNode.paddingRight = pad
+            for (var ch = 0; ch < setNode.children.length; ch++) {
+              var cnode = setNode.children[ch] as any
+              try { cnode.layoutSizingHorizontal = 'FIXED'; cnode.layoutSizingVertical = 'FIXED' } catch (e) {}
+            }
+            setNode.resize(pad * 2 + perRow * colW + (perRow - 1) * vGap, setNode.height)
+          } catch (e) {}
+          setNode.x = -(setNode.width + 200)
+          setNode.y = offsetY
+          offsetY += setNode.height + 80
+        } else if (variantComps.length === 1) {
+          var only = variantComps[0]
+          only.x = -(only.width + 200); only.y = offsetY; offsetY += only.height + 80
+        }
+      } catch (e) {}
+      continue
+    }
+
+    // ── Plain component ─────────────────────────────────────────────────────
+    if (!cdef.body) continue
+    if (setMembers[cid]) continue
+    var b = await buildOneComponent(cdef.name || strAttr(cdef.body, 'name', cid), cdef.props || [], cdef.body)
+    if (!b) continue
+    b.component.x = -(b.component.width + 200)
+    b.component.y = offsetY
+    offsetY += b.component.height + 80
+    _componentDefs[cid] = b
+  }
+}
+
+// Re-apply a named text style's typography to a live (already-created) TextNode.
+// Used for instance "{id}-text" overrides on real component instances.
+async function applyLiveTextStyle(tn: TextNode, styleName: string): Promise<void> {
+  var style = _textStyles[styleName]
+  if (!style) return
+  if (tn.fontName === figma.mixed) return
+  var fam = style['font-family'] || (tn.fontName as FontName).family
+  var wtRaw = style['font-weight']
+  var wt = wtRaw === undefined ? 400 : (typeof wtRaw === 'number' ? wtRaw : parseFloat(String(wtRaw)))
+  if (isNaN(wt)) wt = 400
+  var italic = style['font-style'] === 'italic'
+  var fn = await resolveFont(fam, wt, italic)
+  try {
+    await figma.loadFontAsync(fn)
+    tn.fontName = fn
+  } catch (e) {}
+  var fsRaw = style['font-size']
+  if (fsRaw !== undefined) {
+    var fs = typeof fsRaw === 'number' ? fsRaw : parseFloat(String(fsRaw))
+    if (!isNaN(fs) && fs > 0) { try { tn.fontSize = fs } catch (e) {} }
+  }
+  var lhRaw = style['line-height']
+  if (lhRaw !== undefined) {
+    var lh = typeof lhRaw === 'number' ? lhRaw : parseFloat(String(lhRaw))
+    if (!isNaN(lh) && lh > 0) { try { tn.lineHeight = lh <= 4 ? { unit: 'PERCENT', value: lh * 100 } : { unit: 'PIXELS', value: lh } } catch (e) {} }
+  }
+  var lsRaw = style['letter-spacing']
+  if (lsRaw !== undefined) {
+    var ls = typeof lsRaw === 'number' ? lsRaw : parseFloat(String(lsRaw))
+    if (!isNaN(ls) && ls !== 0) { try { tn.letterSpacing = { unit: 'PIXELS', value: ls } } catch (e) {} }
+  }
+}
+
+// Set characters on a live TextNode, loading its current font first (Figma
+// requires the font loaded before editing text).
+async function setLiveText(tn: TextNode, value: string): Promise<void> {
+  var fn = tn.fontName
+  if (fn === figma.mixed) {
+    try {
+      var len = tn.characters.length
+      if (len > 0) {
+        var firstFont = tn.getRangeFontName(0, 1) as FontName
+        await figma.loadFontAsync(firstFont)
+        tn.fontName = firstFont
+      }
+    } catch (e) { return }
+  } else {
+    try { await figma.loadFontAsync(fn as FontName) } catch (e) { return }
+  }
+  try { tn.characters = value } catch (e) {}
+}
+
+// Apply node-id-based instance overrides to a real component instance. Files that
+// declare no <props> drive instances by node id: key = body node id, value drives
+// that node (text / visibility / image), and "{id}-text" re-applies a text style.
+async function applyNodeIdOverrides(inst: InstanceNode, parsed: ImportNode, def: ComponentBuild): Promise<void> {
+  var keys = Object.keys(parsed)
+  for (var i = 0; i < keys.length; i++) {
+    var k = keys[i]
+    if (RESERVED_INSTANCE_KEYS[k] === true) continue
+    var v = parsed[k]
+
+    // Text-style override: "{id}-text" → re-apply named style to that text node.
+    if (k.length > 5 && k.substring(k.length - 5) === '-text') {
+      var baseId = k.substring(0, k.length - 5)
+      if (def.nodeKinds[baseId] === 'TEXT' && typeof v === 'string') {
+        var styleMatches = inst.findAll(function (n) { return n.name === baseId })
+        for (var smi = 0; smi < styleMatches.length; smi++) {
+          if (styleMatches[smi].type === 'TEXT') await applyLiveTextStyle(styleMatches[smi] as TextNode, v)
+        }
+      }
+      continue
+    }
+
+    var kind = def.nodeKinds[k]
+    if (kind === undefined) continue
+    var matches = inst.findAll(function (n) { return n.name === k })
+    for (var mi = 0; mi < matches.length; mi++) {
+      var sub = matches[mi] as any
+      // Visibility override
+      if (v === false || v === 'false') { try { sub.visible = false } catch (e) {} continue }
+      if (v === true || v === 'true')  { try { sub.visible = true } catch (e) {} continue }
+      // Image override (data URI) onto a node that accepts fills
+      if (typeof v === 'string' && v.indexOf('data:') === 0 && 'fills' in sub) {
+        var img = dataUriToImage(v)
+        if (img) { try { sub.fills = [{ type: 'IMAGE', imageHash: img.hash, scaleMode: 'FILL' }] } catch (e) {} }
+        continue
+      }
+      // Text value override
+      if (sub.type === 'TEXT') { await setLiveText(sub as TextNode, v === undefined || v === null ? '' : String(v)); continue }
+    }
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Main node creation — parentW/parentH for resolving "fill" in abs context
 // ---------------------------------------------------------------------------
@@ -773,7 +1125,13 @@ async function createNode(
   parentH: number,
 ): Promise<SceneNode | null> {
   var node = await createNodeImpl(parsed, parentMode, parentW, parentH)
-  if (node) applyVisualMisc(node, parsed)
+  if (node) {
+    applyVisualMisc(node, parsed)
+    if (_captureIds) {
+      var idv = parsed['id']
+      if (typeof idv === 'string' && idv && !(idv in _captureIds)) _captureIds[idv] = node
+    }
+  }
   return node
 }
 
@@ -833,8 +1191,7 @@ async function createNodeImpl(
         if (segFs > 0) tn.setRangeFontSize(rg.start, rg.end, segFs)
         var segFill = strAttr(seg, 'fill', '') || strAttr(seg, 'color', '')
         if (segFill && isColorStr(segFill)) {
-          var sgc = parseColor(segFill)
-          tn.setRangeFills(rg.start, rg.end, [{ type:'SOLID', color:{r:sgc.r,g:sgc.g,b:sgc.b}, opacity:sgc.a }])
+          tn.setRangeFills(rg.start, rg.end, [solidPaint(segFill)])
         }
         var segDec = strAttr(seg, 'decoration', '')
         if (segDec) tn.setRangeTextDecoration(rg.start, rg.end, segDec==='underline' ? 'UNDERLINE' : segDec==='strikethrough' ? 'STRIKETHROUGH' : 'NONE')
@@ -852,8 +1209,7 @@ async function createNodeImpl(
 
       var clr = strAttr(parsed,'color','') || strAttr(parsed,'fill','')
       if (clr && isColorStr(clr)) {
-        var cc = parseColor(clr)
-        tn.fills = [{ type:'SOLID', color:{r:cc.r,g:cc.g,b:cc.b}, opacity:cc.a }]
+        tn.fills = [solidPaint(clr)]
       } else { applyFills(tn, parsed) }
 
       var lhRaw = parsed['line-height']
@@ -1012,6 +1368,75 @@ async function createNodeImpl(
   // ── INSTANCE ──────────────────────────────────────────────────────────────
   if (type === 'instance') {
     var compId = strAttr(parsed, 'component', '')
+
+    // Preferred path: a real Figma component was built for this id — spawn an
+    // InstanceNode and push per-instance overrides through component properties.
+    var builtDef = compId ? _componentDefs[compId] : null
+    if (builtDef && builtDef.component) {
+      try {
+        var inst = builtDef.component.createInstance()
+        inst.name = strAttr(parsed, 'name', builtDef.component.name)
+
+        // Apply TEXT / BOOLEAN component properties bound at build time.
+        var setMap: Record<string, any> = {}
+        var boundKeys = Object.keys(builtDef.bound)
+        for (var bi = 0; bi < boundKeys.length; bi++) {
+          var bkey = boundKeys[bi]
+          if (!(bkey in parsed)) continue
+          var bdef = builtDef.bound[bkey]
+          var bval = parsed[bkey]
+          if (bdef.kind === 'BOOLEAN') {
+            setMap[bdef.propId] = (bval === true || bval === 'true')
+          } else {
+            setMap[bdef.propId] = bval === undefined || bval === null ? '' : String(bval)
+          }
+        }
+        if (Object.keys(setMap).length > 0) {
+          try { inst.setProperties(setMap) } catch (e) {}
+        }
+
+        // Node-id-based overrides (text / visibility / image / text-style) for
+        // components declared without <props>.
+        await applyNodeIdOverrides(inst, parsed, builtDef)
+
+        // Apply image / non-property overrides directly onto named sublayers.
+        var directKeys = Object.keys(builtDef.direct)
+        for (var di = 0; di < directKeys.length; di++) {
+          var dkey = directKeys[di]
+          if (!(dkey in parsed)) continue
+          var dval = parsed[dkey]
+          if (typeof dval !== 'string' || dval.indexOf('data:') !== 0) continue
+          var targetName = builtDef.direct[dkey].targetId
+          var subImg = dataUriToImage(dval)
+          if (!subImg) continue
+          var matches = inst.findAll(function (n) { return n.name === targetName })
+          for (var mi = 0; mi < matches.length; mi++) {
+            var sub = matches[mi] as any
+            if ('fills' in sub) {
+              try { sub.fills = [{ type: 'IMAGE', imageHash: subImg.hash, scaleMode: 'FILL' }] } catch (e) {}
+            }
+          }
+        }
+
+        // Outer sizing: instances usually omit w/h. Inherit the component body's
+        // root sizing so applyChildSizing (which reads parsed.w/h) keeps fill vs
+        // hug correct rather than collapsing w="fill" descendants.
+        if (parsed['w'] === undefined && builtDef.bodyW !== undefined) parsed['w'] = builtDef.bodyW
+        if (parsed['h'] === undefined && builtDef.bodyH !== undefined) parsed['h'] = builtDef.bodyH
+
+        // Explicit instance dimensions (e.g. <instance w="126" h="48">) resize the
+        // instance away from the component's intrinsic size.
+        if (w > 0 && h > 0) { try { inst.resize(w, h) } catch (e) {} }
+        else if (w > 0) { try { inst.resize(w, inst.height) } catch (e) {} }
+
+        if (opacity >= 0) inst.opacity = opacity
+        if (placeAbsolute) { inst.x = x; inst.y = y }
+        return inst
+      } catch (e) {
+        // Fall through to inline rendering on any instance failure.
+      }
+    }
+
     var compEntry = compId ? _compRegistry[compId] : null
     if (compEntry && compEntry.body) {
       // Render the component body inline at the instance's position/size.
@@ -1026,6 +1451,12 @@ async function createNodeImpl(
       if (parsed['y'] !== undefined) bodyClone['y'] = parsed['y']
       if (parsed['opacity'] !== undefined) bodyClone['opacity'] = parsed['opacity']
       if (parsed['visible'] !== undefined) bodyClone['visible'] = parsed['visible']
+      // The caller's applyChildSizing reads THIS node's w/h to decide FILL vs HUG.
+      // An instance usually omits them, so inherit the component body root's sizing —
+      // otherwise the instance frame hugs and any w="fill" descendants collapse to
+      // min-content (e.g. text wrapping to one character per line).
+      if (parsed['w'] === undefined && bodyClone['w'] !== undefined) parsed['w'] = bodyClone['w']
+      if (parsed['h'] === undefined && bodyClone['h'] !== undefined) parsed['h'] = bodyClone['h']
       var instNode = await createNode(bodyClone, parentMode, parentW, parentH)
       return instNode
     }
@@ -1190,11 +1621,63 @@ async function createNodeImpl(
 // Entry
 // ---------------------------------------------------------------------------
 
-export async function importGui(parsed: ImportParsedGUI): Promise<void> {
+// Shift every node created by this import so the group sits to the right of all
+// pre-existing top-level content, with a gap. Preserves the group's internal
+// layout (root + component sets keep their relative positions).
+function placeInEmptySpace(existingNodes: ReadonlyArray<SceneNode>, root: SceneNode): void {
+  var page = figma.currentPage
+  // Newly created top-level nodes = current children not in the snapshot.
+  var added: SceneNode[] = []
+  for (var i = 0; i < page.children.length; i++) {
+    var ch = page.children[i]
+    var wasExisting = false
+    for (var e = 0; e < existingNodes.length; e++) {
+      if (existingNodes[e] === ch) { wasExisting = true; break }
+    }
+    if (!wasExisting) added.push(ch)
+  }
+  if (added.length === 0) return
+
+  // Bounding box of the new group.
+  var addMinX = Infinity, addMinY = Infinity
+  for (var a = 0; a < added.length; a++) {
+    var an = added[a] as any
+    if (an.x < addMinX) addMinX = an.x
+    if (an.y < addMinY) addMinY = an.y
+  }
+
+  // Right edge / top of existing content. If the page was empty, anchor at origin.
+  if (existingNodes.length === 0) return
+  var exMaxX = -Infinity, exMinY = Infinity
+  for (var x = 0; x < existingNodes.length; x++) {
+    var en = existingNodes[x] as any
+    var ex = en.x + (typeof en.width === 'number' ? en.width : 0)
+    if (ex > exMaxX) exMaxX = ex
+    if (en.y < exMinY) exMinY = en.y
+  }
+  if (exMaxX === -Infinity) return
+
+  var GAP = 200
+  var dx = (exMaxX + GAP) - addMinX
+  var dy = exMinY - addMinY
+  for (var m = 0; m < added.length; m++) {
+    var mn = added[m] as any
+    mn.x = mn.x + dx
+    mn.y = mn.y + dy
+  }
+}
+
+export async function importGui(parsed: ImportParsedGUI, options?: { useComponents?: boolean; useVariables?: boolean }): Promise<void> {
   if (!parsed || !parsed.root) {
     figma.notify('No root node in .gui file', { error: true })
     return
   }
+  // Reset import options + variable registry for this run.
+  _useComponents = !options || options.useComponents !== false
+  _useVariables = !!(options && options.useVariables)
+  _colorCollection = null
+  _colorModeId = ''
+  _colorVars = {}
   var notif = figma.notify('Importing…', { timeout: Infinity })
   try {
     await preloadFonts(parsed.fonts || {})
@@ -1222,6 +1705,17 @@ export async function importGui(parsed: ImportParsedGUI): Promise<void> {
       }
     }
 
+    // Snapshot existing top-level nodes so the import can be shifted into empty
+    // canvas space afterwards (avoid landing on top of existing designs).
+    var existingNodes = figma.currentPage.children.slice()
+
+    // Build real Figma components (off-canvas) so instances can be spawned as
+    // true InstanceNodes carrying property overrides. Falls back to inline
+    // rendering for any component that can't be built.
+    if (_useComponents) {
+      try { await buildComponents(comps as any) } catch (e) {}
+    }
+
     var root = parsed.root
     var rootW = typeof root['w']==='number' ? root['w'] : 0
     var rootH = typeof root['h']==='number' ? root['h'] : 0
@@ -1232,6 +1726,10 @@ export async function importGui(parsed: ImportParsedGUI): Promise<void> {
     if (parsed.name) { try { (node as FrameNode).name = parsed.name } catch(e){} }
 
     figma.currentPage.appendChild(node as SceneNode)
+
+    // Move the whole import (root + any component sets) to the right of all
+    // pre-existing content so it never overlaps an existing design.
+    try { placeInEmptySpace(existingNodes, node as SceneNode) } catch (e) {}
 
     figma.currentPage.selection = [node as SceneNode]
     figma.viewport.scrollAndZoomIntoView([node as SceneNode])

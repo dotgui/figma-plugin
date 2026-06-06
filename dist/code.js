@@ -3,7 +3,9 @@ var google_fonts_compact_default = [{ family: "ABeeZee", category: "sans-serif",
 
 // src/import.ts
 var _compRegistry = {};
+var _componentDefs = {};
 var _textStyles = {};
+var _captureIds = null;
 function numAttr(node, key, fallback) {
   var v = node[key];
   if (typeof v === "number")
@@ -154,9 +156,44 @@ function isColorStr(s) {
     return false;
   return s.charAt(0) === "#" || s.indexOf("rgb") === 0;
 }
+var _useComponents = true;
+var _useVariables = false;
+var _colorCollection = null;
+var _colorModeId = "";
+var _colorVars = {};
+function hexChan(n) {
+  var h = Math.round(n * 255).toString(16);
+  return h.length === 1 ? "0" + h : h;
+}
+function colorVariableFor(c) {
+  try {
+    var name = hexChan(c.r) + hexChan(c.g) + hexChan(c.b);
+    if (_colorVars[name])
+      return _colorVars[name];
+    if (!_colorCollection) {
+      _colorCollection = figma.variables.createVariableCollection("dotgui colors");
+      _colorModeId = _colorCollection.modes[0].modeId;
+    }
+    var v = figma.variables.createVariable("#" + name, _colorCollection, "COLOR");
+    v.setValueForMode(_colorModeId, { r: c.r, g: c.g, b: c.b, a: 1 });
+    _colorVars[name] = v;
+    return v;
+  } catch (e) {
+    return null;
+  }
+}
 function solidPaint(hex, alpha) {
   var c = parseColor(hex);
-  return { type: "SOLID", color: { r: c.r, g: c.g, b: c.b }, opacity: alpha !== undefined ? alpha : c.a };
+  var paint = { type: "SOLID", color: { r: c.r, g: c.g, b: c.b }, opacity: alpha !== undefined ? alpha : c.a };
+  if (_useVariables) {
+    var v = colorVariableFor(c);
+    if (v) {
+      try {
+        return figma.variables.setBoundVariableForPaint(paint, "color", v);
+      } catch (e) {}
+    }
+  }
+  return paint;
 }
 function base64ToBytes(b64) {
   var bin = atob(b64), out = new Uint8Array(bin.length);
@@ -581,12 +618,19 @@ function applyChildSizing(child, childNode, parentMode) {
   if (!("layoutSizingHorizontal" in child))
     return;
   var n = child;
-  var canHug = n.type === "TEXT" || n.type === "FRAME" && !!n.layoutMode && n.layoutMode !== "NONE";
+  var canHug = n.type === "TEXT" || n.type === "INSTANCE" || n.type === "FRAME" && !!n.layoutMode && n.layoutMode !== "NONE";
   var wv = childNode["w"], hv = childNode["h"];
   var wHug = wv === undefined || wv === null || wv === "hug";
   var hHug = hv === undefined || hv === null || hv === "hug";
   var fillW = wv === "fill" && !parentHugsAxis(n.parent, true);
   var fillH = hv === "fill" && !parentHugsAxis(n.parent, false);
+  if (n.type === "TEXT" && (wv === undefined || wv === null) && parentMode === "VERTICAL" && !parentHugsAxis(n.parent, true)) {
+    try {
+      n.textAutoResize = "HEIGHT";
+    } catch (e) {}
+    fillW = true;
+    wHug = false;
+  }
   try {
     n.layoutSizingHorizontal = fillW ? "FILL" : wHug && canHug ? "HUG" : "FIXED";
   } catch (e) {}
@@ -820,10 +864,322 @@ function applyInstanceOverrides(body, inst) {
     body[k] = v;
   }
 }
+function bindPropRef(node, field, propId) {
+  var any = node;
+  var refs = any.componentPropertyReferences;
+  var next = {};
+  if (refs) {
+    var rk = Object.keys(refs);
+    for (var i = 0;i < rk.length; i++)
+      next[rk[i]] = refs[rk[i]];
+  }
+  next[field] = propId;
+  any.componentPropertyReferences = next;
+}
+async function buildOneComponent(displayName, props, body) {
+  var idMap = {};
+  var prevCapture = _captureIds;
+  _captureIds = idMap;
+  try {
+    var bodyClone = deepCloneNode(body);
+    var bw = typeof bodyClone["w"] === "number" ? bodyClone["w"] : 0;
+    var bh = typeof bodyClone["h"] === "number" ? bodyClone["h"] : 0;
+    var bodyNode = await createNode(bodyClone, "NONE", bw, bh);
+    _captureIds = prevCapture;
+    if (!bodyNode || bodyNode.type !== "FRAME") {
+      if (bodyNode)
+        bodyNode.remove();
+      return null;
+    }
+    var nodeKinds = {};
+    var capIds = Object.keys(idMap);
+    for (var ki = 0;ki < capIds.length; ki++) {
+      var capId = capIds[ki];
+      try {
+        idMap[capId].name = capId;
+      } catch (e) {}
+      nodeKinds[capId] = idMap[capId].type;
+    }
+    var comp = figma.createComponentFromNode(bodyNode);
+    comp.name = displayName;
+    var bound = {};
+    var direct = {};
+    var plist = Array.isArray(props) ? props : [];
+    for (var pi = 0;pi < plist.length; pi++) {
+      var pr = plist[pi];
+      if (!pr || !pr.name || !pr.target)
+        continue;
+      var tnode = idMap[pr.target];
+      if (!tnode)
+        continue;
+      try {
+        if (pr.type === "visible") {
+          var defVis = tnode.visible !== false;
+          var vid = comp.addComponentProperty(pr.name, "BOOLEAN", defVis);
+          bindPropRef(tnode, "visible", vid);
+          bound[pr.name] = { propId: vid, kind: "BOOLEAN" };
+        } else if (tnode.type === "TEXT") {
+          var defTxt = tnode.characters || "";
+          var tid = comp.addComponentProperty(pr.name, "TEXT", defTxt);
+          bindPropRef(tnode, "characters", tid);
+          bound[pr.name] = { propId: tid, kind: "TEXT" };
+        } else {
+          tnode.name = pr.target;
+          direct[pr.name] = { targetId: pr.target };
+        }
+      } catch (e) {}
+    }
+    return { component: comp, bound, direct, bodyW: body["w"], bodyH: body["h"], nodeKinds };
+  } catch (e) {
+    _captureIds = prevCapture;
+    return null;
+  }
+}
+function variantName(attrs) {
+  if (!attrs)
+    return "";
+  var keys = Object.keys(attrs);
+  var parts = [];
+  for (var i = 0;i < keys.length; i++)
+    parts.push(keys[i] + "=" + String(attrs[keys[i]]));
+  return parts.join(", ");
+}
+async function buildComponents(comps) {
+  _componentDefs = {};
+  var keys = Object.keys(comps);
+  var offsetY = 0;
+  var setMembers = {};
+  for (var si = 0;si < keys.length; si++) {
+    var sdef = comps[keys[si]];
+    if (sdef && sdef.variants) {
+      for (var sv = 0;sv < sdef.variants.length; sv++) {
+        var vid0 = sdef.variants[sv] && sdef.variants[sv].id;
+        if (vid0)
+          setMembers[vid0] = true;
+      }
+    }
+  }
+  for (var ci = 0;ci < keys.length; ci++) {
+    var cid = keys[ci];
+    var cdef = comps[cid];
+    if (!cdef)
+      continue;
+    if (cdef.variants && cdef.variants.length > 0) {
+      try {
+        var variantComps = [];
+        for (var vi = 0;vi < cdef.variants.length; vi++) {
+          var vr = cdef.variants[vi];
+          if (!vr || !vr.body || !vr.id)
+            continue;
+          var vprops = comps[vr.id] ? comps[vr.id].props : [];
+          var vb = await buildOneComponent(variantName(vr.attrs) || vr.id, vprops, vr.body);
+          if (!vb)
+            continue;
+          _componentDefs[vr.id] = vb;
+          variantComps.push(vb.component);
+        }
+        if (variantComps.length > 1) {
+          var perRow = variantComps.length > 4 ? 3 : 2;
+          var colW = 0;
+          var rowH = 0;
+          for (var mw = 0;mw < variantComps.length; mw++) {
+            if (variantComps[mw].width > colW)
+              colW = variantComps[mw].width;
+            if (variantComps[mw].height > rowH)
+              rowH = variantComps[mw].height;
+          }
+          var numRows = Math.ceil(variantComps.length / perRow);
+          var contentW = perRow * colW;
+          var contentH = numRows * rowH;
+          var setSpan = Math.max(contentW, contentH);
+          var pad = Math.round(Math.max(24, Math.min(120, setSpan * 0.12)));
+          var vGap = Math.round(Math.max(16, Math.min(80, setSpan * 0.08)));
+          for (var vp = 0;vp < variantComps.length; vp++) {
+            variantComps[vp].x = vp % perRow * (colW + vGap);
+            variantComps[vp].y = 0;
+          }
+          var setNode = figma.combineAsVariants(variantComps, figma.currentPage);
+          setNode.name = cdef.name || cid;
+          try {
+            setNode.layoutMode = "HORIZONTAL";
+            setNode.layoutWrap = "WRAP";
+            setNode.primaryAxisSizingMode = "FIXED";
+            setNode.counterAxisSizingMode = "AUTO";
+            setNode.itemSpacing = vGap;
+            setNode.counterAxisSpacing = vGap;
+            setNode.paddingTop = pad;
+            setNode.paddingBottom = pad;
+            setNode.paddingLeft = pad;
+            setNode.paddingRight = pad;
+            for (var ch = 0;ch < setNode.children.length; ch++) {
+              var cnode = setNode.children[ch];
+              try {
+                cnode.layoutSizingHorizontal = "FIXED";
+                cnode.layoutSizingVertical = "FIXED";
+              } catch (e) {}
+            }
+            setNode.resize(pad * 2 + perRow * colW + (perRow - 1) * vGap, setNode.height);
+          } catch (e) {}
+          setNode.x = -(setNode.width + 200);
+          setNode.y = offsetY;
+          offsetY += setNode.height + 80;
+        } else if (variantComps.length === 1) {
+          var only = variantComps[0];
+          only.x = -(only.width + 200);
+          only.y = offsetY;
+          offsetY += only.height + 80;
+        }
+      } catch (e) {}
+      continue;
+    }
+    if (!cdef.body)
+      continue;
+    if (setMembers[cid])
+      continue;
+    var b = await buildOneComponent(cdef.name || strAttr(cdef.body, "name", cid), cdef.props || [], cdef.body);
+    if (!b)
+      continue;
+    b.component.x = -(b.component.width + 200);
+    b.component.y = offsetY;
+    offsetY += b.component.height + 80;
+    _componentDefs[cid] = b;
+  }
+}
+async function applyLiveTextStyle(tn, styleName) {
+  var style = _textStyles[styleName];
+  if (!style)
+    return;
+  if (tn.fontName === figma.mixed)
+    return;
+  var fam = style["font-family"] || tn.fontName.family;
+  var wtRaw = style["font-weight"];
+  var wt = wtRaw === undefined ? 400 : typeof wtRaw === "number" ? wtRaw : parseFloat(String(wtRaw));
+  if (isNaN(wt))
+    wt = 400;
+  var italic = style["font-style"] === "italic";
+  var fn = await resolveFont(fam, wt, italic);
+  try {
+    await figma.loadFontAsync(fn);
+    tn.fontName = fn;
+  } catch (e) {}
+  var fsRaw = style["font-size"];
+  if (fsRaw !== undefined) {
+    var fs = typeof fsRaw === "number" ? fsRaw : parseFloat(String(fsRaw));
+    if (!isNaN(fs) && fs > 0) {
+      try {
+        tn.fontSize = fs;
+      } catch (e) {}
+    }
+  }
+  var lhRaw = style["line-height"];
+  if (lhRaw !== undefined) {
+    var lh = typeof lhRaw === "number" ? lhRaw : parseFloat(String(lhRaw));
+    if (!isNaN(lh) && lh > 0) {
+      try {
+        tn.lineHeight = lh <= 4 ? { unit: "PERCENT", value: lh * 100 } : { unit: "PIXELS", value: lh };
+      } catch (e) {}
+    }
+  }
+  var lsRaw = style["letter-spacing"];
+  if (lsRaw !== undefined) {
+    var ls = typeof lsRaw === "number" ? lsRaw : parseFloat(String(lsRaw));
+    if (!isNaN(ls) && ls !== 0) {
+      try {
+        tn.letterSpacing = { unit: "PIXELS", value: ls };
+      } catch (e) {}
+    }
+  }
+}
+async function setLiveText(tn, value) {
+  var fn = tn.fontName;
+  if (fn === figma.mixed) {
+    try {
+      var len = tn.characters.length;
+      if (len > 0) {
+        var firstFont = tn.getRangeFontName(0, 1);
+        await figma.loadFontAsync(firstFont);
+        tn.fontName = firstFont;
+      }
+    } catch (e) {
+      return;
+    }
+  } else {
+    try {
+      await figma.loadFontAsync(fn);
+    } catch (e) {
+      return;
+    }
+  }
+  try {
+    tn.characters = value;
+  } catch (e) {}
+}
+async function applyNodeIdOverrides(inst, parsed, def) {
+  var keys = Object.keys(parsed);
+  for (var i = 0;i < keys.length; i++) {
+    var k = keys[i];
+    if (RESERVED_INSTANCE_KEYS[k] === true)
+      continue;
+    var v = parsed[k];
+    if (k.length > 5 && k.substring(k.length - 5) === "-text") {
+      var baseId = k.substring(0, k.length - 5);
+      if (def.nodeKinds[baseId] === "TEXT" && typeof v === "string") {
+        var styleMatches = inst.findAll(function(n) {
+          return n.name === baseId;
+        });
+        for (var smi = 0;smi < styleMatches.length; smi++) {
+          if (styleMatches[smi].type === "TEXT")
+            await applyLiveTextStyle(styleMatches[smi], v);
+        }
+      }
+      continue;
+    }
+    var kind = def.nodeKinds[k];
+    if (kind === undefined)
+      continue;
+    var matches = inst.findAll(function(n) {
+      return n.name === k;
+    });
+    for (var mi = 0;mi < matches.length; mi++) {
+      var sub = matches[mi];
+      if (v === false || v === "false") {
+        try {
+          sub.visible = false;
+        } catch (e) {}
+        continue;
+      }
+      if (v === true || v === "true") {
+        try {
+          sub.visible = true;
+        } catch (e) {}
+        continue;
+      }
+      if (typeof v === "string" && v.indexOf("data:") === 0 && "fills" in sub) {
+        var img = dataUriToImage(v);
+        if (img) {
+          try {
+            sub.fills = [{ type: "IMAGE", imageHash: img.hash, scaleMode: "FILL" }];
+          } catch (e) {}
+        }
+        continue;
+      }
+      if (sub.type === "TEXT") {
+        await setLiveText(sub, v === undefined || v === null ? "" : String(v));
+        continue;
+      }
+    }
+  }
+}
 async function createNode(parsed, parentMode, parentW, parentH) {
   var node = await createNodeImpl(parsed, parentMode, parentW, parentH);
-  if (node)
+  if (node) {
     applyVisualMisc(node, parsed);
+    if (_captureIds) {
+      var idv = parsed["id"];
+      if (typeof idv === "string" && idv && !(idv in _captureIds))
+        _captureIds[idv] = node;
+    }
+  }
   return node;
 }
 async function createNodeImpl(parsed, parentMode, parentW, parentH) {
@@ -875,8 +1231,7 @@ async function createNodeImpl(parsed, parentMode, parentW, parentH) {
           tn.setRangeFontSize(rg.start, rg.end, segFs);
         var segFill = strAttr(seg, "fill", "") || strAttr(seg, "color", "");
         if (segFill && isColorStr(segFill)) {
-          var sgc = parseColor(segFill);
-          tn.setRangeFills(rg.start, rg.end, [{ type: "SOLID", color: { r: sgc.r, g: sgc.g, b: sgc.b }, opacity: sgc.a }]);
+          tn.setRangeFills(rg.start, rg.end, [solidPaint(segFill)]);
         }
         var segDec = strAttr(seg, "decoration", "");
         if (segDec)
@@ -898,8 +1253,7 @@ async function createNodeImpl(parsed, parentMode, parentW, parentH) {
       tn.characters = strAttr(parsed, "value", "");
       var clr = strAttr(parsed, "color", "") || strAttr(parsed, "fill", "");
       if (clr && isColorStr(clr)) {
-        var cc = parseColor(clr);
-        tn.fills = [{ type: "SOLID", color: { r: cc.r, g: cc.g, b: cc.b }, opacity: cc.a }];
+        tn.fills = [solidPaint(clr)];
       } else {
         applyFills(tn, parsed);
       }
@@ -1102,6 +1456,77 @@ async function createNodeImpl(parsed, parentMode, parentW, parentH) {
   }
   if (type === "instance") {
     var compId = strAttr(parsed, "component", "");
+    var builtDef = compId ? _componentDefs[compId] : null;
+    if (builtDef && builtDef.component) {
+      try {
+        var inst = builtDef.component.createInstance();
+        inst.name = strAttr(parsed, "name", builtDef.component.name);
+        var setMap = {};
+        var boundKeys = Object.keys(builtDef.bound);
+        for (var bi = 0;bi < boundKeys.length; bi++) {
+          var bkey = boundKeys[bi];
+          if (!(bkey in parsed))
+            continue;
+          var bdef = builtDef.bound[bkey];
+          var bval = parsed[bkey];
+          if (bdef.kind === "BOOLEAN") {
+            setMap[bdef.propId] = bval === true || bval === "true";
+          } else {
+            setMap[bdef.propId] = bval === undefined || bval === null ? "" : String(bval);
+          }
+        }
+        if (Object.keys(setMap).length > 0) {
+          try {
+            inst.setProperties(setMap);
+          } catch (e) {}
+        }
+        await applyNodeIdOverrides(inst, parsed, builtDef);
+        var directKeys = Object.keys(builtDef.direct);
+        for (var di = 0;di < directKeys.length; di++) {
+          var dkey = directKeys[di];
+          if (!(dkey in parsed))
+            continue;
+          var dval = parsed[dkey];
+          if (typeof dval !== "string" || dval.indexOf("data:") !== 0)
+            continue;
+          var targetName = builtDef.direct[dkey].targetId;
+          var subImg = dataUriToImage(dval);
+          if (!subImg)
+            continue;
+          var matches = inst.findAll(function(n) {
+            return n.name === targetName;
+          });
+          for (var mi = 0;mi < matches.length; mi++) {
+            var sub = matches[mi];
+            if ("fills" in sub) {
+              try {
+                sub.fills = [{ type: "IMAGE", imageHash: subImg.hash, scaleMode: "FILL" }];
+              } catch (e) {}
+            }
+          }
+        }
+        if (parsed["w"] === undefined && builtDef.bodyW !== undefined)
+          parsed["w"] = builtDef.bodyW;
+        if (parsed["h"] === undefined && builtDef.bodyH !== undefined)
+          parsed["h"] = builtDef.bodyH;
+        if (w > 0 && h > 0) {
+          try {
+            inst.resize(w, h);
+          } catch (e) {}
+        } else if (w > 0) {
+          try {
+            inst.resize(w, inst.height);
+          } catch (e) {}
+        }
+        if (opacity >= 0)
+          inst.opacity = opacity;
+        if (placeAbsolute) {
+          inst.x = x;
+          inst.y = y;
+        }
+        return inst;
+      } catch (e) {}
+    }
     var compEntry = compId ? _compRegistry[compId] : null;
     if (compEntry && compEntry.body) {
       var bodyClone = deepCloneNode(compEntry.body);
@@ -1118,6 +1543,10 @@ async function createNodeImpl(parsed, parentMode, parentW, parentH) {
         bodyClone["opacity"] = parsed["opacity"];
       if (parsed["visible"] !== undefined)
         bodyClone["visible"] = parsed["visible"];
+      if (parsed["w"] === undefined && bodyClone["w"] !== undefined)
+        parsed["w"] = bodyClone["w"];
+      if (parsed["h"] === undefined && bodyClone["h"] !== undefined)
+        parsed["h"] = bodyClone["h"];
       var instNode = await createNode(bodyClone, parentMode, parentW, parentH);
       return instNode;
     }
@@ -1275,11 +1704,63 @@ async function createNodeImpl(parsed, parentMode, parentW, parentH) {
     frame.resize(w, h);
   return frame;
 }
-async function importGui(parsed) {
+function placeInEmptySpace(existingNodes, root) {
+  var page = figma.currentPage;
+  var added = [];
+  for (var i = 0;i < page.children.length; i++) {
+    var ch = page.children[i];
+    var wasExisting = false;
+    for (var e = 0;e < existingNodes.length; e++) {
+      if (existingNodes[e] === ch) {
+        wasExisting = true;
+        break;
+      }
+    }
+    if (!wasExisting)
+      added.push(ch);
+  }
+  if (added.length === 0)
+    return;
+  var addMinX = Infinity, addMinY = Infinity;
+  for (var a = 0;a < added.length; a++) {
+    var an = added[a];
+    if (an.x < addMinX)
+      addMinX = an.x;
+    if (an.y < addMinY)
+      addMinY = an.y;
+  }
+  if (existingNodes.length === 0)
+    return;
+  var exMaxX = -Infinity, exMinY = Infinity;
+  for (var x = 0;x < existingNodes.length; x++) {
+    var en = existingNodes[x];
+    var ex = en.x + (typeof en.width === "number" ? en.width : 0);
+    if (ex > exMaxX)
+      exMaxX = ex;
+    if (en.y < exMinY)
+      exMinY = en.y;
+  }
+  if (exMaxX === -Infinity)
+    return;
+  var GAP = 200;
+  var dx = exMaxX + GAP - addMinX;
+  var dy = exMinY - addMinY;
+  for (var m = 0;m < added.length; m++) {
+    var mn = added[m];
+    mn.x = mn.x + dx;
+    mn.y = mn.y + dy;
+  }
+}
+async function importGui(parsed, options) {
   if (!parsed || !parsed.root) {
     figma.notify("No root node in .gui file", { error: true });
     return;
   }
+  _useComponents = !options || options.useComponents !== false;
+  _useVariables = !!(options && options.useVariables);
+  _colorCollection = null;
+  _colorModeId = "";
+  _colorVars = {};
   var notif = figma.notify("Importing…", { timeout: Infinity });
   try {
     await preloadFonts(parsed.fonts || {});
@@ -1302,6 +1783,12 @@ async function importGui(parsed) {
         }
       }
     }
+    var existingNodes = figma.currentPage.children.slice();
+    if (_useComponents) {
+      try {
+        await buildComponents(comps);
+      } catch (e) {}
+    }
     var root = parsed.root;
     var rootW = typeof root["w"] === "number" ? root["w"] : 0;
     var rootH = typeof root["h"] === "number" ? root["h"] : 0;
@@ -1317,6 +1804,9 @@ async function importGui(parsed) {
       } catch (e) {}
     }
     figma.currentPage.appendChild(node);
+    try {
+      placeInEmptySpace(existingNodes, node);
+    } catch (e) {}
     figma.currentPage.selection = [node];
     figma.viewport.scrollAndZoomIntoView([node]);
     notif.cancel();
@@ -1331,6 +1821,8 @@ async function importGui(parsed) {
 var command = figma.command || "inspect";
 if (command === "export") {
   figma.showUI(__html__, { visible: false });
+} else if (command === "import") {
+  figma.showUI(__html__, { width: 360, height: 340, title: "dotgui — Import" });
 } else {
   figma.showUI(__html__, { width: 480, height: 600, title: "dotgui" });
 }
@@ -1578,7 +2070,11 @@ figma.ui.onmessage = async (msg) => {
   if (msg.type === "close")
     figma.closePlugin();
   if (msg.type === "import-gui") {
-    await importGui(msg.parsed);
+    try {
+      await importGui(msg.parsed, msg.options);
+    } catch (e) {
+      figma.notify("Import failed");
+    }
     figma.closePlugin();
   }
   if (msg.type === "copy-debug") {

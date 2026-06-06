@@ -1,22 +1,24 @@
 <template>
   <div class="plugin">
-    <header>
+    <header v-if="mode !== 'import'">
       <span class="logo">dotgui</span>
-      <div class="header-center">
-        <div class="tabs">
-          <button :class="{ active: tab === 'code' }" @click="tab = 'code'">Code</button>
-          <button :class="{ active: tab === 'preview' }" @click="tab = 'preview'">Preview</button>
+      <template v-if="mode !== 'import'">
+        <div class="header-center">
+          <div class="tabs">
+            <button :class="{ active: tab === 'code' }" @click="tab = 'code'">Code</button>
+            <button :class="{ active: tab === 'preview' }" @click="tab = 'preview'">Preview</button>
+          </div>
         </div>
-      </div>
-      <div class="actions">
-        <template v-if="code">
-          <button class="action-btn" @click="copyCode">Copy</button>
-          <button class="action-btn" @click="saveFile">Save</button>
-        </template>
-      </div>
+        <div class="actions">
+          <template v-if="code">
+            <button class="action-btn" @click="copyCode">Copy</button>
+            <button class="action-btn" @click="saveFile">Save</button>
+          </template>
+        </div>
+      </template>
     </header>
 
-    <div class="sizes" v-if="state === 'gui' || loading">
+    <div class="sizes" v-if="mode !== 'import' && (state === 'gui' || loading)">
       <template v-if="loading">
         <span class="size-item" v-for="fmt in ['SVG', 'PNG', '.gui']" :key="fmt">
           <span class="size-label">{{ fmt }}</span>
@@ -50,11 +52,16 @@
           @drop.prevent="onImportDrop"
           @click="importFileInput && importFileInput.click()"
         >
-          <input ref="importFileInput" type="file" accept=".gui" style="display:none" @change="onImportFile" />
+          <input ref="importFileInput" type="file" accept=".gui,.guix" style="display:none" @change="onImportFile" />
           <div class="import-icon">↑</div>
-          <p class="import-label">Drop a .gui file</p>
-          <p class="import-hint">or click to browse</p>
+          <p class="import-label">Drop a .gui file here</p>
+          <p class="import-hint">or click to pick one from your computer</p>
         </div>
+        <p class="import-paste-hint">or press <kbd>⌘V</kbd> to paste a copied .gui</p>
+        <label class="import-option">
+          <input type="checkbox" v-model="createComponents" />
+          <span>Create components &amp; variables<br /><small>off → flat frames with hard-coded hex values</small></span>
+        </label>
         <p v-if="importError" class="import-error">{{ importError }}</p>
         <p v-if="importStatus" class="import-status">{{ importStatus }}</p>
       </div>
@@ -98,7 +105,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch, nextTick, computed, onBeforeUnmount } from 'vue'
+import { ref, watch, nextTick, computed, onBeforeUnmount, onMounted } from 'vue'
 import { render } from 'gui-render'
 import { parse } from 'gui-parser'
 import { EditorState } from '@codemirror/state'
@@ -119,6 +126,7 @@ const mode = ref<'inspect' | 'export' | 'import'>('inspect')
 const importDragOver = ref(false)
 const importError = ref('')
 const importStatus = ref('')
+const createComponents = ref(true)
 const importFileInput = ref<HTMLInputElement | null>(null)
 const state = ref<State>('idle')
 const code = ref('')
@@ -725,12 +733,26 @@ async function resolveExternalAssets(parsed: any): Promise<void> {
     }
   }
 
+  // Instance attribute overrides (e.g. avatar=…, thumbnail=…) carry external
+  // URLs as plain string attributes. Inline those too so the plugin can apply
+  // them as image-fill overrides on the component instance.
+  const skipAttr = (k: string) =>
+    k === 'src' || k === 'children' || k === 'segments' || k === 'appearance' ||
+    k === 'type' || k === 'component' || k === 'value' || k === 'text'
+  const externalAttrKeys = (n: any): string[] => {
+    const out: string[] = []
+    if (!n || typeof n !== 'object') return out
+    for (const k of Object.keys(n)) { if (!skipAttr(k) && isExt(n[k])) out.push(k) }
+    return out
+  }
+
   const urls = new Set<string>()
   for (const n of nodes) {
     if (isExt(n.src)) urls.add(n.src)
     if (n.appearance && Array.isArray(n.appearance.fills)) {
       for (const f of n.appearance.fills) if (isExt(f.src)) urls.add(f.src)
     }
+    for (const k of externalAttrKeys(n)) urls.add(n[k])
   }
   if (urls.size === 0) return
 
@@ -750,15 +772,22 @@ async function resolveExternalAssets(parsed: any): Promise<void> {
         if (isExt(f.src)) { const r = cache.get(f.src); if (r) f.src = r.uri }
       }
     }
+    for (const k of externalAttrKeys(n)) {
+      const r = cache.get(n[k])
+      if (r) n[k] = r.uri
+    }
   }
 }
 
 async function handleImportFile(file: File) {
+  await handleImportBytes(new Uint8Array(await file.arrayBuffer()))
+}
+
+async function handleImportBytes(bytes: Uint8Array) {
   importError.value = ''
   importStatus.value = 'Parsing…'
   importDragOver.value = false
   try {
-    const bytes = new Uint8Array(await file.arrayBuffer())
     const parsed = parse(bytes)
     if (!parsed || !parsed.root) {
       importError.value = 'Could not parse .gui file'
@@ -768,12 +797,46 @@ async function handleImportFile(file: File) {
     importStatus.value = 'Loading images…'
     await resolveExternalAssets(parsed)
     importStatus.value = 'Sending to Figma…'
-    parent.postMessage({ pluginMessage: { type: 'import-gui', parsed } }, '*')
+    const options = { useComponents: createComponents.value, useVariables: createComponents.value }
+    parent.postMessage({ pluginMessage: { type: 'import-gui', parsed, options } }, '*')
   } catch (e: any) {
     importError.value = e && e.message ? e.message : 'Import failed'
     importStatus.value = ''
   }
 }
+
+async function onPaste(e: ClipboardEvent) {
+  if (mode.value !== 'import') return
+  const data = e.clipboardData
+  if (!data) return
+  e.preventDefault()
+  importError.value = ''
+  // Prefer a pasted file (a copied .gui/.guix), fall back to text (.guix XML)
+  for (let i = 0; i < data.items.length; i++) {
+    if (data.items[i].kind === 'file') {
+      const file = data.items[i].getAsFile()
+      if (file) {
+        await handleImportFile(file)
+        return
+      }
+    }
+  }
+  const text = data.getData('text/plain')
+  if (text && text.trim()) {
+    await handleImportBytes(new TextEncoder().encode(text))
+    return
+  }
+  importError.value = 'Nothing to paste'
+  importStatus.value = ''
+}
+
+onMounted(() => {
+  window.addEventListener('paste', onPaste)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('paste', onPaste)
+})
 
 function onImportDrop(e: DragEvent) {
   importDragOver.value = false
@@ -1268,6 +1331,42 @@ header {
 .import-hint {
   font-size: 11px;
   color: #aeaeb2;
+}
+
+.import-paste-hint {
+  font-size: 11px;
+  color: #aeaeb2;
+  text-align: center;
+}
+
+.import-paste-hint kbd {
+  font-family: inherit;
+  font-size: 11px;
+  color: #636366;
+  background: #f0f0f3;
+  border: 1px solid #e0e0e5;
+  border-radius: 4px;
+  padding: 1px 5px;
+}
+
+.import-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 12px;
+  color: #3a3a3c;
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+.import-option input {
+  margin: 1px 0 0;
+  flex: none;
+}
+
+.import-option small {
+  color: #aeaeb2;
+  font-size: 10px;
 }
 
 .import-error {
