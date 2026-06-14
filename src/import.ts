@@ -11,13 +11,18 @@ interface ImportNode {
 interface ImportFill  { type: string; value?: string; src?: string; fit?: string; opacity?: number; visible?: boolean }
 interface ImportEffect { type: string; x?: number; y?: number; radius?: number; spread?: number; color?: string; opacity?: number; visible?: boolean }
 interface ImportBorder { color?: string; w?: number; align?: string; style?: string; visible?: boolean }
+interface ImportModeAxis { values: string[]; default: string }
+interface ImportTokenDef { type: string; value?: string; axis?: string; byValue?: Record<string, string> }
 interface ImportParsedGUI {
   root: ImportNode | null
   assets: Record<string, string>
   fonts: Record<string, { source?: string; weights?: string; styles?: string }>
   name?: string | null
   components?: Record<string, ImportComponentDef>
-  styles?: Record<string, Record<string, string>>
+  textStyles?: Record<string, Record<string, string>>
+  // RFC-0037 token modes (from gui-parser)
+  modes?: Record<string, ImportModeAxis>
+  tokenDefs?: Record<string, ImportTokenDef>
 }
 interface ImportComponentVariant { id: string; attrs: Record<string, string>; body: ImportNode | null }
 interface ImportComponentDef { id: string; name?: string; props: ImportProp[]; body: ImportNode | null; variants?: ImportComponentVariant[] }
@@ -196,16 +201,100 @@ var _colorCollection: VariableCollection | null = null
 var _colorModeId = ''
 var _colorVars: Record<string, Variable> = {}
 
+// RFC-0037: axis name → { collection, modeName→modeId } for token-mode variables.
+interface AxisCollection { collection: VariableCollection; modeIds: Record<string, string>; defaultModeId: string }
+var _axisCollections: Record<string, AxisCollection> = {}
+// Color tokens, indexed by their default-mode hex value → the named (possibly
+// moded) Figma variable, so resolved colors in the tree bind back to it.
+var _namedColorVars: Record<string, Variable> = {}
+
 function hexChan(n: number): string {
   var h = Math.round(n * 255).toString(16)
   return h.length === 1 ? '0' + h : h
 }
 
+// Normalize a color string to the lowercase 6/8-hex key used for indexing.
+function colorKey(s: string): string {
+  var c = parseColor(s)
+  var base = hexChan(c.r) + hexChan(c.g) + hexChan(c.b)
+  return c.a !== undefined && c.a < 1 ? base + hexChan(c.a) : base
+}
+
+// RFC-0037: create the variable collection for an axis (or reuse it), with all
+// declared modes. Returns null if the variables API is unavailable.
+function axisCollectionFor(axis: string, axisDef: ImportModeAxis): AxisCollection | null {
+  if (_axisCollections[axis]) return _axisCollections[axis]
+  try {
+    var collection = figma.variables.createVariableCollection(axis)
+    var modeIds: Record<string, string> = {}
+    // The collection is created with one initial mode; repurpose it as the first
+    // declared value, then add the rest.
+    var first = axisDef.values[0]
+    collection.renameMode(collection.modes[0].modeId, first)
+    modeIds[first] = collection.modes[0].modeId
+    for (var i = 1; i < axisDef.values.length; i++) {
+      var v = axisDef.values[i]
+      modeIds[v] = collection.addMode(v)
+    }
+    var defId = modeIds[axisDef.default] !== undefined ? modeIds[axisDef.default] : modeIds[first]
+    var ac: AxisCollection = { collection: collection, modeIds: modeIds, defaultModeId: defId }
+    _axisCollections[axis] = ac
+    return ac
+  } catch (e) { return null }
+}
+
+// RFC-0037: pre-create named color variables for all color tokens, with per-mode
+// values for moded ones, and index them by default value for binding.
+function setupModeVariables(modes: Record<string, ImportModeAxis>, tokenDefs: Record<string, ImportTokenDef>): void {
+  if (!_useVariables) return
+  if (typeof figma === 'undefined' || !figma.variables) return
+  var names = Object.keys(tokenDefs)
+  for (var i = 0; i < names.length; i++) {
+    var name = names[i]
+    var def = tokenDefs[name]
+    if (!def || def.type !== 'color') continue
+    try {
+      if (def.axis && def.byValue && modes[def.axis]) {
+        var axisDef = modes[def.axis]
+        var ac = axisCollectionFor(def.axis, axisDef)
+        if (!ac) continue
+        var variable = figma.variables.createVariable(name, ac.collection, 'COLOR')
+        var defaultHex = ''
+        for (var m = 0; m < axisDef.values.length; m++) {
+          var mv = axisDef.values[m]
+          var hex = def.byValue[mv]
+          if (hex === undefined) hex = def.byValue[axisDef.default]
+          if (hex === undefined) continue
+          var c = parseColor(hex)
+          variable.setValueForMode(ac.modeIds[mv], { r: c.r, g: c.g, b: c.b, a: c.a !== undefined ? c.a : 1 })
+          if (mv === axisDef.default) defaultHex = hex
+        }
+        if (defaultHex) _namedColorVars[colorKey(defaultHex)] = variable
+      } else if (def.value !== undefined) {
+        // Constant color token → named variable in the shared collection.
+        if (!_colorCollection) {
+          _colorCollection = figma.variables.createVariableCollection('dotgui colors')
+          _colorModeId = _colorCollection.modes[0].modeId
+        }
+        var cv = figma.variables.createVariable(name, _colorCollection, 'COLOR')
+        var cc = parseColor(def.value)
+        cv.setValueForMode(_colorModeId, { r: cc.r, g: cc.g, b: cc.b, a: cc.a !== undefined ? cc.a : 1 })
+        _namedColorVars[colorKey(def.value)] = cv
+      }
+    } catch (e) { /* skip token we cannot materialize */ }
+  }
+}
+
 // Reuse or create a COLOR variable for a given resolved color. Returns null if
 // the variables API is unavailable so callers fall back to a plain paint.
-function colorVariableFor(c: { r: number; g: number; b: number }): Variable | null {
+function colorVariableFor(c: { r: number; g: number; b: number; a?: number }): Variable | null {
   try {
     var name = hexChan(c.r) + hexChan(c.g) + hexChan(c.b)
+    // RFC-0037: bind to the named (possibly moded) token variable when this color
+    // matches a token's default-mode value.
+    var alphaKey = c.a !== undefined && c.a < 1 ? name + hexChan(c.a) : name
+    if (_namedColorVars[alphaKey]) return _namedColorVars[alphaKey]
+    if (_namedColorVars[name]) return _namedColorVars[name]
     if (_colorVars[name]) return _colorVars[name]
     if (!_colorCollection) {
       _colorCollection = figma.variables.createVariableCollection('dotgui colors')
@@ -1127,12 +1216,31 @@ async function createNode(
   var node = await createNodeImpl(parsed, parentMode, parentW, parentH)
   if (node) {
     applyVisualMisc(node, parsed)
+    applyNodeModes(node, parsed)
     if (_captureIds) {
       var idv = parsed['id']
       if (typeof idv === 'string' && idv && !(idv in _captureIds)) _captureIds[idv] = node
     }
   }
   return node
+}
+
+// RFC-0037: pin a node's explicit variable mode(s) from its mode-{axis} attrs.
+function applyNodeModes(node: SceneNode, parsed: ImportNode): void {
+  if (!_useVariables) return
+  var keys = Object.keys(parsed)
+  for (var i = 0; i < keys.length; i++) {
+    var key = keys[i]
+    if (key.indexOf('mode-') !== 0) continue
+    var axis = key.slice(5)
+    var ac = _axisCollections[axis]
+    if (!ac) continue
+    var val = parsed[key]
+    if (typeof val !== 'string') continue
+    var modeId = ac.modeIds[val]
+    if (!modeId) continue
+    try { (node as any).setExplicitVariableModeForCollection(ac.collection, modeId) } catch (e) {}
+  }
 }
 
 async function createNodeImpl(
@@ -1678,12 +1786,20 @@ export async function importGui(parsed: ImportParsedGUI, options?: { useComponen
   _colorCollection = null
   _colorModeId = ''
   _colorVars = {}
+  _axisCollections = {}
+  _namedColorVars = {}
   var notif = figma.notify('Importing…', { timeout: Infinity })
   try {
     await preloadFonts(parsed.fonts || {})
 
+    // RFC-0037: materialize token-mode variable collections before the node walk
+    // so paints can bind to the named, moded variables.
+    if (_useVariables && parsed.tokenDefs) {
+      try { setupModeVariables(parsed.modes || {}, parsed.tokenDefs) } catch (e) {}
+    }
+
     // Text-style registry so instance "{id}-text" overrides can re-resolve typography
-    _textStyles = parsed.styles || {}
+    _textStyles = parsed.textStyles || {}
 
     // Build component registry so instances can look up their body
     _compRegistry = {}

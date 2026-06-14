@@ -124,8 +124,27 @@ var _svgB64Map: { [b64: string]: ImageAsset } = {}
 var _svgUsageCounts: { [assetId: string]: number } = {}
 var _svgCounter = 0
 var _debugExport = false
-var _tokenRegistry: Map<string, { name: string; value: string; type: 'color' | 'number' | 'string' }> = new Map()
+// RFC-0037: a token may vary by mode. `value` is the default-mode value (and the
+// emitted value for constant tokens); `byMode` (when present) maps sanitized mode
+// name → value and `axis` names the collection's axis.
+interface TokenEntry {
+  name: string
+  value: string
+  type: 'color' | 'number' | 'string'
+  axis?: string
+  byMode?: Record<string, string>
+}
+// RFC-0037: per variable-collection axis info, keyed by collectionId.
+interface CollectionInfo {
+  axis: string
+  modeOrder: string[]              // sanitized mode names in collection order
+  defaultModeName: string
+  modeIdToName: Record<string, string>
+  defaultModeId: string
+}
+var _tokenRegistry: Map<string, TokenEntry> = new Map()
 var _usedTokenIds: Set<string> = new Set()
+var _collectionRegistry: Map<string, CollectionInfo> = new Map()
 interface StyleEntry {
   name: string
   tag: 'text-style' | 'fill-style' | 'effect-style'
@@ -971,7 +990,11 @@ function isBase64Char(code: number): boolean {
 // --- component helpers ---
 
 function sanitizeId(name: string): string {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'node'
+  const s = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'node'
+  // These names are emitted as XML element ids AND as instance prop attribute
+  // keys. An XML Name may not start with a digit, so a layer named e.g.
+  // "66da9f…news.jpg" would produce invalid markup. Prefix when needed.
+  return /^[0-9]/.test(s) ? 'n-' + s : s
 }
 
 function componentBodyId(name: string): string | undefined {
@@ -1719,6 +1742,7 @@ async function frameToGui(node: FrameNode, depth: number): Promise<string> {
     Object.assign(a, minMaxAttrs(node))
   }
   Object.assign(a, debugAttrs(node))
+  Object.assign(a, modeAttrs(node))
 
   if (isStack) {
     if (isGrid) {
@@ -2351,9 +2375,79 @@ function collectVarIdsFromNode(node: SceneNode, ids: Set<string>): void {
   }
 }
 
+// Convert a raw Figma variable value to a typed string, following one level of
+// aliasing per the requested mode (matched by mode NAME, RFC-0037). Returns null
+// when the value is unresolvable.
+async function readVarValue(
+  vars: any,
+  raw: any,
+  resolvedType: string,
+  modeName: string,
+  depth: number,
+): Promise<{ value: string; type: 'color' | 'number' | 'string' } | null> {
+  if (raw && typeof raw === 'object' && raw.type === 'VARIABLE_ALIAS' && depth < 6) {
+    const aliasVar = await vars.getVariableByIdAsync(raw.id)
+    if (!aliasVar) return null
+    const aliasCol = await vars.getVariableCollectionByIdAsync(aliasVar.variableCollectionId)
+    // Resolve the alias for the SAME mode name if the alias collection has it,
+    // else its default mode.
+    var aliasModeId = ''
+    if (aliasCol && aliasCol.modes) {
+      for (let i = 0; i < aliasCol.modes.length; i++) {
+        if (sanitizeTokenName(aliasCol.modes[i].name) === modeName) { aliasModeId = aliasCol.modes[i].modeId; break }
+      }
+    }
+    if (!aliasModeId) aliasModeId = (aliasCol && aliasCol.defaultModeId) || Object.keys(aliasVar.valuesByMode)[0]
+    if (!aliasModeId) return null
+    return readVarValue(vars, aliasVar.valuesByMode[aliasModeId], aliasVar.resolvedType, modeName, depth + 1)
+  }
+
+  if (resolvedType === 'COLOR') {
+    const c = raw as { r: number; g: number; b: number; a: number }
+    if (!c) return null
+    return { value: rgbToHex(c.r, c.g, c.b, c.a !== undefined ? c.a : 1), type: 'color' }
+  } else if (resolvedType === 'FLOAT') {
+    return { value: String(Math.round((raw as number) * 100) / 100), type: 'number' }
+  } else if (resolvedType === 'STRING') {
+    return { value: String(raw), type: 'string' }
+  }
+  return null
+}
+
+// Build (once) and cache the axis info for a variable collection (RFC-0037).
+function collectionInfoFor(collection: any): CollectionInfo | null {
+  if (!collection) return null
+  const existing = _collectionRegistry.get(collection.id)
+  if (existing) return existing
+  if (!collection.modes || !collection.modes.length) return null
+
+  const axis = sanitizeTokenName(collection.name)
+  const modeOrder: string[] = []
+  const modeIdToName: Record<string, string> = {}
+  const seen: Record<string, number> = {}
+  for (let i = 0; i < collection.modes.length; i++) {
+    const m = collection.modes[i]
+    var nm = sanitizeTokenName(m.name)
+    if (seen[nm] !== undefined) { seen[nm]++; nm = nm + '-' + seen[nm] } else { seen[nm] = 0 }
+    modeOrder.push(nm)
+    modeIdToName[m.modeId] = nm
+  }
+  const defaultModeId = collection.defaultModeId || collection.modes[0].modeId
+  const info: CollectionInfo = {
+    axis,
+    modeOrder,
+    defaultModeName: modeIdToName[defaultModeId] || modeOrder[0],
+    modeIdToName,
+    defaultModeId,
+  }
+  _collectionRegistry.set(collection.id, info)
+  return info
+}
+
 async function resolveAllVariables(root: SceneNode): Promise<void> {
   _tokenRegistry = new Map()
   _usedTokenIds = new Set()
+  _collectionRegistry = new Map()
   _styleRegistry = new Map()
   _usedStyleIds = new Set()
 
@@ -2374,38 +2468,33 @@ async function resolveAllVariables(root: SceneNode): Promise<void> {
       if (!variable || variable.resolvedType === 'BOOLEAN') continue
 
       const collection = await vars.getVariableCollectionByIdAsync(variable.variableCollectionId)
-      const modeId = (collection && collection.defaultModeId) || Object.keys(variable.valuesByMode)[0]
-      if (!modeId) continue
+      const info = collectionInfoFor(collection)
+      if (!info) continue
 
-      let rawValue = variable.valuesByMode[modeId]
-      let resolvedType = variable.resolvedType
-
-      // Follow one level of aliasing
-      if (rawValue && typeof rawValue === 'object' && rawValue.type === 'VARIABLE_ALIAS') {
-        const aliasVar = await vars.getVariableByIdAsync(rawValue.id)
-        if (!aliasVar) continue
-        const aliasCol = await vars.getVariableCollectionByIdAsync(aliasVar.variableCollectionId)
-        const aliasModeId = (aliasCol && aliasCol.defaultModeId) || Object.keys(aliasVar.valuesByMode)[0]
-        if (!aliasModeId) continue
-        rawValue = aliasVar.valuesByMode[aliasModeId]
-        resolvedType = aliasVar.resolvedType
+      // Read this variable's value for every mode of its collection.
+      const byMode: Record<string, string> = {}
+      var type: 'color' | 'number' | 'string' | null = null
+      for (let m = 0; m < collection.modes.length; m++) {
+        const md = collection.modes[m]
+        const modeName = info.modeIdToName[md.modeId]
+        const resolved = await readVarValue(vars, variable.valuesByMode[md.modeId], variable.resolvedType, modeName, 0)
+        if (!resolved) continue
+        byMode[modeName] = resolved.value
+        type = resolved.type
       }
+      if (!type) continue
 
-      let value: string
-      let type: 'color' | 'number' | 'string'
+      const defaultValue = byMode[info.defaultModeName] !== undefined
+        ? byMode[info.defaultModeName]
+        : byMode[info.modeOrder[0]]
+      if (defaultValue === undefined) continue
 
-      if (resolvedType === 'COLOR') {
-        const c = rawValue as { r: number; g: number; b: number; a: number }
-        value = rgbToHex(c.r, c.g, c.b, c.a !== undefined ? c.a : 1)
-        type = 'color'
-      } else if (resolvedType === 'FLOAT') {
-        value = String(Math.round((rawValue as number) * 100) / 100)
-        type = 'number'
-      } else if (resolvedType === 'STRING') {
-        value = String(rawValue)
-        type = 'string'
-      } else {
-        continue
+      // The token varies only if two declared modes differ in value.
+      var varies = false
+      for (let m = 1; m < info.modeOrder.length; m++) {
+        const a = byMode[info.modeOrder[m]]
+        const b = byMode[info.modeOrder[0]]
+        if (a !== undefined && b !== undefined && a !== b) { varies = true; break }
       }
 
       const baseName = sanitizeTokenName(variable.name)
@@ -2417,9 +2506,38 @@ async function resolveAllVariables(root: SceneNode): Promise<void> {
         nameCount[baseName] = 0
       }
 
-      _tokenRegistry.set(id, { name: finalName, value, type })
+      const entry: TokenEntry = { name: finalName, value: defaultValue, type }
+      if (varies) { entry.axis = info.axis; entry.byMode = byMode }
+      _tokenRegistry.set(id, entry)
     } catch (_e) { /* skip unresolvable variables */ }
   }
+}
+
+// RFC-0037: emit the <mode>/<modes> declaration for axes that at least one used,
+// moded token varies on. Returns '' when no modes are in play.
+function modesBlock(): string {
+  // Collect collectionIds whose axis is used by a varying, emitted token.
+  const usedCollectionIds: Record<string, boolean> = {}
+  Array.from(_usedTokenIds).forEach(function(id) {
+    const t = _tokenRegistry.get(id)
+    if (t && t.axis && t.byMode) {
+      // find the collection backing this token's axis
+      _collectionRegistry.forEach(function(info, cid) {
+        if (info.axis === t.axis) usedCollectionIds[cid] = true
+      })
+    }
+  })
+
+  const lines: string[] = []
+  Object.keys(usedCollectionIds).forEach(function(cid) {
+    const info = _collectionRegistry.get(cid)
+    if (!info) return
+    lines.push(`${ind(1)}<mode name="${xmlEscape(info.axis)}" values="${xmlEscape(info.modeOrder.join(' '))}" default="${xmlEscape(info.defaultModeName)}" />`)
+  })
+
+  if (!lines.length) return ''
+  if (lines.length === 1) return lines[0] + '\n'
+  return `${ind(1)}<modes>\n${lines.map(function(l) { return ind(1) + l }).join('\n')}\n${ind(1)}</modes>\n`
 }
 
 function tokensBlock(): string {
@@ -2431,10 +2549,23 @@ function tokensBlock(): string {
 
   Array.from(_usedTokenIds)
     .map(id => _tokenRegistry.get(id))
-    .filter(function(t): t is { name: string; value: string; type: 'color' | 'number' | 'string' } { return !!t })
+    .filter(function(t): t is TokenEntry { return !!t })
     .sort(function(a, b) { return a.name.localeCompare(b.name) })
     .forEach(function(token) {
-      const line = `${ind(1)}<${token.type} name="${token.name}" value="${xmlEscape(token.value)}" />`
+      var valuePart: string
+      if (token.axis && token.byMode) {
+        const info = findCollectionByAxis(token.axis)
+        const order = info ? info.modeOrder : Object.keys(token.byMode)
+        const parts: string[] = []
+        for (let i = 0; i < order.length; i++) {
+          const mv = token.byMode[order[i]]
+          if (mv !== undefined) parts.push(`${token.axis}-${order[i]}="${xmlEscape(mv)}"`)
+        }
+        valuePart = parts.join(' ')
+      } else {
+        valuePart = `value="${xmlEscape(token.value)}"`
+      }
+      const line = `${ind(1)}<${token.type} name="${token.name}" ${valuePart} />`
       if (token.type === 'color') colorLines.push(line)
       else if (token.type === 'number') numberLines.push(line)
       else stringLines.push(line)
@@ -2443,6 +2574,33 @@ function tokensBlock(): string {
   const lines = colorLines.concat(numberLines).concat(stringLines)
   if (!lines.length) return ''
   return `<tokens>\n${lines.join('\n')}\n</tokens>\n`
+}
+
+function findCollectionByAxis(axis: string): CollectionInfo | null {
+  var found: CollectionInfo | null = null
+  _collectionRegistry.forEach(function(info) {
+    if (!found && info.axis === axis) found = info
+  })
+  return found
+}
+
+// RFC-0037: emit mode-{axis} attributes for a node that pins a non-default mode
+// for a used collection (Figma's explicitVariableModes).
+function modeAttrs(node: SceneNode): Record<string, string> {
+  const out: Record<string, string> = {}
+  const evm = (node as any).explicitVariableModes
+  if (!evm) return out
+  const cids = Object.keys(evm)
+  for (let i = 0; i < cids.length; i++) {
+    const cid = cids[i]
+    const info = _collectionRegistry.get(cid)
+    if (!info) continue
+    const modeId = evm[cid]
+    if (modeId === info.defaultModeId) continue
+    const modeName = info.modeIdToName[modeId]
+    if (modeName) out['mode-' + info.axis] = modeName
+  }
+  return out
 }
 
 function resolveTextStyle(id: string): string | null {
@@ -3267,5 +3425,5 @@ async function generateGui(node: SceneNode): Promise<string> {
   var exportedAt = new Date().toISOString()
   var metaBlock = '  <meta source="figma" source-node="' + xmlEscape(node.id) + '" exported-at="' + exportedAt + '" />\n'
 
-  return '<gui version="1.0" name="' + xmlEscape(node.name) + '"' + platformAttr + '>\n' + metaBlock + tokensBlock() + stylesBlock() + fontsBlock(node) + compBlock + inner + '\n</gui>'
+  return '<gui version="1.0" name="' + xmlEscape(node.name) + '"' + platformAttr + '>\n' + metaBlock + modesBlock() + tokensBlock() + stylesBlock() + fontsBlock(node) + compBlock + inner + '\n</gui>'
 }

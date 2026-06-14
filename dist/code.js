@@ -161,13 +161,92 @@ var _useVariables = false;
 var _colorCollection = null;
 var _colorModeId = "";
 var _colorVars = {};
+var _axisCollections = {};
+var _namedColorVars = {};
 function hexChan(n) {
   var h = Math.round(n * 255).toString(16);
   return h.length === 1 ? "0" + h : h;
 }
+function colorKey(s) {
+  var c = parseColor(s);
+  var base = hexChan(c.r) + hexChan(c.g) + hexChan(c.b);
+  return c.a !== undefined && c.a < 1 ? base + hexChan(c.a) : base;
+}
+function axisCollectionFor(axis, axisDef) {
+  if (_axisCollections[axis])
+    return _axisCollections[axis];
+  try {
+    var collection = figma.variables.createVariableCollection(axis);
+    var modeIds = {};
+    var first = axisDef.values[0];
+    collection.renameMode(collection.modes[0].modeId, first);
+    modeIds[first] = collection.modes[0].modeId;
+    for (var i = 1;i < axisDef.values.length; i++) {
+      var v = axisDef.values[i];
+      modeIds[v] = collection.addMode(v);
+    }
+    var defId = modeIds[axisDef.default] !== undefined ? modeIds[axisDef.default] : modeIds[first];
+    var ac = { collection, modeIds, defaultModeId: defId };
+    _axisCollections[axis] = ac;
+    return ac;
+  } catch (e) {
+    return null;
+  }
+}
+function setupModeVariables(modes, tokenDefs) {
+  if (!_useVariables)
+    return;
+  if (typeof figma === "undefined" || !figma.variables)
+    return;
+  var names = Object.keys(tokenDefs);
+  for (var i = 0;i < names.length; i++) {
+    var name = names[i];
+    var def = tokenDefs[name];
+    if (!def || def.type !== "color")
+      continue;
+    try {
+      if (def.axis && def.byValue && modes[def.axis]) {
+        var axisDef = modes[def.axis];
+        var ac = axisCollectionFor(def.axis, axisDef);
+        if (!ac)
+          continue;
+        var variable = figma.variables.createVariable(name, ac.collection, "COLOR");
+        var defaultHex = "";
+        for (var m = 0;m < axisDef.values.length; m++) {
+          var mv = axisDef.values[m];
+          var hex = def.byValue[mv];
+          if (hex === undefined)
+            hex = def.byValue[axisDef.default];
+          if (hex === undefined)
+            continue;
+          var c = parseColor(hex);
+          variable.setValueForMode(ac.modeIds[mv], { r: c.r, g: c.g, b: c.b, a: c.a !== undefined ? c.a : 1 });
+          if (mv === axisDef.default)
+            defaultHex = hex;
+        }
+        if (defaultHex)
+          _namedColorVars[colorKey(defaultHex)] = variable;
+      } else if (def.value !== undefined) {
+        if (!_colorCollection) {
+          _colorCollection = figma.variables.createVariableCollection("dotgui colors");
+          _colorModeId = _colorCollection.modes[0].modeId;
+        }
+        var cv = figma.variables.createVariable(name, _colorCollection, "COLOR");
+        var cc = parseColor(def.value);
+        cv.setValueForMode(_colorModeId, { r: cc.r, g: cc.g, b: cc.b, a: cc.a !== undefined ? cc.a : 1 });
+        _namedColorVars[colorKey(def.value)] = cv;
+      }
+    } catch (e) {}
+  }
+}
 function colorVariableFor(c) {
   try {
     var name = hexChan(c.r) + hexChan(c.g) + hexChan(c.b);
+    var alphaKey = c.a !== undefined && c.a < 1 ? name + hexChan(c.a) : name;
+    if (_namedColorVars[alphaKey])
+      return _namedColorVars[alphaKey];
+    if (_namedColorVars[name])
+      return _namedColorVars[name];
     if (_colorVars[name])
       return _colorVars[name];
     if (!_colorCollection) {
@@ -1174,6 +1253,7 @@ async function createNode(parsed, parentMode, parentW, parentH) {
   var node = await createNodeImpl(parsed, parentMode, parentW, parentH);
   if (node) {
     applyVisualMisc(node, parsed);
+    applyNodeModes(node, parsed);
     if (_captureIds) {
       var idv = parsed["id"];
       if (typeof idv === "string" && idv && !(idv in _captureIds))
@@ -1181,6 +1261,29 @@ async function createNode(parsed, parentMode, parentW, parentH) {
     }
   }
   return node;
+}
+function applyNodeModes(node, parsed) {
+  if (!_useVariables)
+    return;
+  var keys = Object.keys(parsed);
+  for (var i = 0;i < keys.length; i++) {
+    var key = keys[i];
+    if (key.indexOf("mode-") !== 0)
+      continue;
+    var axis = key.slice(5);
+    var ac = _axisCollections[axis];
+    if (!ac)
+      continue;
+    var val = parsed[key];
+    if (typeof val !== "string")
+      continue;
+    var modeId = ac.modeIds[val];
+    if (!modeId)
+      continue;
+    try {
+      node.setExplicitVariableModeForCollection(ac.collection, modeId);
+    } catch (e) {}
+  }
 }
 async function createNodeImpl(parsed, parentMode, parentW, parentH) {
   var type = strAttr(parsed, "type", "");
@@ -1761,10 +1864,17 @@ async function importGui(parsed, options) {
   _colorCollection = null;
   _colorModeId = "";
   _colorVars = {};
+  _axisCollections = {};
+  _namedColorVars = {};
   var notif = figma.notify("Importing…", { timeout: Infinity });
   try {
     await preloadFonts(parsed.fonts || {});
-    _textStyles = parsed.styles || {};
+    if (_useVariables && parsed.tokenDefs) {
+      try {
+        setupModeVariables(parsed.modes || {}, parsed.tokenDefs);
+      } catch (e) {}
+    }
+    _textStyles = parsed.textStyles || {};
     _compRegistry = {};
     var comps = parsed.components || {};
     var compKeys = Object.keys(comps);
@@ -1939,6 +2049,7 @@ var _svgCounter = 0;
 var _debugExport = false;
 var _tokenRegistry = new Map;
 var _usedTokenIds = new Set;
+var _collectionRegistry = new Map;
 var _styleRegistry = new Map;
 var _usedStyleIds = new Set;
 var _componentRegistry = new Map;
@@ -2683,7 +2794,8 @@ function isBase64Char(code) {
   return code >= 65 && code <= 90 || code >= 97 && code <= 122 || code >= 48 && code <= 57 || code === 43 || code === 47 || code === 61;
 }
 function sanitizeId(name) {
-  return name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "node";
+  const s = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "node";
+  return /^[0-9]/.test(s) ? "n-" + s : s;
 }
 function componentBodyId(name) {
   if (!_generatingComponentBody || !_componentBodyUsedIds)
@@ -3352,6 +3464,7 @@ async function frameToGui(node, depth) {
     Object.assign(a, minMaxAttrs(node));
   }
   Object.assign(a, debugAttrs(node));
+  Object.assign(a, modeAttrs(node));
   if (isStack) {
     if (isGrid) {
       const gn = node;
@@ -3987,9 +4100,78 @@ function collectVarIdsFromNode(node, ids) {
       collectVarIdsFromNode(ch[i], ids);
   }
 }
+async function readVarValue(vars, raw, resolvedType, modeName, depth) {
+  if (raw && typeof raw === "object" && raw.type === "VARIABLE_ALIAS" && depth < 6) {
+    const aliasVar = await vars.getVariableByIdAsync(raw.id);
+    if (!aliasVar)
+      return null;
+    const aliasCol = await vars.getVariableCollectionByIdAsync(aliasVar.variableCollectionId);
+    var aliasModeId = "";
+    if (aliasCol && aliasCol.modes) {
+      for (let i = 0;i < aliasCol.modes.length; i++) {
+        if (sanitizeTokenName(aliasCol.modes[i].name) === modeName) {
+          aliasModeId = aliasCol.modes[i].modeId;
+          break;
+        }
+      }
+    }
+    if (!aliasModeId)
+      aliasModeId = aliasCol && aliasCol.defaultModeId || Object.keys(aliasVar.valuesByMode)[0];
+    if (!aliasModeId)
+      return null;
+    return readVarValue(vars, aliasVar.valuesByMode[aliasModeId], aliasVar.resolvedType, modeName, depth + 1);
+  }
+  if (resolvedType === "COLOR") {
+    const c = raw;
+    if (!c)
+      return null;
+    return { value: rgbToHex(c.r, c.g, c.b, c.a !== undefined ? c.a : 1), type: "color" };
+  } else if (resolvedType === "FLOAT") {
+    return { value: String(Math.round(raw * 100) / 100), type: "number" };
+  } else if (resolvedType === "STRING") {
+    return { value: String(raw), type: "string" };
+  }
+  return null;
+}
+function collectionInfoFor(collection) {
+  if (!collection)
+    return null;
+  const existing = _collectionRegistry.get(collection.id);
+  if (existing)
+    return existing;
+  if (!collection.modes || !collection.modes.length)
+    return null;
+  const axis = sanitizeTokenName(collection.name);
+  const modeOrder = [];
+  const modeIdToName = {};
+  const seen = {};
+  for (let i = 0;i < collection.modes.length; i++) {
+    const m = collection.modes[i];
+    var nm = sanitizeTokenName(m.name);
+    if (seen[nm] !== undefined) {
+      seen[nm]++;
+      nm = nm + "-" + seen[nm];
+    } else {
+      seen[nm] = 0;
+    }
+    modeOrder.push(nm);
+    modeIdToName[m.modeId] = nm;
+  }
+  const defaultModeId = collection.defaultModeId || collection.modes[0].modeId;
+  const info = {
+    axis,
+    modeOrder,
+    defaultModeName: modeIdToName[defaultModeId] || modeOrder[0],
+    modeIdToName,
+    defaultModeId
+  };
+  _collectionRegistry.set(collection.id, info);
+  return info;
+}
 async function resolveAllVariables(root) {
   _tokenRegistry = new Map;
   _usedTokenIds = new Set;
+  _collectionRegistry = new Map;
   _styleRegistry = new Map;
   _usedStyleIds = new Set;
   const vars = figma.variables;
@@ -4008,36 +4190,33 @@ async function resolveAllVariables(root) {
       if (!variable || variable.resolvedType === "BOOLEAN")
         continue;
       const collection = await vars.getVariableCollectionByIdAsync(variable.variableCollectionId);
-      const modeId = collection && collection.defaultModeId || Object.keys(variable.valuesByMode)[0];
-      if (!modeId)
+      const info = collectionInfoFor(collection);
+      if (!info)
         continue;
-      let rawValue = variable.valuesByMode[modeId];
-      let resolvedType = variable.resolvedType;
-      if (rawValue && typeof rawValue === "object" && rawValue.type === "VARIABLE_ALIAS") {
-        const aliasVar = await vars.getVariableByIdAsync(rawValue.id);
-        if (!aliasVar)
+      const byMode = {};
+      var type = null;
+      for (let m = 0;m < collection.modes.length; m++) {
+        const md = collection.modes[m];
+        const modeName = info.modeIdToName[md.modeId];
+        const resolved = await readVarValue(vars, variable.valuesByMode[md.modeId], variable.resolvedType, modeName, 0);
+        if (!resolved)
           continue;
-        const aliasCol = await vars.getVariableCollectionByIdAsync(aliasVar.variableCollectionId);
-        const aliasModeId = aliasCol && aliasCol.defaultModeId || Object.keys(aliasVar.valuesByMode)[0];
-        if (!aliasModeId)
-          continue;
-        rawValue = aliasVar.valuesByMode[aliasModeId];
-        resolvedType = aliasVar.resolvedType;
+        byMode[modeName] = resolved.value;
+        type = resolved.type;
       }
-      let value;
-      let type;
-      if (resolvedType === "COLOR") {
-        const c = rawValue;
-        value = rgbToHex(c.r, c.g, c.b, c.a !== undefined ? c.a : 1);
-        type = "color";
-      } else if (resolvedType === "FLOAT") {
-        value = String(Math.round(rawValue * 100) / 100);
-        type = "number";
-      } else if (resolvedType === "STRING") {
-        value = String(rawValue);
-        type = "string";
-      } else {
+      if (!type)
         continue;
+      const defaultValue = byMode[info.defaultModeName] !== undefined ? byMode[info.defaultModeName] : byMode[info.modeOrder[0]];
+      if (defaultValue === undefined)
+        continue;
+      var varies = false;
+      for (let m = 1;m < info.modeOrder.length; m++) {
+        const a = byMode[info.modeOrder[m]];
+        const b = byMode[info.modeOrder[0]];
+        if (a !== undefined && b !== undefined && a !== b) {
+          varies = true;
+          break;
+        }
       }
       const baseName = sanitizeTokenName(variable.name);
       let finalName = baseName;
@@ -4047,9 +4226,45 @@ async function resolveAllVariables(root) {
       } else {
         nameCount[baseName] = 0;
       }
-      _tokenRegistry.set(id, { name: finalName, value, type });
+      const entry = { name: finalName, value: defaultValue, type };
+      if (varies) {
+        entry.axis = info.axis;
+        entry.byMode = byMode;
+      }
+      _tokenRegistry.set(id, entry);
     } catch (_e) {}
   }
+}
+function modesBlock() {
+  const usedCollectionIds = {};
+  Array.from(_usedTokenIds).forEach(function(id) {
+    const t = _tokenRegistry.get(id);
+    if (t && t.axis && t.byMode) {
+      _collectionRegistry.forEach(function(info, cid) {
+        if (info.axis === t.axis)
+          usedCollectionIds[cid] = true;
+      });
+    }
+  });
+  const lines = [];
+  Object.keys(usedCollectionIds).forEach(function(cid) {
+    const info = _collectionRegistry.get(cid);
+    if (!info)
+      return;
+    lines.push(`${ind(1)}<mode name="${xmlEscape(info.axis)}" values="${xmlEscape(info.modeOrder.join(" "))}" default="${xmlEscape(info.defaultModeName)}" />`);
+  });
+  if (!lines.length)
+    return "";
+  if (lines.length === 1)
+    return lines[0] + `
+`;
+  return `${ind(1)}<modes>
+${lines.map(function(l) {
+    return ind(1) + l;
+  }).join(`
+`)}
+${ind(1)}</modes>
+`;
 }
 function tokensBlock() {
   if (!_usedTokenIds.size)
@@ -4062,7 +4277,21 @@ function tokensBlock() {
   }).sort(function(a, b) {
     return a.name.localeCompare(b.name);
   }).forEach(function(token) {
-    const line = `${ind(1)}<${token.type} name="${token.name}" value="${xmlEscape(token.value)}" />`;
+    var valuePart;
+    if (token.axis && token.byMode) {
+      const info = findCollectionByAxis(token.axis);
+      const order = info ? info.modeOrder : Object.keys(token.byMode);
+      const parts = [];
+      for (let i = 0;i < order.length; i++) {
+        const mv = token.byMode[order[i]];
+        if (mv !== undefined)
+          parts.push(`${token.axis}-${order[i]}="${xmlEscape(mv)}"`);
+      }
+      valuePart = parts.join(" ");
+    } else {
+      valuePart = `value="${xmlEscape(token.value)}"`;
+    }
+    const line = `${ind(1)}<${token.type} name="${token.name}" ${valuePart} />`;
     if (token.type === "color")
       colorLines.push(line);
     else if (token.type === "number")
@@ -4078,6 +4307,34 @@ ${lines.join(`
 `)}
 </tokens>
 `;
+}
+function findCollectionByAxis(axis) {
+  var found = null;
+  _collectionRegistry.forEach(function(info) {
+    if (!found && info.axis === axis)
+      found = info;
+  });
+  return found;
+}
+function modeAttrs(node) {
+  const out = {};
+  const evm = node.explicitVariableModes;
+  if (!evm)
+    return out;
+  const cids = Object.keys(evm);
+  for (let i = 0;i < cids.length; i++) {
+    const cid = cids[i];
+    const info = _collectionRegistry.get(cid);
+    if (!info)
+      continue;
+    const modeId = evm[cid];
+    if (modeId === info.defaultModeId)
+      continue;
+    const modeName = info.modeIdToName[modeId];
+    if (modeName)
+      out["mode-" + info.axis] = modeName;
+  }
+  return out;
 }
 function resolveTextStyle(id) {
   if (_styleRegistry.has(id)) {
@@ -4823,6 +5080,6 @@ ${ind(1)}</frame>`;
   var metaBlock = '  <meta source="figma" source-node="' + xmlEscape(node.id) + '" exported-at="' + exportedAt + `" />
 `;
   return '<gui version="1.0" name="' + xmlEscape(node.name) + '"' + platformAttr + `>
-` + metaBlock + tokensBlock() + stylesBlock() + fontsBlock(node) + compBlock + inner + `
+` + metaBlock + modesBlock() + tokensBlock() + stylesBlock() + fontsBlock(node) + compBlock + inner + `
 </gui>`;
 }
