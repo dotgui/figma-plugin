@@ -88,7 +88,7 @@
           </div>
           <div ref="codeEditorEl" class="code-editor" />
         </div>
-        <div v-show="tab === 'preview'" class="preview-wrap" @wheel.prevent="zoomWheel">
+        <div v-show="tab === 'preview'" class="preview-wrap" @wheel="syncZoomLabel">
           <div ref="previewEl" class="preview" />
           <div class="zoom-bar">
             <button class="zoom-btn" @click="zoomOut" :disabled="zoomFactor <= MIN_ZOOM">−</button>
@@ -106,8 +106,8 @@
 
 <script setup lang="ts">
 import { ref, watch, nextTick, computed, onBeforeUnmount, onMounted } from 'vue'
-import { render } from 'gui-render'
-import { parse } from 'gui-parser'
+import { render } from '@dotgui/kit/render'
+import { parse } from '@dotgui/kit/parser'
 import { EditorState } from '@codemirror/state'
 import { EditorView, drawSelection, highlightActiveLine, highlightActiveLineGutter, keymap, lineNumbers } from '@codemirror/view'
 import { defaultKeymap, history, historyKeymap } from '@codemirror/commands'
@@ -145,7 +145,12 @@ const previewEl = ref<HTMLElement>()
 const codeEditorEl = ref<HTMLElement>()
 const zoomFactor = ref(1)
 const searchText = ref('')
-let applyZoom: ((factor: number, anchorX?: number, anchorY?: number) => void) | null = null
+let applyZoom:
+  | (((factor: number, anchorX?: number, anchorY?: number) => void) & {
+      getView: () => { scale: number; x: number; y: number } | null
+    })
+  | null = null
+let baseScale: number | null = null
 let codeView: EditorView | null = null
 const MIN_ZOOM = 0.1
 const MAX_ZOOM = 16
@@ -607,8 +612,15 @@ function triggerRender() {
   if (!code.value) return
   zoomFactor.value = 1
   applyZoom = null
+  baseScale = null
   nextTick(() => {
-    if (previewEl.value) applyZoom = render(code.value, previewEl.value, assetMap.value, { zoom: true })
+    if (!previewEl.value) return
+    applyZoom = render(code.value, previewEl.value, assetMap.value, { zoom: true })
+    // panzoom initializes on the next frame; at factor 1 its scale === fit scale.
+    requestAnimationFrame(() => {
+      const view = applyZoom?.getView()
+      if (view) baseScale = view.scale
+    })
   })
 }
 
@@ -634,18 +646,15 @@ function zoomOut() {
   )
 }
 
-function zoomWheel(event: WheelEvent) {
-  const unit = event.deltaMode === WheelEvent.DOM_DELTA_LINE ? 16 : 1
-  // Mac trackpad pinch sends ctrlKey=true with small deltaY (~1–5); needs a
-  // higher multiplier than a regular scroll wheel (deltaY ~100 per click).
-  const multiplier = event.ctrlKey ? 0.01 : 0.003
-  const direction = Math.exp(-event.deltaY * unit * multiplier)
-  const rect = previewEl.value?.getBoundingClientRect()
-  setZoom(
-    zoomFactor.value * direction,
-    rect ? event.clientX - rect.left : undefined,
-    rect ? event.clientY - rect.top : undefined,
-  )
+// The kit's render canvas owns wheel interaction: plain scroll pans, ctrl/cmd
+// scroll and trackpad pinch zoom to the cursor. We only mirror the resulting
+// scale back into the zoom-% label / button states — never preventDefault or
+// re-apply zoom here, or we'd fight the kit and clobber panning.
+function syncZoomLabel() {
+  requestAnimationFrame(() => {
+    const view = applyZoom?.getView()
+    if (view && baseScale) zoomFactor.value = Math.min(Math.max(+(view.scale / baseScale).toFixed(3), MIN_ZOOM), MAX_ZOOM)
+  })
 }
 
 function setZoom(value: number, anchorX?: number, anchorY?: number) {

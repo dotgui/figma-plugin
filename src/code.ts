@@ -606,14 +606,40 @@ function strokeAttrs(node: GeometryMixin): Record<string, AttrVal> {
   const bv = (f as any).boundVariables
   const color = (bv && bv.color && bv.color.id && tokenRef(bv.color.id))
     || rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1)
-  const width = typeof (node as any).strokeWeight === 'number' ? (node as any).strokeWeight : 1
   const align = (node as any).strokeAlign ? (node as any).strokeAlign.toLowerCase() : 'center'
-  // Build shorthand — omit defaults (width=1, align=center)
-  const parts: string[] = []
-  if (width !== 1) parts.push(String(width))
-  parts.push(color)
-  if (align !== 'center') parts.push(align)
-  var result: Record<string, AttrVal> = { border: parts.join(' ') }
+
+  // Build a shorthand value "<width> <color> <align>" (omitting defaults).
+  const shorthand = (w: number): string => {
+    const parts: string[] = []
+    if (w !== 1) parts.push(String(w))
+    parts.push(color)
+    if (align !== 'center') parts.push(align)
+    return parts.join(' ')
+  }
+
+  // Per-side strokes: Figma reports strokeWeight as a mixed symbol when the four
+  // side weights differ. Emit border-{side} for each side that has a stroke,
+  // instead of a uniform border that would draw on all four sides.
+  var result: Record<string, AttrVal> = {}
+  const sides = [
+    { key: 'strokeTopWeight', attr: 'border-top' },
+    { key: 'strokeRightWeight', attr: 'border-right' },
+    { key: 'strokeBottomWeight', attr: 'border-bottom' },
+    { key: 'strokeLeftWeight', attr: 'border-left' },
+  ] as const
+  const hasIndividual = 'strokeTopWeight' in node
+  const sideWeights = hasIndividual ? sides.map(s => (node as any)[s.key] as number) : []
+  const uniform = !hasIndividual || sideWeights.every(w => w === sideWeights[0])
+
+  if (uniform) {
+    const width = typeof (node as any).strokeWeight === 'number' ? (node as any).strokeWeight : 1
+    result.border = shorthand(width)
+  } else {
+    for (let i = 0; i < sides.length; i++) {
+      const w = sideWeights[i]
+      if (typeof w === 'number' && w > 0) result[sides[i].attr] = shorthand(w)
+    }
+  }
   // Stroke join
   var sj = (node as any).strokeJoin
   if (sj && sj !== figma.mixed) {

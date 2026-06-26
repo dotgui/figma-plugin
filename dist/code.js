@@ -2442,15 +2442,36 @@ function strokeAttrs(node) {
   }
   const bv = f.boundVariables;
   const color = bv && bv.color && bv.color.id && tokenRef(bv.color.id) || rgbToHex(f.color.r, f.color.g, f.color.b, f.opacity !== undefined ? f.opacity : 1);
-  const width = typeof node.strokeWeight === "number" ? node.strokeWeight : 1;
   const align = node.strokeAlign ? node.strokeAlign.toLowerCase() : "center";
-  const parts = [];
-  if (width !== 1)
-    parts.push(String(width));
-  parts.push(color);
-  if (align !== "center")
-    parts.push(align);
-  var result = { border: parts.join(" ") };
+  const shorthand = (w) => {
+    const parts = [];
+    if (w !== 1)
+      parts.push(String(w));
+    parts.push(color);
+    if (align !== "center")
+      parts.push(align);
+    return parts.join(" ");
+  };
+  var result = {};
+  const sides = [
+    { key: "strokeTopWeight", attr: "border-top" },
+    { key: "strokeRightWeight", attr: "border-right" },
+    { key: "strokeBottomWeight", attr: "border-bottom" },
+    { key: "strokeLeftWeight", attr: "border-left" }
+  ];
+  const hasIndividual = "strokeTopWeight" in node;
+  const sideWeights = hasIndividual ? sides.map((s) => node[s.key]) : [];
+  const uniform = !hasIndividual || sideWeights.every((w) => w === sideWeights[0]);
+  if (uniform) {
+    const width = typeof node.strokeWeight === "number" ? node.strokeWeight : 1;
+    result.border = shorthand(width);
+  } else {
+    for (let i = 0;i < sides.length; i++) {
+      const w = sideWeights[i];
+      if (typeof w === "number" && w > 0)
+        result[sides[i].attr] = shorthand(w);
+    }
+  }
   var sj = node.strokeJoin;
   if (sj && sj !== figma.mixed) {
     var sjVal = strokeJoinVal(sj);
