@@ -2110,32 +2110,11 @@ var _generatingComponentRoot = false;
 var _componentBodyUsedIds = null;
 var _invisibleNodeIds = new Set;
 var _currentComponentDefs = null;
-async function sendSelection() {
-  const sel = figma.currentPage.selection;
-  if (sel.length === 0) {
-    figma.ui.postMessage({ type: "no-selection" });
-    return;
-  }
-  if (sel.length > 1) {
-    figma.ui.postMessage({ type: "multi-selection" });
-    return;
-  }
-  const node = sel[0];
-  if (!("width" in node)) {
-    figma.ui.postMessage({ type: "not-frame", nodeType: node.type });
-    return;
-  }
-  figma.ui.postMessage({ type: "loading" });
-  var exportNotify = command === "export" ? figma.notify("Exporting…", { timeout: Infinity }) : null;
-  const expNode = node;
-  const results = await Promise.all([
+async function exportNodeToGui(node) {
+  await Promise.all([
     collectAndFetchImages(node),
-    resolveAllVariables(node),
-    expNode.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 1 } }),
-    expNode.exportAsync({ format: "SVG" })
+    resolveAllVariables(node)
   ]);
-  const pngBytes = results[2];
-  const svgBytes = results[3];
   if (node.type === "FRAME" || node.type === "COMPONENT" || node.type === "INSTANCE") {
     await prewalkNode(node, 1);
   } else {
@@ -2163,16 +2142,44 @@ async function sendSelection() {
     seenSvgIds[a.id] = true;
     assetMap[assetSrc(a)] = dataUrl(a);
   }
+  return { code: guiCode, assetMap };
+}
+async function sendSelection() {
+  const sel = figma.currentPage.selection;
+  if (sel.length === 0) {
+    figma.ui.postMessage({ type: "no-selection" });
+    return;
+  }
+  if (sel.length > 1) {
+    figma.ui.postMessage({ type: "multi-selection" });
+    return;
+  }
+  const node = sel[0];
+  if (!("width" in node)) {
+    figma.ui.postMessage({ type: "not-frame", nodeType: node.type });
+    return;
+  }
+  figma.ui.postMessage({ type: "loading" });
+  var exportNotify = command === "export" ? figma.notify("Exporting…", { timeout: Infinity }) : null;
+  const expNode = node;
+  const results = await Promise.all([
+    exportNodeToGui(node),
+    expNode.exportAsync({ format: "PNG", constraint: { type: "SCALE", value: 1 } }),
+    expNode.exportAsync({ format: "SVG" })
+  ]);
+  const core = results[0];
+  const pngBytes = results[1];
+  const svgBytes = results[2];
   if (exportNotify)
     exportNotify.cancel();
   figma.ui.postMessage({
     type: "gui",
-    code: guiCode,
-    displayCode: makeDisplayCode(guiCode),
-    assetMap,
+    code: core.code,
+    displayCode: makeDisplayCode(core.code),
+    assetMap: core.assetMap,
     preview: "data:image/png;base64," + bytesToBase64(pngBytes),
     name: node.name,
-    sizes: { gui: guiCode.length, png: pngBytes.length, svg: svgBytes.length }
+    sizes: { gui: core.code.length, png: pngBytes.length, svg: svgBytes.length }
   });
 }
 sendSelection();

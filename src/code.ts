@@ -252,6 +252,62 @@ var _currentComponentDefs: Record<string, { type: string; defaultValue: unknown 
 
 // --- messaging ---
 
+// UI-free export core: Figma node -> .gui code + asset map.
+// Shared by the plugin (sendSelection) and any headless caller (e.g. an MCP
+// driver that runs this against a node without the plugin UI). Touches no
+// figma.ui / selection / notify state. State accumulators are reset at the
+// top of collectAndFetchImages() and resolveAllVariables(), so each call is
+// self-contained and safe to run in a loop over many nodes.
+interface ExportResult {
+  code: string
+  assetMap: Record<string, string>
+}
+
+async function exportNodeToGui(node: SceneNode): Promise<ExportResult> {
+  await Promise.all([
+    collectAndFetchImages(node),
+    resolveAllVariables(node),
+  ])
+
+  // Prewalk to collect all SVG assets and count usages before generating XML
+  if (node.type === 'FRAME' || node.type === 'COMPONENT' || node.type === 'INSTANCE') {
+    await prewalkNode(node, 1)
+  } else {
+    await prewalkNode(node, 2)
+  }
+  var svgNodeIds = Object.keys(_svgNodeMap)
+  for (var pi = 0; pi < svgNodeIds.length; pi++) {
+    var svgAssetId = _svgNodeMap[svgNodeIds[pi]].id
+    _svgUsageCounts[svgAssetId] = (_svgUsageCounts[svgAssetId] || 0) + 1
+  }
+
+  // Two-pass: collect all instance overrides before generating XML so
+  // component <props> blocks are inferred from actual usage, not just
+  // formally declared componentPropertyDefinitions.
+  await prewalkAllInstances(node)
+
+  const guiCode = await generateGui(node)
+
+  const assetMap: Record<string, string> = {}
+  const hks = Object.keys(_imageMap)
+  for (let i = 0; i < hks.length; i++) {
+    const a = _imageMap[hks[i]]
+    assetMap['assets/' + a.id + '.' + a.format] = dataUrl(a)
+  }
+  const sks = Object.keys(_svgNodeMap)
+  const seenSvgIds: Record<string, boolean> = {}
+  for (let i = 0; i < sks.length; i++) {
+    const a = _svgNodeMap[sks[i]]
+    if (seenSvgIds[a.id]) continue
+    seenSvgIds[a.id] = true
+    assetMap[assetSrc(a)] = dataUrl(a)
+  }
+
+  return { code: guiCode, assetMap: assetMap }
+}
+
+// Plugin wrapper: reads the selection, runs the shared export core, and posts
+// the result (plus a PNG preview) back to the UI. UI glue only.
 async function sendSelection() {
   const sel = figma.currentPage.selection
 
@@ -275,58 +331,25 @@ async function sendSelection() {
 
   const expNode = node as FrameNode
   const results = await Promise.all([
-    collectAndFetchImages(node as SceneNode),
-    resolveAllVariables(node as SceneNode),
+    exportNodeToGui(node as SceneNode),
     expNode.exportAsync({ format: 'PNG', constraint: { type: 'SCALE', value: 1 } }),
     expNode.exportAsync({ format: 'SVG' }),
   ])
 
-  const pngBytes = results[2] as Uint8Array
-  const svgBytes = results[3] as Uint8Array
-  // Prewalk to collect all SVG assets and count usages before generating XML
-  if (node.type === 'FRAME' || node.type === 'COMPONENT' || node.type === 'INSTANCE') {
-    await prewalkNode(node as SceneNode, 1)
-  } else {
-    await prewalkNode(node as SceneNode, 2)
-  }
-  var svgNodeIds = Object.keys(_svgNodeMap)
-  for (var pi = 0; pi < svgNodeIds.length; pi++) {
-    var svgAssetId = _svgNodeMap[svgNodeIds[pi]].id
-    _svgUsageCounts[svgAssetId] = (_svgUsageCounts[svgAssetId] || 0) + 1
-  }
-
-  // Two-pass: collect all instance overrides before generating XML so
-  // component <props> blocks are inferred from actual usage, not just
-  // formally declared componentPropertyDefinitions.
-  await prewalkAllInstances(node as SceneNode)
-
-  const guiCode = await generateGui(node as SceneNode)
-
-  const assetMap: Record<string, string> = {}
-  const hks = Object.keys(_imageMap)
-  for (let i = 0; i < hks.length; i++) {
-    const a = _imageMap[hks[i]]
-    assetMap['assets/' + a.id + '.' + a.format] = dataUrl(a)
-  }
-  const sks = Object.keys(_svgNodeMap)
-  const seenSvgIds: Record<string, boolean> = {}
-  for (let i = 0; i < sks.length; i++) {
-    const a = _svgNodeMap[sks[i]]
-    if (seenSvgIds[a.id]) continue
-    seenSvgIds[a.id] = true
-    assetMap[assetSrc(a)] = dataUrl(a)
-  }
+  const core = results[0] as ExportResult
+  const pngBytes = results[1] as Uint8Array
+  const svgBytes = results[2] as Uint8Array
 
   if (exportNotify) exportNotify.cancel()
 
   figma.ui.postMessage({
     type: 'gui',
-    code: guiCode,
-    displayCode: makeDisplayCode(guiCode),
-    assetMap: assetMap,
+    code: core.code,
+    displayCode: makeDisplayCode(core.code),
+    assetMap: core.assetMap,
     preview: 'data:image/png;base64,' + bytesToBase64(pngBytes),
     name: node.name,
-    sizes: { gui: guiCode.length, png: pngBytes.length, svg: svgBytes.length },
+    sizes: { gui: core.code.length, png: pngBytes.length, svg: svgBytes.length },
   })
 }
 
